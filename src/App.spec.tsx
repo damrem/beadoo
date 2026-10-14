@@ -89,6 +89,35 @@ describe('the beads page', () => {
     expect(window.location.search).toContain('epic=none')
   })
 
+  it('shows the children of a parent that is not an epic on the board of that parent', async () => {
+    answers['/api/beads?db=.claude'] = json({
+      beads: [
+        ...beads,
+        { id: 'c-1', title: 'Tidy the repo', status: 'closed', issue_type: 'chore' },
+        { id: 'c-1.1', title: 'Remove the old script', status: 'closed', parent: 'c-1' },
+      ],
+      readyIds: ['t-1', 't-4'],
+    })
+    window.history.replaceState(null, '', '/?db=.claude&status=all')
+    render(<App />)
+    const epics = await screen.findByRole('navigation', { name: 'Epics' })
+    await userEvent.click(within(epics).getByRole('button', { name: /Tidy the repo/ }))
+    expect(within(column('Closed')).getByText('Remove the old script')).toBeInTheDocument()
+  })
+
+  it('shows the ready child of a closed epic with the default filter', async () => {
+    answers['/api/beads?db=.claude'] = json({
+      beads: [
+        { id: 'e-2', title: 'Old search', status: 'closed', issue_type: 'epic' },
+        { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' },
+      ],
+      readyIds: ['t-6'],
+    })
+    render(<App />)
+    expect(within(await screen.findByRole('region', { name: 'Open' })).getByText('Search index')).toBeInTheDocument()
+    expect(within(screen.getByRole('navigation', { name: 'Epics' })).getByRole('button', { name: /Old search/ })).toBeInTheDocument()
+  })
+
   it('finds the beads whose title holds the text that the user types', async () => {
     render(<App />)
     await screen.findByText('Cart total')

@@ -71,7 +71,10 @@ export function filterBeads(beads: Bead[], readyIds: string[], status: StatusFil
 export const isEpic = (bead: Bead): boolean => bead.issue_type === 'epic'
 
 export function childrenOf(beads: Bead[], epic: string): Bead[] {
-  if (epic === NO_EPIC) return beads.filter((bead) => !bead.parent && !isEpic(bead))
+  if (epic === NO_EPIC) {
+    const ids = new Set(beads.map((bead) => bead.id))
+    return beads.filter((bead) => !isEpic(bead) && !(bead.parent && ids.has(bead.parent)))
+  }
   return beads.filter((bead) => bead.parent === epic)
 }
 
@@ -85,8 +88,11 @@ const countByStatus = (beads: Bead[]): Record<string, number> => {
 
 export function epicsOf(beads: Bead[], status: StatusFilter): EpicEntry[] {
   const showClosed = status === 'all' || status === 'closed'
+  const parents = new Set(beads.map((bead) => bead.parent))
+  const isOpen = (bead: Bead) => bead.status !== 'closed'
   const epics = beads
-    .filter((bead) => isEpic(bead) && (showClosed || bead.status !== 'closed'))
+    .filter((bead) => isEpic(bead) || parents.has(bead.id))
+    .filter((bead) => showClosed || isOpen(bead) || childrenOf(beads, bead.id).some(isOpen))
     .sort((a, b) => (a.priority ?? 9) - (b.priority ?? 9) || a.id.localeCompare(b.id))
     .map((epic) => ({
       id: epic.id,

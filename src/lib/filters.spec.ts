@@ -66,6 +66,27 @@ describe('the filters of the page', () => {
     expect(epicsOf(beads, 'all').map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
   })
 
+  it('lists a parent that is not an epic, with its children, so that its children show on a board', () => {
+    const withChore: Bead[] = [
+      ...beads,
+      { id: 'c-1', title: 'Tidy the repo', status: 'closed', issue_type: 'chore' },
+      { id: 'c-1.1', title: 'Remove the old script', status: 'closed', parent: 'c-1' },
+    ]
+    expect(epicsOf(withChore, 'all').map((epic) => epic.id)).toContain('c-1')
+    expect(childrenOf(withChore, 'c-1').map((bead) => bead.id)).toEqual(['c-1.1'])
+    expect(childrenOf(withChore, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4', 'c-1'])
+  })
+
+  it('keeps a closed epic in the list while one of its children is still open', () => {
+    const withOpenChild: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
+    expect(epicsOf(withOpenChild, 'ready').map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
+  })
+
+  it('shows a bead whose parent is not in the database under "No epic"', () => {
+    const lost: Bead[] = [...beads, { id: 't-7', title: 'Lost task', status: 'open', parent: 'gone' }]
+    expect(childrenOf(lost, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4', 't-7'])
+  })
+
   it('puts each bead in the column of its status, and adds a column for an unusual status', () => {
     const columns = columnsOf([...beads.slice(2), { id: 't-5', title: 'Later', status: 'deferred' }])
     expect(columns.map((column) => [column.status, column.beads.map((bead) => bead.id)])).toEqual([
