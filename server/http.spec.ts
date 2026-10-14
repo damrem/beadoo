@@ -140,4 +140,10 @@ describe('the page server', () => {
     open()
     expect((await slow).status).toBe(200)
   })
+
+  it('answers not found to an address with a broken escape', async () => {
+    const response = await fetch(`${base}/%E0%A4%A`)
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: 'Not found' })
+  })
 })

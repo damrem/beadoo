@@ -39,8 +39,21 @@ const statusOf = (error: unknown): number => {
 export const withToken = (html: string, token: string): string =>
   html.replace('</head>', `  <meta name="beads-token" content="${token}" />\n  </head>`)
 
+const decoded = (text: string): string | null => {
+  try {
+    return decodeURIComponent(text)
+  } catch {
+    return null
+  }
+}
+
 async function serveFile(res: ServerResponse, deps: AppDeps, pathname: string) {
-  const relative = normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/, '')
+  const path = decoded(pathname)
+  if (path === null) {
+    sendJson(res, 404, { error: 'Not found' })
+    return
+  }
+  const relative = normalize(path).replace(/^([/\\])+/, '')
   const file = join(deps.distDir, relative === '' ? 'index.html' : relative)
   if (file !== deps.distDir && !file.startsWith(deps.distDir + sep)) {
     sendJson(res, 404, { error: 'Not found' })
