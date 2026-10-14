@@ -60,4 +60,11 @@ describe('the beads that the page reads', () => {
     })
     expect(await createStore(run).showBead(db, 's-2')).toMatchObject({ parent: 's-1', dependencies: [{ id: 's-1' }] })
   })
+
+  it('reports a bead that the database does not have as not found', async () => {
+    const { run } = fakeBd({
+      show: { status: 1, stdout: '', stderr: 'Issue s-9 not found\nHint: this ID may have never existed' },
+    })
+    await expect(createStore(run).showBead(db, 's-9')).rejects.toThrow(expect.objectContaining({ code: 'NOT_FOUND' }))
+  })
 })
