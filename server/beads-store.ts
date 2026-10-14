@@ -8,6 +8,8 @@ export const STORE_NOT_OPEN = 'STORE_NOT_OPEN'
 
 const UNKNOWN_ID = /not found|no issues found/
 
+const BEAD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+
 export type Bead = { id: string; title: string; status: string; parent?: string; [key: string]: unknown }
 
 export type BeadList = { beads: Bead[]; readyIds: string[] }
@@ -42,6 +44,7 @@ export function createStore(run: RunAsync) {
 
     async showBead(db: DatabaseEntry, id: string): Promise<Bead> {
       const notFound = new StoreError('NOT_FOUND', `bd show gave no bead for ${id}`)
+      if (!BEAD_ID.test(id)) throw notFound
       const shown = await bd(db, ['show', id]).catch((error: unknown) => {
         if (!(error instanceof StoreError) && error instanceof Error && UNKNOWN_ID.test(error.message)) throw notFound
         throw error

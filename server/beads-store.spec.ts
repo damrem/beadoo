@@ -67,4 +67,12 @@ describe('the beads that the page reads', () => {
     })
     await expect(createStore(run).showBead(db, 's-9')).rejects.toThrow(expect.objectContaining({ code: 'NOT_FOUND' }))
   })
+
+  it('does not pass an id that looks like an option to bd', async () => {
+    const { run, calls } = fakeBd({})
+    await expect(createStore(run).showBead(db, '--db=/other/path')).rejects.toThrow(
+      expect.objectContaining({ code: 'NOT_FOUND' }),
+    )
+    expect(calls).toEqual([])
+  })
 })
