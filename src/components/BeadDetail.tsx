@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import type { Bead } from '@/lib/filters'
+import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -57,6 +58,9 @@ export function BeadDetail({
   const bead = load?.id === id ? load.bead : undefined
   const error = load?.id === id ? load.error : undefined
   const blockers = bead?.dependencies?.filter((dep) => dep.dependency_type !== 'parent-child') ?? []
+  const now = new Date()
+  const leaseText = bead && leaseLabel(leaseState(bead, now), now)
+  const heartbeat = bead?.heartbeat_at ? new Date(bead.heartbeat_at) : undefined
 
   return (
     <Sheet open={id !== null} onOpenChange={(open) => !open && onClose()}>
@@ -79,6 +83,10 @@ export function BeadDetail({
                 <Field label="Priority">P{bead.priority}</Field>
                 <Field label="Type">{bead.issue_type}</Field>
                 <Field label="Assignee">{bead.assignee ?? 'nobody'}</Field>
+                {leaseText && <Field label="Lease">{leaseText}</Field>}
+                {leaseText && heartbeat && !Number.isNaN(heartbeat.getTime()) && (
+                  <Field label="Last heartbeat">{formatLeaseTime(heartbeat, now)}</Field>
+                )}
                 <Field label="Parent">
                   {bead.parent ? (
                     <button type="button" className="font-mono underline" onClick={() => onOpen(bead.parent!)}>

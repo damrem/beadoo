@@ -9,6 +9,8 @@ export type Bead = {
   parent?: string
   description?: string
   notes?: string
+  heartbeat_at?: string
+  lease_expires_at?: string
   dependencies?: { id: string; title?: string; status?: string; dependency_type?: string }[]
 }
 

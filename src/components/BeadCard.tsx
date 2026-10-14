@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Bead } from '@/lib/filters'
+import { leaseLabel, leaseState } from '@/lib/lease'
 
 export function Tag({ children }: { children: ReactNode }) {
   return (
@@ -11,6 +12,9 @@ export function Tag({ children }: { children: ReactNode }) {
 }
 
 export function BeadCard({ bead, onOpen }: { bead: Bead; onOpen: (id: string) => void }) {
+  const now = new Date()
+  const lease = leaseState(bead, now)
+  const leaseText = leaseLabel(lease, now)
   return (
     <button
       type="button"
@@ -27,9 +31,14 @@ export function BeadCard({ bead, onOpen }: { bead: Bead; onOpen: (id: string) =>
           </div>
           <CardTitle className="text-sm">{bead.title}</CardTitle>
         </CardHeader>
-        {(bead.assignee || (bead.labels?.length ?? 0) > 0) && (
+        {(bead.assignee || leaseText || (bead.labels?.length ?? 0) > 0) && (
           <CardContent className="flex flex-wrap gap-1">
             {bead.assignee && <span className="text-xs text-muted-foreground">@{bead.assignee}</span>}
+            {leaseText && (
+              <span className={lease.kind === 'expired' ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>
+                {leaseText}
+              </span>
+            )}
             {bead.labels?.map((label) => <Tag key={label}>{label}</Tag>)}
           </CardContent>
         )}

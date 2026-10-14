@@ -158,4 +158,40 @@ describe('the beads page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Closed' }))
     expect(JSON.parse(window.localStorage.getItem('beads-page:filters') ?? '{}')).toMatchObject({ status: 'closed' })
   })
+
+  describe('the claim lease', () => {
+    const now = new Date(2026, 9, 14, 23, 50)
+    const claimed = {
+      id: 't-5',
+      title: 'Ship the order',
+      status: 'in_progress',
+      parent: 'e-1',
+      assignee: 'me',
+      heartbeat_at: new Date(2026, 9, 14, 23, 26).toISOString(),
+      lease_expires_at: new Date(2026, 9, 14, 23, 31).toISOString(),
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(now)
+      answers['/api/beads?db=.claude'] = json({ beads: [...beads, claimed], readyIds: ['t-1', 't-4'] })
+      answers['/api/beads/t-5?db=.claude'] = json(claimed)
+    })
+
+    it('shows on the card that the claim lease of a bead expired', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&status=all')
+      render(<App />)
+      const card = await screen.findByRole('button', { name: 't-5 Ship the order' })
+      expect(within(card).getByText('lease expired at 23:31')).toBeInTheDocument()
+      expect(within(column('In progress')).getByText('Ship the order')).toBeInTheDocument()
+    })
+
+    it('shows the lease and the last heartbeat in the detail of a claimed bead', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&status=all&bead=t-5')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      expect(await within(dialog).findByText('lease expired at 23:31')).toBeInTheDocument()
+      expect(within(dialog).getByText('23:26')).toBeInTheDocument()
+    })
+  })
 })
