@@ -1,5 +1,5 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
-import { createServer } from 'node:http'
+import { createServer, request } from 'node:http'
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -30,7 +30,11 @@ beforeEach(async () => {
     if (args[3] === 'show') return ok([{ id: args[4], title: 'Cart', status: 'open' }])
     return { status: 1, stdout: '', stderr: 'unexpected' }
   })
-  server = createServer(
+  server = createServer()
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  server.on(
+    'request',
     createHandler({
       databases: () => [
         { name: 'shop', path: '/home/me/shop' },
@@ -38,12 +42,10 @@ beforeEach(async () => {
       ],
       store,
       distDir,
-      origin: 'http://127.0.0.1:4747',
+      origin: base,
       token,
     }),
   )
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
 
 afterEach(() => new Promise<void>((resolve) => server.close(() => resolve())))
@@ -85,14 +87,14 @@ describe('the page server', () => {
   })
 
   it('refuses a write that comes without the page token', async () => {
-    const response = await fetch(`${base}/api/x`, { method: 'POST', headers: { origin: 'http://127.0.0.1:4747' } })
+    const response = await fetch(`${base}/api/x`, { method: 'POST', headers: { origin: base } })
     expect(response.status).toBe(403)
   })
 
   it('accepts the guard of a write from the page, but has no write route yet', async () => {
     const response = await fetch(`${base}/api/x`, {
       method: 'POST',
-      headers: { origin: 'http://127.0.0.1:4747', 'x-beads-token': token },
+      headers: { origin: base, 'x-beads-token': token },
     })
     expect(response.status).toBe(404)
   })
@@ -110,5 +112,18 @@ describe('the page server', () => {
     const response = await fetch(`${base}/assets/..%2F..%2Fsecret.txt`)
     expect(response.status).toBe(404)
     expect(await response.text()).not.toContain('secret')
+  })
+
+  it('refuses a request from a web site whose name points at this machine', async () => {
+    const status = await new Promise<number>((resolve, reject) => {
+      const url = new URL(`${base}/api/beads?db=shop`)
+      request(url, { headers: { host: `evil.example:${url.port}` } }, (response) => {
+        response.resume()
+        resolve(response.statusCode ?? 0)
+      })
+        .on('error', reject)
+        .end()
+    })
+    expect(status).toBe(403)
   })
 })

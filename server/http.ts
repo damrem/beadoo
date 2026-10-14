@@ -58,7 +58,13 @@ async function serveFile(res: ServerResponse, deps: AppDeps, pathname: string) {
 }
 
 export function createHandler(deps: AppDeps) {
+  const page = new URL(deps.origin)
+  const hosts = new Set([page.host, `localhost:${page.port}`])
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    if (!hosts.has(req.headers.host ?? '')) {
+      sendJson(res, 403, { error: 'Forbidden: the request needs the page host' })
+      return
+    }
     const url = new URL(req.url ?? '/', deps.origin)
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       if (!allowsWrite(req.headers, deps.origin, deps.token)) {
