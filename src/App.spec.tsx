@@ -12,7 +12,7 @@ const beads = [
 
 type Answer = { status: number; body: unknown }
 
-let answers: Record<string, Answer>
+let answers: Record<string, Answer | Promise<Answer>>
 let calls: string[]
 
 const json = (body: unknown, status = 200): Answer => ({ status, body })
@@ -42,7 +42,7 @@ beforeEach(() => {
     'fetch',
     vi.fn(async (input: string) => {
       calls.push(input)
-      const answer = answers[input] ?? json({ error: 'Not found' }, 404)
+      const answer = await (answers[input] ?? json({ error: 'Not found' }, 404))
       return new Response(JSON.stringify(answer.body), { status: answer.status })
     }),
   )
@@ -193,5 +193,30 @@ describe('the beads page', () => {
       expect(await within(dialog).findByText('lease expired at 23:31')).toBeInTheDocument()
       expect(within(dialog).getByText('23:26')).toBeInTheDocument()
     })
+  })
+
+  it('keeps the beads of the selected database when a slow answer for the previous database arrives', async () => {
+    let answerClaude = (_answer: Answer) => {}
+    answers['/api/databases'] = json({
+      databases: [
+        { name: '.claude', path: '/home/me/.claude' },
+        { name: 'shop', path: '/home/me/shop' },
+      ],
+    })
+    answers['/api/beads?db=.claude'] = new Promise<Answer>((resolve) => {
+      answerClaude = resolve
+    })
+    answers['/api/beads?db=shop'] = json({
+      beads: [{ id: 's-1', title: 'Shop task', status: 'open' }],
+      readyIds: ['s-1'],
+    })
+    window.history.replaceState(null, '', '/?db=.claude&epic=none')
+    render(<App />)
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Database' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'shop' }))
+    await screen.findByText('Shop task')
+    await act(async () => answerClaude(json({ beads, readyIds: ['t-1', 't-4'] })))
+    expect(screen.getByText('Shop task')).toBeInTheDocument()
+    expect(screen.queryByText('Fix the logo')).not.toBeInTheDocument()
   })
 })

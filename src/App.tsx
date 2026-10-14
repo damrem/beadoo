@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BeadDetail } from '@/components/BeadDetail'
 import { Board } from '@/components/Board'
 import { DatabaseSelector } from '@/components/DatabaseSelector'
@@ -39,6 +39,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [lastRead, setLastRead] = useState<Date | null>(null)
+  const activeDb = useRef<string | null>(null)
 
   const update = (change: Partial<ViewState>) => setView((current) => ({ ...current, ...change }))
 
@@ -65,25 +66,29 @@ export function App() {
 
   const refresh = useCallback(() => {
     if (!selectedDb || selectedDb.refused) return
+    const name = selectedDb.name
+    const current = () => activeDb.current === name
     setLoading(true)
     api
-      .beads(selectedDb.name)
+      .beads(name)
       .then((list) => {
+        if (!current()) return
         setData(list)
         setError(null)
         setLastRead(new Date())
       })
-      .catch((reason: Error) => setError(reason.message))
-      .finally(() => setLoading(false))
+      .catch((reason: Error) => current() && setError(reason.message))
+      .finally(() => current() && setLoading(false))
   }, [selectedDb])
 
   useEffect(() => {
+    activeDb.current = selectedDb?.name ?? null
     setData(null)
     setError(null)
     refresh()
     const timer = window.setInterval(refresh, POLL_MS)
     return () => window.clearInterval(timer)
-  }, [refresh])
+  }, [refresh, selectedDb])
 
   const epics = useMemo(() => (data ? epicsOf(data.beads, view.status) : []), [data, view.status])
 
