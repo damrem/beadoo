@@ -1,7 +1,7 @@
 import { createServer } from 'node:http'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { realRun } from '../../../lib/process.ts'
+import { realRunAsync } from '../../../lib/process.ts'
 import { createStore } from './beads-store.ts'
 import { loadDatabases } from './config.ts'
 import { newToken } from './guard.ts'
@@ -13,7 +13,7 @@ const home = homedir()
 
 const handler = createHandler({
   databases: () => loadDatabases(home),
-  store: createStore(realRun),
+  store: createStore(realRunAsync),
   distDir: join(import.meta.dirname, '..', 'dist'),
   origin: `http://${HOST}:${PORT}`,
   token: newToken(),

@@ -93,12 +93,12 @@ export function createHandler(deps: AppDeps) {
         return
       }
       if (url.pathname === '/api/beads') {
-        sendJson(res, 200, deps.store.listBeads(db))
+        sendJson(res, 200, await deps.store.listBeads(db))
         return
       }
       const match = /^\/api\/beads\/([^/]+)$/.exec(url.pathname)
       if (match?.[1]) {
-        sendJson(res, 200, deps.store.showBead(db, decodeURIComponent(match[1])))
+        sendJson(res, 200, await deps.store.showBead(db, decodeURIComponent(match[1])))
         return
       }
       sendJson(res, 404, { error: 'Not found' })

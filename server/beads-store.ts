@@ -1,5 +1,5 @@
-import { parseJson, runChecked } from '../../../lib/process.ts'
-import type { Run } from '../../../lib/process.ts'
+import { parseJson, runCheckedAsync } from '../../../lib/process.ts'
+import type { RunAsync } from '../../../lib/process.ts'
 import type { DatabaseEntry } from './config-rules.ts'
 
 export const BD_TIMEOUT_MS = 15_000
@@ -18,28 +18,28 @@ export class StoreError extends Error {
   }
 }
 
-export function createStore(run: Run) {
-  const bd = (db: DatabaseEntry, args: string[]): unknown => {
+export function createStore(run: RunAsync) {
+  const bd = async (db: DatabaseEntry, args: string[]): Promise<unknown> => {
     if (db.refused) throw new StoreError('REFUSED', db.refused)
-    const stdout = runChecked(run, 'bd', ['-C', db.path, '--readonly', ...args, '--json'], { timeoutMs: BD_TIMEOUT_MS })
+    const stdout = await runCheckedAsync(run, 'bd', ['-C', db.path, '--readonly', ...args, '--json'], { timeoutMs: BD_TIMEOUT_MS })
     return parseJson(stdout, `bd ${args[0]}`)
   }
 
   return {
-    listBeads(db: DatabaseEntry): BeadList {
-      const beads = bd(db, ['list', '--all', '-n', '0']) as Bead[]
+    async listBeads(db: DatabaseEntry): Promise<BeadList> {
+      const beads = (await bd(db, ['list', '--all', '-n', '0'])) as Bead[]
       if (!Array.isArray(beads) || beads.length === 0) {
         throw new StoreError(
           STORE_NOT_OPEN,
           `bd list gave no bead for ${db.path}: the store did not open, or the database is empty.`,
         )
       }
-      const ready = bd(db, ['ready', '-n', '0']) as Bead[]
+      const ready = (await bd(db, ['ready', '-n', '0'])) as Bead[]
       return { beads, readyIds: ready.map((bead) => bead.id) }
     },
 
-    showBead(db: DatabaseEntry, id: string): Bead {
-      const [bead] = bd(db, ['show', id]) as Bead[]
+    async showBead(db: DatabaseEntry, id: string): Promise<Bead> {
+      const [bead] = (await bd(db, ['show', id])) as Bead[]
       if (!bead) throw new StoreError('NOT_FOUND', `bd show gave no bead for ${id}`)
       return bead
     },

@@ -14,6 +14,7 @@ const ok = (value: unknown): RunResult => ({ status: 0, stdout: JSON.stringify(v
 let server: Server
 let base: string
 let listAnswer: RunResult
+let listGate: Promise<void>
 
 beforeEach(async () => {
   const root = mkdtempSync(join(tmpdir(), 'beads-root-'))
@@ -24,8 +25,9 @@ beforeEach(async () => {
   writeFileSync(join(distDir, 'index.html'), '<html><head><title>Beads</title></head><body></body></html>')
   writeFileSync(join(distDir, 'assets', 'app.js'), 'console.log(1)')
   listAnswer = ok([{ id: 's-1', title: 'Cart', status: 'open' }])
-  const store = createStore((_command, args) => {
-    if (args[3] === 'list') return listAnswer
+  listGate = Promise.resolve()
+  const store = createStore(async (_command, args) => {
+    if (args[3] === 'list') return listGate.then(() => listAnswer)
     if (args[3] === 'ready') return ok([{ id: 's-1' }])
     if (args[3] === 'show') return ok([{ id: args[4], title: 'Cart', status: 'open' }])
     return { status: 1, stdout: '', stderr: 'unexpected' }
@@ -125,5 +127,17 @@ describe('the page server', () => {
         .end()
     })
     expect(status).toBe(403)
+  })
+
+  it('answers another request while bd still reads a database', async () => {
+    let open = () => {}
+    listGate = new Promise<void>((resolve) => {
+      open = resolve
+    })
+    const slow = fetch(`${base}/api/beads?db=shop`)
+    const databases = await fetch(`${base}/api/databases`)
+    expect(databases.status).toBe(200)
+    open()
+    expect((await slow).status).toBe(200)
   })
 })
