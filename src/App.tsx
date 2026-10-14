@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import type { BeadList, DatabaseEntry } from '@/lib/api'
-import { childrenOf, epicsOf, filterBeads, readViewState, writeViewState } from '@/lib/filters'
+import { childrenOf, epicsOf, filterBeads, groupByParent, readViewState, writeViewState } from '@/lib/filters'
 import type { StoredFilters, ViewState } from '@/lib/filters'
 
 export const POLL_MS = 60_000
@@ -90,20 +90,22 @@ export function App() {
     return () => window.clearInterval(timer)
   }, [refresh, selectedDb])
 
-  const epics = useMemo(() => (data ? epicsOf(data.beads, view.status) : []), [data, view.status])
+  const groups = useMemo(() => groupByParent(data?.beads ?? []), [data])
+
+  const epics = useMemo(() => (data ? epicsOf(data.beads, groups, view.status) : []), [data, groups, view.status])
 
   const epic = useMemo(() => {
     if (view.epic && epics.some((entry) => entry.id === view.epic)) return view.epic
     if (!data) return null
     const withBeads = epics.find(
-      (entry) => filterBeads(childrenOf(data.beads, entry.id), data.readyIds, view.status, view.text).length > 0,
+      (entry) => filterBeads(childrenOf(groups, entry.id), data.readyIds, view.status, view.text).length > 0,
     )
     return (withBeads ?? epics[0])?.id ?? null
-  }, [data, epics, view.epic, view.status, view.text])
+  }, [data, groups, epics, view.epic, view.status, view.text])
 
   const boardBeads = useMemo(
-    () => (data && epic ? filterBeads(childrenOf(data.beads, epic), data.readyIds, view.status, view.text) : []),
-    [data, epic, view.status, view.text],
+    () => (data && epic ? filterBeads(childrenOf(groups, epic), data.readyIds, view.status, view.text) : []),
+    [data, groups, epic, view.status, view.text],
   )
 
   return (

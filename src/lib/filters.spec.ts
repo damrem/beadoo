@@ -1,5 +1,8 @@
-import { childrenOf, columnsOf, epicsOf, filterBeads, NO_EPIC, readViewState, writeViewState } from './filters'
-import type { Bead } from './filters'
+import { childrenOf, columnsOf, epicsOf, filterBeads, groupByParent, NO_EPIC, readViewState, writeViewState } from './filters'
+import type { Bead, StatusFilter } from './filters'
+
+const epicsIn = (list: Bead[], status: StatusFilter) => epicsOf(list, groupByParent(list), status)
+const childrenIn = (list: Bead[], epic: string) => childrenOf(groupByParent(list), epic)
 
 const beads: Bead[] = [
   { id: 'e-1', title: 'Checkout', status: 'open', issue_type: 'epic', priority: 1 },
@@ -52,18 +55,18 @@ describe('the filters of the page', () => {
   })
 
   it('groups the beads that have no parent under "No epic"', () => {
-    expect(childrenOf(beads, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4'])
+    expect(childrenIn(beads, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4'])
   })
 
   it('counts the children of each epic by status', () => {
-    expect(epicsOf(beads, 'ready')).toEqual([
+    expect(epicsIn(beads, 'ready')).toEqual([
       { id: 'e-1', title: 'Checkout', status: 'open', counts: { open: 1, in_progress: 1, closed: 1 } },
       { id: NO_EPIC, title: 'No epic', status: 'open', counts: { open: 1 } },
     ])
   })
 
   it('shows the closed epics only under the all and closed filters', () => {
-    expect(epicsOf(beads, 'all').map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
+    expect(epicsIn(beads, 'all').map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
   })
 
   it('lists a parent that is not an epic, with its children, so that its children show on a board', () => {
@@ -72,19 +75,19 @@ describe('the filters of the page', () => {
       { id: 'c-1', title: 'Tidy the repo', status: 'closed', issue_type: 'chore' },
       { id: 'c-1.1', title: 'Remove the old script', status: 'closed', parent: 'c-1' },
     ]
-    expect(epicsOf(withChore, 'all').map((epic) => epic.id)).toContain('c-1')
-    expect(childrenOf(withChore, 'c-1').map((bead) => bead.id)).toEqual(['c-1.1'])
-    expect(childrenOf(withChore, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4', 'c-1'])
+    expect(epicsIn(withChore, 'all').map((epic) => epic.id)).toContain('c-1')
+    expect(childrenIn(withChore, 'c-1').map((bead) => bead.id)).toEqual(['c-1.1'])
+    expect(childrenIn(withChore, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4', 'c-1'])
   })
 
   it('keeps a closed epic in the list while one of its children is still open', () => {
     const withOpenChild: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
-    expect(epicsOf(withOpenChild, 'ready').map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
+    expect(epicsIn(withOpenChild, 'ready').map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
   })
 
   it('shows a bead whose parent is not in the database under "No epic"', () => {
     const lost: Bead[] = [...beads, { id: 't-7', title: 'Lost task', status: 'open', parent: 'gone' }]
-    expect(childrenOf(lost, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4', 't-7'])
+    expect(childrenIn(lost, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4', 't-7'])
   })
 
   it('puts each bead in the column of its status, and adds a column for an unusual status', () => {
