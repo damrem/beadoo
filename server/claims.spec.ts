@@ -72,6 +72,12 @@ describe('a claim from the page', () => {
     expect(bdCalls(calls)).toContainEqual(['-C', db.path, '--actor', 'damien', 'update', 's-1', '--claim', '--json'])
   })
 
+  it('lets bd choose the name of the claim when no name is known', async () => {
+    const { run, calls } = fakeTools({ gitUser: '' })
+    await createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')
+    expect(bdCalls(calls)).toContainEqual(['-C', db.path, 'update', 's-1', '--claim', '--json'])
+  })
+
   it('gives the name in which the page claims a bead', async () => {
     const { run } = fakeTools()
     expect(await createStore(run, { env: {} }).actor(db)).toBe('Ann')
