@@ -132,6 +132,11 @@ describe('the start command of a tunnel', () => {
     })
   })
 
+  it('gives the cause of a failed start, also when the error output arrives after the start command exits', async () => {
+    const result = await realLaunch('sh', ['-c', '(sleep 0.1; echo bind: Address already in use >&2) & exit 255'], 4_000)
+    expect(result).toEqual({ status: 255, stdout: '', stderr: 'bind: Address already in use\n' })
+  })
+
   it('stops a start command that does not return in time', async () => {
     const result = await realLaunch('sleep', ['5'], 300)
     expect(result).toMatchObject({ status: null, stderr: 'did not finish in 0.3 s' })

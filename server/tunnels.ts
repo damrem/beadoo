@@ -11,15 +11,19 @@ export type Launch = (command: string, args: readonly string[], timeoutMs: numbe
 
 export type LaunchSync = (command: string, args: readonly string[], timeoutMs: number) => RunResult
 
+const STDERR_GRACE_MS = 500
+
 export const realLaunch: Launch = (command, args, timeoutMs) =>
   new Promise((resolve) => {
     let stderr = ''
     let settled = false
+    let grace: NodeJS.Timeout | undefined
     const child = spawn(command, [...args], { stdio: ['ignore', 'ignore', 'pipe'], detached: true })
     const finish = (result: RunResult) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
+      clearTimeout(grace)
       child.stderr?.destroy()
       child.unref()
       resolve(result)
@@ -32,7 +36,10 @@ export const realLaunch: Launch = (command, args, timeoutMs) =>
       stderr += chunk.toString('utf8')
     })
     child.on('error', (error) => finish({ status: null, stdout: '', stderr: error.message }))
-    child.on('exit', (code) => finish({ status: code, stdout: '', stderr }))
+    child.on('exit', (code) => {
+      grace = setTimeout(() => finish({ status: code, stdout: '', stderr }), STDERR_GRACE_MS)
+    })
+    child.on('close', (code) => finish({ status: code, stdout: '', stderr }))
   })
 
 export const realLaunchSync: LaunchSync = (command, args, timeoutMs) => {
