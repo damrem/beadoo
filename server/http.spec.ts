@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { RunResult } from '../../../lib/process.ts'
 import { createStore } from './beads-store.ts'
 import { createHandler, MAX_BODY_BYTES } from './http.ts'
+import { createTunnels } from './tunnels.ts'
 
 const token = 'c'.repeat(64)
 const ok = (value: unknown): RunResult => ({ status: 0, stdout: JSON.stringify(value), stderr: '' })
@@ -17,6 +18,9 @@ let listAnswer: RunResult
 let listGate: Promise<void>
 let claimed: Set<string>
 let writes: string[][]
+let tunnelUp: boolean
+let launches: string[][]
+let tunnelAnswer: RunResult
 
 beforeEach(async () => {
   const root = mkdtempSync(join(tmpdir(), 'beads-root-'))
@@ -30,10 +34,20 @@ beforeEach(async () => {
   listGate = Promise.resolve()
   claimed = new Set()
   writes = []
+  tunnelUp = false
+  launches = []
+  tunnelAnswer = { status: 0, stdout: '', stderr: '' }
   const store = createStore(
     async (command, args) => {
       if (command === 'git' && args.includes('config')) return { status: 0, stdout: 'Ann\n', stderr: '' }
       if (command === 'git') return { status: 0, stdout: '', stderr: '' }
+      if (args[1] === '/home/me/remote' && !tunnelUp) {
+        return {
+          status: 1,
+          stdout: '',
+          stderr: 'Error: failed to open database: Dolt server unreachable at 127.0.0.1:3307: dial tcp 127.0.0.1:3307: connect: connection refused\n\nThe Dolt server may not be running.',
+        }
+      }
       if (args[4] === 'dep') {
         writes.push(args.slice(2))
         return ok({})
@@ -65,8 +79,21 @@ beforeEach(async () => {
       databases: () => [
         { name: 'shop', path: '/home/me/shop' },
         { name: 'win', path: '/mnt/c/x', refused: 'Use a WSL path' },
+        { name: 'remote', path: '/home/me/remote', tunnel: { start: ['ssh', '-fN', 'db-host'], stop: ['pkill', 'ssh'] } },
       ],
       store,
+      tunnels: createTunnels(
+        async (command, args) => {
+          launches.push([command, ...args])
+          if (tunnelAnswer.status === 0) tunnelUp = true
+          return tunnelAnswer
+        },
+        (command, args) => {
+          launches.push([command, ...args])
+          tunnelUp = false
+          return { status: 0, stdout: '', stderr: '' }
+        },
+      ),
       distDir,
       origin: base,
       token,
@@ -82,7 +109,58 @@ describe('the page server', () => {
     expect(body.databases).toEqual([
       { name: 'shop', path: '/home/me/shop' },
       { name: 'win', path: '/mnt/c/x', refused: 'Use a WSL path' },
+      { name: 'remote', path: '/home/me/remote', hasTunnel: true },
     ])
+  })
+
+  describe('a database on a Dolt server', () => {
+    const start = (db: string, headers: Record<string, string> = { origin: base, 'x-beads-token': token }) =>
+      fetch(`${base}/api/tunnel/start?db=${db}`, { method: 'POST', headers })
+
+    it('tells the user that the database does not answer', async () => {
+      const response = await fetch(`${base}/api/beads?db=remote`)
+      expect(response.status).toBe(503)
+      expect(await response.json()).toMatchObject({
+        code: 'UNREACHABLE',
+        error: expect.stringContaining('Dolt server unreachable at 127.0.0.1:3307'),
+      })
+    })
+
+    it('opens the database after the user starts its tunnel', async () => {
+      const response = await start('remote')
+      expect(response.status).toBe(200)
+      expect(launches).toEqual([['ssh', '-fN', 'db-host']])
+      expect((await fetch(`${base}/api/beads?db=remote`)).status).toBe(200)
+    })
+
+    it('runs the start command of the config, and not a command from the request', async () => {
+      const response = await fetch(`${base}/api/tunnel/start?db=remote&start=rm`, {
+        method: 'POST',
+        headers: { origin: base, 'x-beads-token': token, 'content-type': 'application/json' },
+        body: JSON.stringify({ start: ['rm', '-rf', '/'] }),
+      })
+      expect(response.status).toBe(200)
+      expect(launches).toEqual([['ssh', '-fN', 'db-host']])
+    })
+
+    it('refuses to start a tunnel without the page token', async () => {
+      expect((await start('remote', { origin: base })).status).toBe(403)
+      expect(launches).toEqual([])
+    })
+
+    it('tells the user that the config gives no tunnel for the database', async () => {
+      const response = await start('shop')
+      expect(response.status).toBe(400)
+      expect((await response.json()).error).toContain('no tunnel for the database "shop"')
+      expect(launches).toEqual([])
+    })
+
+    it('tells the user why the tunnel did not start', async () => {
+      tunnelAnswer = { status: 255, stdout: '', stderr: 'ssh: Could not resolve hostname db-host' }
+      const response = await start('remote')
+      expect(response.status).toBe(500)
+      expect((await response.json()).error).toContain('Could not resolve hostname db-host')
+    })
   })
 
   it('gives the beads and the ready ids of the selected database', async () => {

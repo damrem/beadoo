@@ -1,16 +1,20 @@
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, join, normalize, sep } from 'node:path'
-import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN, UNKNOWN_ERROR } from '../shared/contract.ts'
-import type { ClaimAction, DatabaseEntry } from '../shared/contract.ts'
+import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
+import type { ClaimAction } from '../shared/contract.ts'
 import { isEditRequest } from '../shared/edit.ts'
 import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
+import { publicEntry } from './config-rules.ts'
+import type { ConfiguredDatabase } from './config-rules.ts'
+import type { Tunnels } from './tunnels.ts'
 import { allowsWrite } from './guard.ts'
 
 export type AppDeps = {
-  databases: () => DatabaseEntry[]
+  databases: () => ConfiguredDatabase[]
   store: Store
+  tunnels: Tunnels
   distDir: string
   origin: string
   token: string
@@ -33,7 +37,7 @@ const sendJson = (res: ServerResponse, status: number, body: unknown) => {
 
 const statusOf = (error: unknown): number => {
   if (!(error instanceof StoreError)) return 500
-  if (error.code === STORE_NOT_OPEN || error.code === REFUSED) return 503
+  if (error.code === STORE_NOT_OPEN || error.code === REFUSED || error.code === UNREACHABLE) return 503
   if (error.code === NOT_FOUND) return 404
   if (error.code === CONFLICT || error.code === STALE) return 409
   if (error.code === INVALID) return 400
@@ -44,6 +48,8 @@ export const withToken = (html: string, token: string): string =>
   html.replace('</head>', `  <meta name="beads-token" content="${token}" />\n  </head>`)
 
 const WRITE_ROUTE = /^\/api\/beads\/([^/]+)\/([a-z]+)$/
+
+export const TUNNEL_ROUTE = '/api/tunnel/start'
 
 export const MAX_BODY_BYTES = 1024 * 1024
 
@@ -125,8 +131,9 @@ export function createHandler(deps: AppDeps) {
       sendJson(res, 403, { error: 'Forbidden: the request needs the page origin and the page token' })
       return
     }
+    const tunnelStart = write && req.method === 'POST' && url.pathname === TUNNEL_ROUTE
     const target = write && req.method === 'POST' ? writeRoute(url.pathname) : null
-    if (write && !target) {
+    if (write && !target && !tunnelStart) {
       sendJson(res, 404, { error: 'Not found' })
       return
     }
@@ -139,13 +146,18 @@ export function createHandler(deps: AppDeps) {
     try {
       const databases = deps.databases()
       if (url.pathname === '/api/databases') {
-        sendJson(res, 200, { databases })
+        sendJson(res, 200, { databases: databases.map(publicEntry) })
         return
       }
       const name = url.searchParams.get('db')
       const db = databases.find((entry) => entry.name === name)
       if (!db) {
         sendJson(res, 404, { error: `No database is named "${name ?? ''}" in beads-page.json` })
+        return
+      }
+      if (tunnelStart) {
+        await deps.tunnels.start(db)
+        sendJson(res, 200, { started: db.name })
         return
       }
       if (target?.action === 'edit') {
