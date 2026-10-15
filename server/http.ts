@@ -88,13 +88,14 @@ export function createHandler(deps: AppDeps) {
   const page = new URL(deps.origin)
   const hosts = new Set([page.host, `localhost:${page.port}`])
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    if (!hosts.has(req.headers.host ?? '')) {
+    const host = req.headers.host ?? ''
+    if (!hosts.has(host)) {
       sendJson(res, 403, { error: 'Forbidden: the request needs the page host' })
       return
     }
     const url = new URL(req.url ?? '/', deps.origin)
     const write = req.method !== 'GET' && req.method !== 'HEAD'
-    if (write && !allowsWrite(req.headers, deps.origin, deps.token)) {
+    if (write && !allowsWrite(req.headers, `${page.protocol}//${host}`, deps.token)) {
       sendJson(res, 403, { error: 'Forbidden: the request needs the page origin and the page token' })
       return
     }

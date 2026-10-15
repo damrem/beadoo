@@ -156,6 +156,33 @@ describe('the page server', () => {
       expect(writes).toEqual([['--actor', 'Ann', 'heartbeat', 's-1', '--json']])
     })
 
+    const postAs = (name: string, path: string, origin: string) =>
+      new Promise<number>((resolve, reject) => {
+        const url = new URL(`${base}${path}`)
+        request(
+          url,
+          { method: 'POST', headers: { host: `${name}:${url.port}`, origin, 'x-beads-token': token } },
+          (response) => {
+            response.resume()
+            resolve(response.statusCode ?? 0)
+          },
+        )
+          .on('error', reject)
+          .end()
+      })
+
+    it('claims the bead from a page that the user opened on localhost', async () => {
+      const port = new URL(base).port
+      expect(await postAs('localhost', '/api/beads/s-1/claim?db=shop', `http://localhost:${port}`)).toBe(200)
+      expect(writes).toEqual([['--actor', 'Ann', 'update', 's-1', '--claim', '--json']])
+    })
+
+    it('refuses a claim whose origin is not the address of the request, and writes nothing', async () => {
+      const port = new URL(base).port
+      expect(await postAs('127.0.0.1', '/api/beads/s-1/claim?db=shop', `http://localhost:${port}`)).toBe(403)
+      expect(writes).toEqual([])
+    })
+
     it('refuses a claim that comes without the page token and writes nothing', async () => {
       const response = await post('/api/beads/s-1/claim?db=shop', { origin: base })
       expect(response.status).toBe(403)
