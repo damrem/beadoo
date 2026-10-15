@@ -182,6 +182,19 @@ describe('a claim from the page', () => {
   })
 
   it.each([
+    ['renew', 'heartbeat', '{"error": "heartbeat s-1: issue not claimable: s-1 status open"}'],
+    ['unclaim', 'unclaim', 'Error unclaiming s-1: issue s-1 is not assigned'],
+  ] as const)(
+    'reports a conflict when the user asks to %s a bead that another session released',
+    async (action, sub, stderr) => {
+      const { run } = fakeTools({ answers: { [sub]: failed(stderr) } })
+      await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', action)).rejects.toThrow(
+        expect.objectContaining({ code: CONFLICT, message: expect.stringMatching(new RegExp(`^bd ${sub} failed`)) }),
+      )
+    },
+  )
+
+  it.each([
     ['claim', 'update'],
     ['unclaim', 'unclaim'],
     ['renew', 'heartbeat'],

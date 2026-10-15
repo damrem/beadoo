@@ -12,7 +12,7 @@ export const EXPORT_FILE = '.beads/issues.jsonl'
 
 const UNKNOWN_ID = /not found|no issues? found/
 
-const HELD_BY_OTHER = /claimed by/
+const CLAIM_CONFLICT = /claimed by|not claimable|is not assigned/
 
 const NOT_A_REPO = /not a git repository/
 
@@ -64,7 +64,7 @@ export function createStore(run: RunAsync, { env = process.env }: StoreOptions =
   const notFound = (id: string) => new StoreError(NOT_FOUND, `bd show gave no bead for ${id}`)
 
   const writeError = (id: string) => (error: unknown) => {
-    if (error instanceof Error && HELD_BY_OTHER.test(error.message)) throw new StoreError(CONFLICT, error.message)
+    if (error instanceof Error && CLAIM_CONFLICT.test(error.message)) throw new StoreError(CONFLICT, error.message)
     if (error instanceof Error && UNKNOWN_ID.test(error.message)) throw notFound(id)
     throw error
   }
@@ -151,7 +151,7 @@ export function createStore(run: RunAsync, { env = process.env }: StoreOptions =
           )
         }
         try {
-          checked(result, 'bd', args)
+          checked(result, 'bd', CLAIM_ARGS[action](id))
         } catch (error) {
           writeError(id)(error)
         }
