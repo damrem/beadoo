@@ -452,6 +452,19 @@ describe('the beads page', () => {
       expect(within(dialog).getByText(/The bead t-1 is open again/)).toBeInTheDocument()
     })
 
+    it('shows the bead as the database holds it after a start that failed', async () => {
+      answers['POST /api/beads/t-1/spawn?db=.claude'] = json(
+        { error: 'orca terminal create failed: Timed out\nThe page could not give the bead t-1 back: database is locked.', code: 'SPAWN_FAILED' },
+        502,
+      )
+      const dialog = await openDetail()
+      const spawn = await within(dialog).findByRole('button', { name: 'Claim and spawn' })
+      answers['/api/beads/t-1?db=.claude'] = json({ ...beads[1], status: 'in_progress', assignee: 'Ann' })
+      await userEvent.click(spawn)
+      expect(await within(dialog).findByText('The page could not start a session')).toBeInTheDocument()
+      expect(await within(dialog).findByText('in_progress')).toBeInTheDocument()
+    })
+
     it('shows the warning when the session runs but the page could not note its start', async () => {
       answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, warning: 'The session runs, but the page could not write the note of the start' })
       const dialog = await openDetail()
