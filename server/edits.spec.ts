@@ -79,7 +79,7 @@ const edit = async (request: Partial<EditRequest>, answers = {}, bead = stored) 
 }
 
 describe('an edit from the page', () => {
-  it('changes the title, the priority and the type in one bd update, in the name of the page user', async () => {
+  it('saves the new title, priority and type of a bead in the name of the page user', async () => {
     const { calls } = await edit({ changes: { title: 'Basket', priority: 1, issue_type: 'bug' } })
     expect(calls.filter((call) => call[0] === 'bd' && call.includes('update'))).toEqual([
       ['bd', '-C', db.path, '--actor', 'Ann', 'update', 's-1', '--title=Basket', '--priority=1', '--type=bug', '--json'],
@@ -120,6 +120,11 @@ describe('an edit from the page', () => {
   it('adds a note entry with the date and the time of the server under the old notes', async () => {
     const { calls } = await edit({ noteEntry: 'paused for the review' })
     expect(writes(calls)).toEqual([['update', 's-1', '--notes=2026-10-14 10:00 started\n2026-10-15 12:30 paused for the review']])
+  })
+
+  it('keeps the free edit of the notes and adds the new note entry under it', async () => {
+    const { calls } = await edit({ changes: { notes: 'new text' }, noteEntry: 'paused' })
+    expect(writes(calls)).toEqual([['update', 's-1', '--notes=new text\n2026-10-15 12:30 paused']])
   })
 
   it('moves the bead to another parent, or removes its parent', async () => {
@@ -257,7 +262,7 @@ describe('an edit from the page', () => {
     expect(calls.some((call) => call.includes('export'))).toBe(false)
   })
 
-  it('does not start an edit before the claim before it is exported', async () => {
+  it('starts an edit only when the claim that came first is written and exported', async () => {
     let endClaim = () => {}
     const { run, calls } = fakeTools({
       update: () =>
