@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Tag } from '@/components/BeadCard'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ClaimControls } from '@/components/ClaimControls'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import type { Bead } from '../../shared/contract'
+import type { Bead, ClaimAction } from '../../shared/contract'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -29,23 +30,31 @@ function Text({ label, value }: { label: string; value?: string }) {
 
 type Load = { id: string; bead?: Bead; error?: string }
 
+type Write = { id: string; action: ClaimAction | null; error?: string }
+
 export function BeadDetail({
   db,
   id,
+  actor,
   onClose,
   onOpen,
+  onWritten,
 }: {
   db: string
   id: string | null
+  actor: string | null
   onClose: () => void
   onOpen: (id: string) => void
+  onWritten: () => void
 }) {
   const [load, setLoad] = useState<Load | null>(null)
+  const [write, setWrite] = useState<Write | null>(null)
+  const [reload, setReload] = useState(0)
 
   useEffect(() => {
     if (!id) return
     let live = true
-    setLoad({ id })
+    setLoad((current) => (current?.id === id && current.bead ? current : { id }))
     api
       .bead(db, id)
       .then((bead) => live && setLoad({ id, bead }))
@@ -53,10 +62,27 @@ export function BeadDetail({
     return () => {
       live = false
     }
-  }, [db, id])
+  }, [db, id, reload])
+
+  const runClaim = (beadId: string, action: ClaimAction) => {
+    setWrite({ id: beadId, action })
+    api
+      .claim(db, beadId, action)
+      .then((bead) => {
+        setLoad((current) => (current?.id === beadId ? { id: beadId, bead } : current))
+        setWrite(null)
+      })
+      .catch((reason: Error) => {
+        setWrite({ id: beadId, action: null, error: reason.message })
+        setReload((count) => count + 1)
+      })
+      .finally(onWritten)
+  }
 
   const bead = load?.id === id ? load.bead : undefined
   const error = load?.id === id ? load.error : undefined
+  const writing = write?.id === id ? write.action : null
+  const writeError = write?.id === id ? write.error : undefined
   const blockers = bead?.dependencies?.filter((dep) => dep.dependency_type !== 'parent-child') ?? []
   const now = new Date()
   const leaseText = bead && leaseLabel(leaseState(bead, now), now)
@@ -76,8 +102,20 @@ export function BeadDetail({
             </Alert>
           )}
           {!bead && !error && <Skeleton className="h-40 w-full" />}
+          {writeError && (
+            <Alert variant="destructive">
+              <AlertTitle>The page could not change the claim</AlertTitle>
+              <AlertDescription>{writeError}</AlertDescription>
+            </Alert>
+          )}
           {bead && (
             <>
+              <ClaimControls
+                bead={bead}
+                actor={actor}
+                writing={writing}
+                onAction={(action) => runClaim(bead.id, action)}
+              />
               <dl className="flex flex-col gap-1.5">
                 <Field label="Status">{bead.status}</Field>
                 <Field label="Priority">P{bead.priority}</Field>

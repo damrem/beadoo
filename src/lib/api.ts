@@ -1,5 +1,5 @@
 import { UNKNOWN_ERROR } from '../../shared/contract'
-import type { Bead, BeadList, DatabaseEntry } from '../../shared/contract'
+import type { Bead, BeadList, ClaimAction, DatabaseEntry } from '../../shared/contract'
 
 export class ApiError extends Error {
   readonly code: string
@@ -9,8 +9,11 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string): Promise<T> {
-  const response = await fetch(path)
+const pageToken = (): string =>
+  document.querySelector<HTMLMetaElement>('meta[name="beads-token"]')?.content ?? ''
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, init)
   const body = (await response.json().catch(() => ({}))) as { error?: string; code?: string }
   if (!response.ok) throw new ApiError(body.error ?? `HTTP ${response.status}`, body.code ?? UNKNOWN_ERROR)
   return body as T
@@ -22,4 +25,10 @@ export const api = {
   databases: () => request<{ databases: DatabaseEntry[] }>('/api/databases').then((body) => body.databases),
   beads: (db: string) => request<BeadList>(`/api/beads?${query(db)}`),
   bead: (db: string, id: string) => request<Bead>(`/api/beads/${encodeURIComponent(id)}?${query(db)}`),
+  actor: (db: string) => request<{ actor: string }>(`/api/actor?${query(db)}`).then((body) => body.actor),
+  claim: (db: string, id: string, action: ClaimAction) =>
+    request<Bead>(`/api/beads/${encodeURIComponent(id)}/${action}?${query(db)}`, {
+      method: 'POST',
+      headers: { 'x-beads-token': pageToken() },
+    }),
 }

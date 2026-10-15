@@ -14,12 +14,14 @@ type Answer = { status: number; body: unknown }
 
 let answers: Record<string, Answer | Promise<Answer>>
 let calls: string[]
+let writes: { path: string; token: string | undefined }[]
 
 const json = (body: unknown, status = 200): Answer => ({ status, body })
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/')
   calls = []
+  writes = []
   answers = {
     '/api/databases': json({
       databases: [
@@ -40,9 +42,12 @@ beforeEach(() => {
   }
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: string) => {
+    vi.fn(async (input: string, init?: RequestInit) => {
       calls.push(input)
-      const answer = await (answers[input] ?? json({ error: 'Not found' }, 404))
+      const post = init?.method === 'POST'
+      if (post) writes.push({ path: input, token: (init?.headers as Record<string, string>)['x-beads-token'] })
+      const key = post ? `POST ${input}` : input
+      const answer = await (answers[key] ?? json({ error: 'Not found' }, 404))
       return new Response(JSON.stringify(answer.body), { status: answer.status })
     }),
   )
@@ -221,6 +226,117 @@ describe('the beads page', () => {
       const dialog = await screen.findByRole('dialog')
       expect(await within(dialog).findByText('lease expired at 23:31')).toBeInTheDocument()
       expect(within(dialog).getByText('23:26')).toBeInTheDocument()
+    })
+  })
+
+  describe('the claim of a bead', () => {
+    const mine = {
+      ...beads[1],
+      status: 'in_progress',
+      assignee: 'Ann',
+      heartbeat_at: new Date(2026, 9, 15, 10, 0).toISOString(),
+      lease_expires_at: new Date(2026, 9, 15, 10, 5).toISOString(),
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true })
+      vi.setSystemTime(new Date(2026, 9, 15, 10, 2))
+      answers['/api/actor?db=.claude'] = json({ actor: 'Ann' })
+      const meta = document.createElement('meta')
+      meta.name = 'beads-token'
+      meta.content = 'page-token'
+      document.head.append(meta)
+    })
+
+    afterEach(() => {
+      document.head.querySelector('meta[name="beads-token"]')?.remove()
+    })
+
+    const openDetail = async (search: string) => {
+      window.history.replaceState(null, '', search)
+      render(<App />)
+      return screen.findByRole('dialog')
+    }
+
+    it('claims a bead from its detail, shows the claim and reads the beads again', async () => {
+      answers['POST /api/beads/t-1/claim?db=.claude'] = json(mine)
+      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      const reads = () => calls.filter((call) => call.startsWith('/api/beads?')).length
+      await waitFor(() => expect(reads()).toBe(1))
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim' }))
+      expect(await within(dialog).findByText('in_progress')).toBeInTheDocument()
+      expect(within(dialog).getByText('Ann')).toBeInTheDocument()
+      expect(within(dialog).getByText('lease until 10:05')).toBeInTheDocument()
+      expect(writes).toEqual([{ path: '/api/beads/t-1/claim?db=.claude', token: 'page-token' }])
+      await waitFor(() => expect(reads()).toBe(2))
+    })
+
+    it('offers to renew and to release a claim of the current actor, and not to claim it again', async () => {
+      answers['/api/beads/t-1?db=.claude'] = json(mine)
+      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      expect(await within(dialog).findByRole('button', { name: 'Renew' })).toBeInTheDocument()
+      expect(within(dialog).getByRole('button', { name: 'Unclaim' })).toBeInTheDocument()
+      expect(within(dialog).queryByRole('button', { name: 'Claim' })).not.toBeInTheDocument()
+    })
+
+    it('renews the lease of a claim of the current actor and shows the new end of the lease', async () => {
+      answers['/api/beads/t-1?db=.claude'] = json(mine)
+      answers['POST /api/beads/t-1/renew?db=.claude'] = json({
+        ...mine,
+        lease_expires_at: new Date(2026, 9, 15, 10, 7).toISOString(),
+      })
+      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Renew' }))
+      expect(await within(dialog).findByText('lease until 10:07')).toBeInTheDocument()
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/renew?db=.claude'])
+    })
+
+    it('releases a claim of the current actor', async () => {
+      answers['/api/beads/t-1?db=.claude'] = json(mine)
+      answers['POST /api/beads/t-1/unclaim?db=.claude'] = json({ ...beads[1], status: 'open' })
+      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Unclaim' }))
+      expect(await within(dialog).findByRole('button', { name: 'Claim' })).toBeInTheDocument()
+      expect(within(dialog).getByText('nobody')).toBeInTheDocument()
+    })
+
+    it('does not offer to renew or to release a claim of another actor', async () => {
+      answers['/api/beads/t-1?db=.claude'] = json({ ...mine, assignee: 'Bob' })
+      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      await within(dialog).findByText('Bob')
+      expect(within(dialog).queryByRole('button', { name: 'Renew' })).not.toBeInTheDocument()
+      expect(within(dialog).queryByRole('button', { name: 'Unclaim' })).not.toBeInTheDocument()
+      expect(within(dialog).queryByRole('button', { name: 'Claim' })).not.toBeInTheDocument()
+    })
+
+    it('does not offer to claim a closed bead', async () => {
+      answers['/api/beads/t-3?db=.claude'] = json(beads[3])
+      const dialog = await openDetail('/?db=.claude&status=all&bead=t-3')
+      await within(dialog).findByText('closed')
+      expect(within(dialog).queryByRole('button', { name: 'Claim' })).not.toBeInTheDocument()
+    })
+
+    it('tells the user why the claim failed and shows the bead as the database has it', async () => {
+      answers['POST /api/beads/t-1/claim?db=.claude'] = json(
+        { error: 'issue already claimed by Bob', code: 'CONFLICT' },
+        409,
+      )
+      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      const claim = await within(dialog).findByRole('button', { name: 'Claim' })
+      answers['/api/beads/t-1?db=.claude'] = json({ ...mine, assignee: 'Bob' })
+      await userEvent.click(claim)
+      expect(await within(dialog).findByText('issue already claimed by Bob')).toBeInTheDocument()
+      expect(await within(dialog).findByText('Bob')).toBeInTheDocument()
+    })
+
+    it('tells the user when the export file and the database do not hold the same count of beads', async () => {
+      answers['POST /api/beads/t-1/claim?db=.claude'] = json(
+        { error: 'The write is done, but /home/me/.claude/.beads/issues.jsonl holds 2 lines and bd list gives 3 beads.', code: 'EXPORT_MISMATCH' },
+        500,
+      )
+      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim' }))
+      expect(await within(dialog).findByText(/holds 2 lines and bd list gives 3 beads/)).toBeInTheDocument()
     })
   })
 

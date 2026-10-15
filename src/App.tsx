@@ -39,6 +39,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [lastRead, setLastRead] = useState<Date | null>(null)
+  const [actor, setActor] = useState<string | null>(null)
   const activeDb = useRef<string | null>(null)
 
   const update = (change: Partial<ViewState>) => setView((current) => ({ ...current, ...change }))
@@ -79,6 +80,19 @@ export function App() {
       })
       .catch((reason: Error) => current() && setError(reason.message))
       .finally(() => current() && setLoading(false))
+  }, [selectedDb])
+
+  useEffect(() => {
+    setActor(null)
+    if (!selectedDb || selectedDb.refused) return
+    let live = true
+    api
+      .actor(selectedDb.name)
+      .then((name) => live && setActor(name || null))
+      .catch(() => live && setActor(null))
+    return () => {
+      live = false
+    }
   }, [selectedDb])
 
   useEffect(() => {
@@ -160,8 +174,10 @@ export function App() {
         <BeadDetail
           db={view.db}
           id={view.bead}
+          actor={actor}
           onClose={() => update({ bead: null })}
           onOpen={(id) => update({ bead: id })}
+          onWritten={refresh}
         />
       )}
     </div>
