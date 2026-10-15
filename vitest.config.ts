@@ -12,7 +12,7 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: 'server', environment: 'node', include: ['server/**/*.spec.ts'] },
+        test: { name: 'server', environment: 'node', include: ['server/**/*.spec.ts', 'shared/**/*.spec.ts'] },
       },
       {
         extends: true,

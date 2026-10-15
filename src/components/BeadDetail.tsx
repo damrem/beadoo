@@ -18,7 +18,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function Text({ label, value }: { label: string; value?: string }) {
+function Text({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
     <section className="flex flex-col gap-1">
