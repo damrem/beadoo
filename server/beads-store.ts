@@ -2,8 +2,10 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { checked, parseJson, runCheckedAsync, withoutWarnings } from '../../../lib/process.ts'
 import type { RunAsync } from '../../../lib/process.ts'
-import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN } from '../shared/contract.ts'
+import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN } from '../shared/contract.ts'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry, StoreErrorCode } from '../shared/contract.ts'
+import { editableOf, editProblem, stampOf, versionOf, withEntry } from '../shared/edit.ts'
+import type { EditableFields, EditRequest } from '../shared/edit.ts'
 import { createWriteQueue } from './write-queue.ts'
 
 export const BD_TIMEOUT_MS = 15_000
@@ -28,17 +30,49 @@ const CLAIM_ARGS: Record<ClaimAction, (id: string) => string[]> = {
 
 export class StoreError extends Error {
   readonly code: StoreErrorCode
-  constructor(code: StoreErrorCode, message: string) {
+  readonly bead?: Bead
+  constructor(code: StoreErrorCode, message: string, bead?: Bead) {
     super(message)
     this.code = code
+    this.bead = bead
   }
 }
 
 type Env = Record<string, string | undefined>
 
-export type StoreOptions = { env?: Env }
+export type StoreOptions = { env?: Env; now?: () => Date }
 
-export function createStore(run: RunAsync, { env = process.env }: StoreOptions = {}) {
+const added = (from: string[], to: string[]) => to.filter((value) => !from.includes(value))
+
+export function editCommands(id: string, current: EditableFields, request: EditRequest, stamp: string): string[][] {
+  const { changes } = request
+  const flags: string[] = []
+  const text = (flag: string, value: string | undefined, now: string) => {
+    if (value !== undefined && value !== now) flags.push(`--${flag}=${value}`)
+  }
+  text('title', changes.title, current.title)
+  text('description', changes.description, current.description)
+  const notes = request.noteEntry?.trim() ? withEntry(changes.notes ?? current.notes, stamp, request.noteEntry) : changes.notes
+  text('notes', notes, current.notes)
+  if (changes.priority !== undefined && changes.priority !== current.priority) flags.push(`--priority=${changes.priority}`)
+  text('type', changes.issue_type, current.issue_type)
+  text('parent', changes.parent, current.parent)
+  const closing = changes.status === 'closed' && current.status !== 'closed'
+  if (changes.status !== undefined && !closing) text('status', changes.status, current.status)
+  if (changes.labels) {
+    for (const label of added(current.labels, changes.labels)) flags.push(`--add-label=${label}`)
+    for (const label of added(changes.labels, current.labels)) flags.push(`--remove-label=${label}`)
+  }
+  const commands: string[][] = flags.length > 0 ? [['update', id, ...flags]] : []
+  if (changes.dependencies) {
+    for (const dep of added(changes.dependencies, current.dependencies)) commands.push(['dep', 'remove', id, dep])
+    for (const dep of added(current.dependencies, changes.dependencies)) commands.push(['dep', 'add', id, dep])
+  }
+  if (closing) commands.push(['close', id, `--reason=${request.closeReason?.trim() ?? ''}`])
+  return commands
+}
+
+export function createStore(run: RunAsync, { env = process.env, now = () => new Date() }: StoreOptions = {}) {
   const queue = createWriteQueue()
   const usable = (db: DatabaseEntry) => {
     if (db.refused) throw new StoreError(REFUSED, db.refused)
@@ -63,10 +97,33 @@ export function createStore(run: RunAsync, { env = process.env }: StoreOptions =
 
   const notFound = (id: string) => new StoreError(NOT_FOUND, `bd show gave no bead for ${id}`)
 
-  const writeError = (id: string) => (error: unknown) => {
+  const editError = (error: unknown): never => {
+    if (error instanceof Error && UNKNOWN_ID.test(error.message)) throw new StoreError(INVALID, error.message)
+    throw error
+  }
+
+  const writeError = (id: string) => (error: unknown): never => {
     if (error instanceof Error && CLAIM_CONFLICT.test(error.message)) throw new StoreError(CONFLICT, error.message)
     if (error instanceof Error && UNKNOWN_ID.test(error.message)) throw notFound(id)
     throw error
+  }
+
+  const writeBd = async (db: DatabaseEntry, command: string[], what: string, onError: (error: unknown) => never) => {
+    const name = await actor(db)
+    const as = name ? ['--actor', name] : []
+    const result = await run('bd', ['-C', db.path, ...as, ...command, '--json'], { timeoutMs: BD_TIMEOUT_MS })
+    const loss = RECONCILE_LOSS.exec(`${result.stderr}\n${result.stdout}`)
+    if (loss) {
+      throw new StoreError(
+        BEADS_DELETED,
+        `bd deleted beads from ${db.path} when it wrote ${what}: "${loss[0].trim()}". The page did not export the beads. Restore the deleted beads before the next write.`,
+      )
+    }
+    try {
+      checked(result, 'bd', command)
+    } catch (error) {
+      onError(error)
+    }
   }
 
   const gitText = async (db: DatabaseEntry, args: string[]): Promise<string> => {
@@ -139,23 +196,43 @@ export function createStore(run: RunAsync, { env = process.env }: StoreOptions =
       usable(db)
       if (!BEAD_ID.test(id)) throw notFound(id)
       await queue(async () => {
-        const name = await actor(db)
-        const as = name ? ['--actor', name] : []
-        const args = ['-C', db.path, ...as, ...CLAIM_ARGS[action](id), '--json']
-        const result = await run('bd', args, { timeoutMs: BD_TIMEOUT_MS })
-        const loss = RECONCILE_LOSS.exec(`${result.stderr}\n${result.stdout}`)
-        if (loss) {
+        await writeBd(db, CLAIM_ARGS[action](id), 'the claim', writeError(id))
+        if (action !== 'renew') await exportAndCheck(db)
+      })
+      return showBead(db, id)
+    },
+
+    async editBead(db: DatabaseEntry, id: string, request: EditRequest): Promise<Bead> {
+      usable(db)
+      if (!BEAD_ID.test(id)) throw notFound(id)
+      await queue(async () => {
+        const bead = await showBead(db, id)
+        if (versionOf(bead) !== request.version) {
           throw new StoreError(
-            BEADS_DELETED,
-            `bd deleted beads from ${db.path} when it wrote the claim: "${loss[0].trim()}". The page did not export the beads. Restore the deleted beads before the next write.`,
+            STALE,
+            `Somebody changed ${id} after the page read it. Compare the fields, then save again.`,
+            bead,
           )
         }
+        const current = editableOf(bead)
+        const problem = editProblem(request, current)
+        if (problem) throw new StoreError(INVALID, problem)
+        const commands = editCommands(id, current, request, stampOf(now()))
+        let done = 0
         try {
-          checked(result, 'bd', CLAIM_ARGS[action](id))
+          for (const command of commands) {
+            await writeBd(db, command, 'the edit', editError)
+            done += 1
+          }
         } catch (error) {
-          writeError(id)(error)
+          if (done === 0 || (error instanceof StoreError && error.code === BEADS_DELETED)) throw error
+          const message = `The page wrote ${done} of ${commands.length} changes of the edit, then ${(error as Error).message}`
+          await exportAndCheck(db).catch((exportError: Error) => {
+            throw new Error(`${message}\n${exportError.message}`)
+          })
+          throw new Error(message)
         }
-        if (action !== 'renew') await exportAndCheck(db)
+        if (commands.length > 0) await exportAndCheck(db)
       })
       return showBead(db, id)
     },
