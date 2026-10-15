@@ -250,6 +250,16 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
       return showBead(db, id)
     },
 
+    async appendNote(db: DatabaseEntry, id: string, note: string): Promise<Bead> {
+      usable(db)
+      if (!ID.test(id)) throw notFound(id)
+      await queue(async () => {
+        await writeBd(db, ['update', id, `--append-notes=${note}`], 'the note', editError(id))
+        await exportAndCheck(db)
+      })
+      return showBead(db, id)
+    },
+
     async editBead(db: DatabaseEntry, id: string, request: EditRequest): Promise<Bead> {
       usable(db)
       if (!ID.test(id)) throw notFound(id)

@@ -57,6 +57,15 @@ describe.skipIf(!hasBd)('a claim from the page in a real bd database', () => {
     expect(shown(id).assignee).toBeUndefined()
   })
 
+  it('adds a line to the notes of the bead and keeps the notes that it had', { timeout: 60_000 }, async () => {
+    const store = createStore(run, { env: { BEADS_ACTOR: 'Ann' } })
+    await store.appendNote(db, id, 'first line')
+    const bead = await store.appendNote(db, id, 'started 2026-10-16 09:05 in /home/me/wt')
+    expect(bead.notes).toContain('first line')
+    expect(bead.notes).toContain('started 2026-10-16 09:05 in /home/me/wt')
+    expect(shown(id).notes).toContain('started 2026-10-16 09:05 in /home/me/wt')
+  })
+
   it.each(['claim', 'unclaim', 'renew'] as const)(
     'reports a bead that the database does not have as not found when the user asks to %s it',
     { timeout: 60_000 },
