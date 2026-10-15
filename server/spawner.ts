@@ -1,8 +1,8 @@
+import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { realBaseIo } from '../../../lib/cli.ts'
-import { realRun } from '../../../lib/process.ts'
+import { realRunAsync } from '../../../lib/process.ts'
 import { createSessionWorktree, startSessionTerminal } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
-import type { Io, SessionWorktree } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
+import type { SessionIo, SessionWorktree } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
 import { beadSessionCommand, releasedMessage, releasedNote, startedNote, worktreeStays } from '../../../skills/handoffs/scripts/start-handoff-session-rules.ts'
 import { CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED } from '../shared/contract.ts'
 import type { DatabaseEntry } from '../shared/contract.ts'
@@ -14,18 +14,14 @@ import type { Store } from './beads-store.ts'
 
 const ORCA_TIMEOUT_MS = 120_000
 
-export const realSpawnIo = (): Io => {
-  const base = realBaseIo()
-  const home = homedir()
-  return {
-    ...base,
-    home,
-    cwd: home,
-    run: (command, args, options) => realRun(command, args, { timeoutMs: ORCA_TIMEOUT_MS, ...options }),
-  }
-}
+export const realSpawnIo = (): SessionIo => ({
+  cwd: homedir(),
+  exists: existsSync,
+  log: (line) => process.stderr.write(`${line}\n`),
+  run: (command, args, options) => realRunAsync(command, args, { timeoutMs: ORCA_TIMEOUT_MS, ...options }),
+})
 
-export function createSpawner(store: Store, io: Io, now: () => Date = () => new Date()) {
+export function createSpawner(store: Store, io: SessionIo, now: () => Date = () => new Date()) {
   const running = new Set<string>()
 
   const giveBack = async (db: DatabaseEntry, id: string, worktree: SessionWorktree | undefined, reason: string) => {
@@ -55,8 +51,8 @@ export function createSpawner(store: Store, io: Io, now: () => Date = () => new 
         let worktree: SessionWorktree | undefined
         let terminal: string
         try {
-          worktree = createSessionWorktree(io, db.path, { branch, lineage: 'independent' })
-          terminal = startSessionTerminal(io, worktree, beadSessionCommand(id, db.path, worktree.path))
+          worktree = await createSessionWorktree(io, db.path, { branch, lineage: 'independent' })
+          terminal = await startSessionTerminal(io, worktree, beadSessionCommand(id, db.path, worktree.path))
         } catch (error) {
           throw await giveBack(db, id, worktree, (error as Error).message)
         }

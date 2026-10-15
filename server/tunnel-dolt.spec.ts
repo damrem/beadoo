@@ -141,10 +141,7 @@ describe.skipIf(!hasTools)('a database on a real Dolt server behind a tunnel', (
         store,
         tunnels,
         spawner: createSpawner(store, {
-          home: root,
           cwd: root,
-          env: {},
-          now: () => new Date(),
           exists: () => false,
           log: () => undefined,
           run: () => ({ status: 1, stdout: '', stderr: 'this spec starts no session' }),

@@ -24,6 +24,7 @@ let launches: string[][]
 let tunnelAnswer: RunResult
 let orcaCalls: string[]
 let terminalAnswer: RunResult
+let worktreeGate: Promise<void>
 
 const orcaOk = (result: unknown): RunResult => ok({ ok: true, result })
 
@@ -34,12 +35,12 @@ const sessionIo = () => ({
   now: () => new Date(2026, 9, 16, 9, 5),
   exists: () => true,
   log: () => undefined,
-  run: (command: string, args: readonly string[]): RunResult => {
+  run: (command: string, args: readonly string[]): RunResult | Promise<RunResult> => {
     orcaCalls.push(`${command} ${args.join(' ')}`)
     if (command === 'git') return { status: 0, stdout: 'feat/s-1-cart\n', stderr: '' }
     const sub = `${args[0]} ${args[1]}`
     if (sub === 'repo list') return orcaOk({ repos: [{ id: 'repo-1', path: '/home/me/shop' }] })
-    if (sub === 'worktree create') return orcaOk({ worktree: { id: 'wt-1', path: '/home/me/wt/s-1-cart' } })
+    if (sub === 'worktree create') return worktreeGate.then(() => orcaOk({ worktree: { id: 'wt-1', path: '/home/me/wt/s-1-cart' } }))
     if (sub === 'terminal create') return terminalAnswer
     if (sub === 'terminal list') return orcaOk({ terminals: [] })
     return orcaOk({})
@@ -63,6 +64,7 @@ beforeEach(async () => {
   tunnelAnswer = { status: 0, stdout: '', stderr: '' }
   orcaCalls = []
   terminalAnswer = orcaOk({ terminal: { handle: 'term-1' } })
+  worktreeGate = Promise.resolve()
   const store = createStore(
     async (command, args) => {
       if (command === 'git' && args.includes('config')) return { status: 0, stdout: 'Ann\n', stderr: '' }
@@ -364,6 +366,19 @@ describe('the page server', () => {
       const response = await spawn(JSON.stringify({ branch: 'feat/s-1-cart' }), undefined, 'win')
       expect(response.status).toBe(503)
       expect(writes).toEqual([])
+    })
+
+    it('answers the other requests of the page while Orca creates the worktree', async () => {
+      let finish!: () => void
+      worktreeGate = new Promise((resolve) => {
+        finish = resolve
+      })
+      const started = spawn(JSON.stringify({ branch: 'feat/s-1-cart' }))
+      await vi.waitFor(() => expect(orcaCalls.some((call) => call.startsWith('orca worktree create'))).toBe(true))
+      const list = await fetch(`${base}/api/beads?db=shop`)
+      expect(list.status).toBe(200)
+      finish()
+      expect((await started).status).toBe(200)
     })
 
     it('tells the user why the session did not start, and that the bead is open again', async () => {
