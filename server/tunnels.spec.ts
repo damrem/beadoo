@@ -117,7 +117,7 @@ describe('the tunnels of the Dolt server databases', () => {
 })
 
 describe('the start command of a tunnel', () => {
-  it('returns when the command exits, also when a process that it left keeps its error output open', async () => {
+  it('answers the start of the tunnel when the start command returns, and does not wait for the tunnel to close', async () => {
     const begin = Date.now()
     const result = await realLaunch('sh', ['-c', 'sleep 5 & exit 0'], 4_000)
     expect(result.status).toBe(0)
