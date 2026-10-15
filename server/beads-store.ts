@@ -4,7 +4,7 @@ import { checked, parseJson, runCheckedAsync, withoutWarnings } from '../../../l
 import type { RunAsync } from '../../../lib/process.ts'
 import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN } from '../shared/contract.ts'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry, StoreErrorCode } from '../shared/contract.ts'
-import { editableOf, editProblem, ID, stampOf, versionOf, withEntry } from '../shared/edit.ts'
+import { closes, editableOf, editProblem, ID, stampOf, versionOf, withEntry } from '../shared/edit.ts'
 import type { EditableFields, EditRequest } from '../shared/edit.ts'
 import { createWriteQueue } from './write-queue.ts'
 
@@ -55,7 +55,7 @@ function editCommands(id: string, current: EditableFields, request: EditRequest,
   if (changes.priority !== undefined && changes.priority !== current.priority) flags.push(`--priority=${changes.priority}`)
   text('type', changes.issue_type, current.issue_type)
   text('parent', changes.parent, current.parent)
-  const closing = changes.status === 'closed' && current.status !== 'closed'
+  const closing = closes(current, changes)
   if (changes.status !== undefined && !closing) text('status', changes.status, current.status)
   if (changes.labels) {
     for (const label of added(current.labels, changes.labels)) flags.push(`--add-label=${label}`)

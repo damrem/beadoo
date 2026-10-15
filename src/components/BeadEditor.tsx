@@ -12,6 +12,7 @@ import type { Bead } from '../../shared/contract'
 import {
   changedFields,
   changesOf,
+  closes,
   COMPLEXITY,
   COMPLEXITY_VALUES,
   editableOf,
@@ -224,7 +225,7 @@ export function BeadEditor({
     )
   }
 
-  const closing = draft.status === 'closed' && editableOf(base).status !== 'closed'
+  const closing = closes(editableOf(base), draft)
 
   return (
     <form

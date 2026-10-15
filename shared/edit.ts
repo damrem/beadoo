@@ -103,6 +103,9 @@ export function labelProblem(labels: string[]): string | null {
   return null
 }
 
+export const closes = (current: Pick<EditableFields, 'status'>, changes: Partial<EditableFields>): boolean =>
+  changes.status === 'closed' && current.status !== 'closed'
+
 export function editProblem(request: EditRequest, current: EditableFields): string | null {
   const { changes } = request
   if (changes.title !== undefined && changes.title.trim() === '') return 'A bead needs a title.'
@@ -124,7 +127,7 @@ export function editProblem(request: EditRequest, current: EditableFields): stri
   }
   const badDep = changes.dependencies?.find((dep) => !ID.test(dep))
   if (badDep !== undefined) return `"${badDep}" is not a bead id.`
-  if (changes.status === 'closed' && current.status !== 'closed' && !request.closeReason?.trim()) {
+  if (closes(current, changes) && !request.closeReason?.trim()) {
     return 'Give a reason to close the bead.'
   }
   return null
