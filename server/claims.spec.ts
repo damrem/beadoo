@@ -127,6 +127,21 @@ describe('a claim from the page', () => {
     )
   })
 
+  it('says that the claim is done and names the export when bd export does not finish', async () => {
+    const { run } = fakeTools({
+      answers: { export: { status: null, stdout: '', stderr: 'Command failed: bd -C /repo export -o /repo/.beads/issues.jsonl' } },
+    })
+    const error = await createStore(run, { env: {} }).writeClaim(db, 's-1', 'unclaim').catch((caught: Error) => caught)
+    expect((error as Error).message).toMatch(/^The write is done, but bd export did not finish in 15 s/)
+    expect((error as Error).message).toContain(`Run bd export -o ${join(db.path, EXPORT_FILE)}`)
+  })
+
+  it('says that the claim is done and gives the reason when bd export fails', async () => {
+    const { run } = fakeTools({ answers: { export: failed('Error: database is locked') } })
+    const error = await createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim').catch((caught: Error) => caught)
+    expect((error as Error).message).toMatch(/^The write is done, but bd export failed \(exit 1\): Error: database is locked\./)
+  })
+
   it('reports an error when the export file and the database do not hold the same count of beads', async () => {
     const { run } = fakeTools({ exportLines: 2, listed: 3 })
     await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')).rejects.toThrow(

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { checked, parseJson, runCheckedAsync } from '../../../lib/process.ts'
+import { checked, parseJson, runCheckedAsync, withoutWarnings } from '../../../lib/process.ts'
 import type { RunAsync } from '../../../lib/process.ts'
 import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN } from '../shared/contract.ts'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry, StoreErrorCode } from '../shared/contract.ts'
@@ -90,7 +90,15 @@ export function createStore(run: RunAsync, { env = process.env }: StoreOptions =
   const exportAndCheck = async (db: DatabaseEntry) => {
     if (!(await tracksExport(db))) return
     const file = join(db.path, EXPORT_FILE)
-    await runCheckedAsync(run, 'bd', ['-C', db.path, 'export', '-o', file], { timeoutMs: BD_TIMEOUT_MS })
+    const exported = await run('bd', ['-C', db.path, 'export', '-o', file], { timeoutMs: BD_TIMEOUT_MS })
+    if (exported.status !== 0) {
+      const detail = (withoutWarnings(exported.stderr) || exported.stdout).trim()
+      const failure =
+        exported.status === null
+          ? `did not finish in ${BD_TIMEOUT_MS / 1000} s`
+          : `failed (exit ${exported.status})`
+      throw new Error(`The write is done, but bd export ${failure}: ${detail}. Run bd export -o ${file}.`)
+    }
     const lines = (await readFile(file, 'utf8')).split('\n').filter((line) => line.trim() !== '').length
     const beads = await allBeads(db)
     if (lines !== beads.length) {
