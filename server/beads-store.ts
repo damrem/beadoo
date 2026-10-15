@@ -5,7 +5,6 @@ import type { RunAsync } from '../../../lib/process.ts'
 import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN } from '../shared/contract.ts'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry, StoreErrorCode } from '../shared/contract.ts'
 import { createWriteQueue } from './write-queue.ts'
-import type { WriteQueue } from './write-queue.ts'
 
 export const BD_TIMEOUT_MS = 15_000
 
@@ -37,9 +36,10 @@ export class StoreError extends Error {
 
 type Env = Record<string, string | undefined>
 
-export type StoreOptions = { env?: Env; queue?: WriteQueue }
+export type StoreOptions = { env?: Env }
 
-export function createStore(run: RunAsync, { env = process.env, queue = createWriteQueue() }: StoreOptions = {}) {
+export function createStore(run: RunAsync, { env = process.env }: StoreOptions = {}) {
+  const queue = createWriteQueue()
   const usable = (db: DatabaseEntry) => {
     if (db.refused) throw new StoreError(REFUSED, db.refused)
   }
