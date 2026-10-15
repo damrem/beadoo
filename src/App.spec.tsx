@@ -269,6 +269,17 @@ describe('the beads page', () => {
       expect(screen.queryByRole('region', { name: 'Checkout' })).not.toBeInTheDocument()
     })
 
+    it('opens the epic board on the first epic of the lanes view', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&view=lanes&q=logo')
+      render(<App />)
+      const [firstLane] = await screen.findAllByRole('region', { name: /./ })
+      expect(firstLane).toHaveAccessibleName('No epic')
+      await userEvent.click(screen.getByRole('button', { name: 'Epic board' }))
+      const epics = screen.getByRole('navigation', { name: 'Epics' })
+      expect(within(epics).getByRole('button', { current: true })).toHaveTextContent('No epic')
+      expect(cardNames(screen.getByRole('main'))).toEqual(['t-4 Fix the logo'])
+    })
+
     it('tells the user when no bead matches the filters', async () => {
       window.history.replaceState(null, '', '/?db=.claude&view=lanes&q=nothing-like-this')
       render(<App />)

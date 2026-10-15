@@ -111,23 +111,20 @@ export function App() {
 
   const epics = useMemo(() => (data ? epicsOf(data.beads, groups, view.status) : []), [data, groups, view.status])
 
+  const lanes = useMemo(
+    () => (data ? lanesOf(epics, groups, data.readyIds, view.status, view.text) : []),
+    [data, groups, epics, view.status, view.text],
+  )
+
   const epic = useMemo(() => {
     if (view.epic && epics.some((entry) => entry.id === view.epic)) return view.epic
     if (!data) return null
-    const withBeads = epics.find(
-      (entry) => filterBeads(childrenOf(groups, entry.id), data.readyIds, view.status, view.text).length > 0,
-    )
-    return (withBeads ?? epics[0])?.id ?? null
-  }, [data, groups, epics, view.epic, view.status, view.text])
+    return (lanes[0]?.epic ?? epics[0])?.id ?? null
+  }, [data, epics, lanes, view.epic])
 
   const boardBeads = useMemo(
     () => (data && epic ? filterBeads(childrenOf(groups, epic), data.readyIds, view.status, view.text) : []),
     [data, groups, epic, view.status, view.text],
-  )
-
-  const lanes = useMemo(
-    () => (data ? lanesOf(epics, groups, data.readyIds, view.status, view.text) : []),
-    [data, groups, epics, view.status, view.text],
   )
 
   const open = (id: string) => update({ bead: id })
