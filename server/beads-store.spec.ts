@@ -32,10 +32,37 @@ describe('the beads that the page reads', () => {
   it('reads the database in read-only mode and never writes to it', async () => {
     const { run, calls } = fakeBd({ list: ok([{ id: 's-1', title: 'Cart', status: 'open' }]), ready: ok([]) })
     await createStore(run).listBeads(db)
-    expect(calls).toEqual([
-      ['-C', '/home/me/shop', '--readonly', 'list', '--all', '-n', '0', '--json'],
-      ['-C', '/home/me/shop', '--readonly', 'ready', '-n', '0', '--json'],
-    ])
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        ['-C', '/home/me/shop', '--readonly', 'list', '--all', '-n', '0', '--json'],
+        ['-C', '/home/me/shop', '--readonly', 'ready', '-n', '0', '--json'],
+      ]),
+    )
+    expect(calls).toHaveLength(2)
+  })
+
+  it('reads the ready beads at the same time as the list, so the page waits for one bd start only', async () => {
+    let endList = () => {}
+    const started: string[] = []
+    const run: RunAsync = async (_command, args) => {
+      started.push(args[3] ?? '')
+      if (args[3] === 'list') {
+        await new Promise<void>((resolve) => {
+          endList = resolve
+        })
+        return ok([{ id: 's-1', title: 'Cart', status: 'open' }])
+      }
+      return ok([{ id: 's-1', title: 'Cart', status: 'open' }])
+    }
+    const result = createStore(run).listBeads(db)
+    await vi.waitFor(() => expect(started).toEqual(expect.arrayContaining(['list', 'ready'])))
+    endList()
+    expect((await result).readyIds).toEqual(['s-1'])
+  })
+
+  it('reports a store that did not open also when the read of the ready beads fails', async () => {
+    const { run } = fakeBd({ list: ok([]), ready: { status: 1, stdout: '', stderr: 'Error: no database' } })
+    await expect(createStore(run).listBeads(db)).rejects.toThrow(expect.objectContaining({ code: STORE_NOT_OPEN }))
   })
 
   it('reports a store that did not open instead of an empty board', async () => {

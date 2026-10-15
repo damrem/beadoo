@@ -26,6 +26,8 @@ export function createStore(run: RunAsync) {
 
   return {
     async listBeads(db: DatabaseEntry): Promise<BeadList> {
+      const ready = bd(db, ['ready', '-n', '0']) as Promise<Bead[]>
+      ready.catch(() => undefined)
       const beads = (await bd(db, ['list', '--all', '-n', '0'])) as Bead[]
       if (!Array.isArray(beads) || beads.length === 0) {
         throw new StoreError(
@@ -33,8 +35,7 @@ export function createStore(run: RunAsync) {
           `bd list gave no bead for ${db.path}: the store did not open, or the database is empty.`,
         )
       }
-      const ready = (await bd(db, ['ready', '-n', '0'])) as Bead[]
-      return { beads, readyIds: ready.map((bead) => bead.id) }
+      return { beads, readyIds: (await ready).map((bead) => bead.id) }
     },
 
     async showBead(db: DatabaseEntry, id: string): Promise<Bead> {
