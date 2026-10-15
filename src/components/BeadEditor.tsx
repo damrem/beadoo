@@ -149,6 +149,7 @@ export function BeadEditor({
   const [draft, setDraft] = useState(() => editableOf(bead))
   const [closeReason, setCloseReason] = useState('')
   const [noteEntry, setNoteEntry] = useState('')
+  const [picked, setPicked] = useState(() => complexityOf(bead.labels ?? []))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conflict, setConflict] = useState<Conflict | null>(null)
@@ -306,8 +307,9 @@ export function BeadEditor({
               id={id}
               defaultValue={otherLabels(draft.labels).join(', ')}
               onChange={(event) => {
-                const complexity = complexityOf(draft.labels)
-                set('labels', [...words(event.target.value), ...(complexity ? [`complexity:${complexity}`] : [])])
+                const typed = words(event.target.value)
+                const typedComplexity = typed.some((word) => COMPLEXITY.test(word))
+                set('labels', [...typed, ...(picked && !typedComplexity ? [`complexity:${picked}`] : [])])
               }}
             />
           )}
@@ -317,12 +319,13 @@ export function BeadEditor({
             <NativeSelect
               id={id}
               value={complexityOf(draft.labels)}
-              onChange={(event) =>
+              onChange={(event) => {
+                setPicked(event.target.value)
                 set('labels', [
                   ...otherLabels(draft.labels),
                   ...(event.target.value ? [`complexity:${event.target.value}`] : []),
                 ])
-              }
+              }}
             >
               <option value="">none</option>
               {COMPLEXITY_VALUES.map((value) => (

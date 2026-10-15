@@ -114,6 +114,14 @@ describe('the edit of a bead', () => {
     expect(sent[0]!.body.changes.labels).toEqual(['front', 'back', 'complexity:3'])
   })
 
+  it('saves a complexity label that the user types in the labels, once', async () => {
+    open({ labels: ['front'] })
+    await replace('Labels', 'ui complexity:3 back')
+    await save()
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]!.body.changes.labels).toEqual(['ui', 'complexity:3', 'back'])
+  })
+
   it('asks for a reason before it closes the bead, and sends the reason', async () => {
     open()
     await userEvent.selectOptions(field('Status'), 'closed')
