@@ -74,7 +74,7 @@ export function groupByParent(beads: Bead[]): Groups {
 
 export const childrenOf = (groups: Groups, epic: string): Bead[] => groups.get(epic) ?? []
 
-export const byPriorityThenId = (a: Bead, b: Bead): number =>
+const byPriorityThenId = (a: Bead, b: Bead): number =>
   (a.priority ?? 9) - (b.priority ?? 9) || a.id.localeCompare(b.id)
 
 export type EpicEntry = { id: string; title: string; status: string; counts: Record<string, number> }
