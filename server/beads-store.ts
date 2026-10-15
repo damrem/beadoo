@@ -61,14 +61,20 @@ function editCommands(id: string, current: EditableFields, request: EditRequest,
     for (const label of added(current.labels, changes.labels)) flags.push(`--add-label=${label}`)
     for (const label of added(changes.labels, current.labels)) flags.push(`--remove-label=${label}`)
   }
-  const commands: string[][] = flags.length > 0 ? [['update', id, ...flags]] : []
+  const commands: string[][] = []
   if (changes.dependencies) {
-    for (const dep of added(changes.dependencies, current.dependencies)) commands.push(['dep', 'remove', id, dep])
     for (const dep of added(current.dependencies, changes.dependencies)) commands.push(['dep', 'add', id, dep])
+    for (const dep of added(changes.dependencies, current.dependencies)) commands.push(['dep', 'remove', id, dep])
   }
   if (closing) commands.push(['close', id, `--reason=${request.closeReason?.trim() ?? ''}`])
+  if (flags.length > 0) commands.push(['update', id, ...flags])
   return commands
 }
+
+const referencesOf = (current: EditableFields, changes: EditRequest['changes']): string[] => [
+  ...(changes.parent && changes.parent !== current.parent ? [changes.parent] : []),
+  ...(changes.dependencies ? added(current.dependencies, changes.dependencies) : []),
+]
 
 export function createStore(run: RunAsync, { env = process.env, now = () => new Date() }: StoreOptions = {}) {
   const queue = createWriteQueue()
@@ -215,6 +221,16 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
         const current = editableOf(bead)
         const problem = editProblem(request, current)
         if (problem) throw new StoreError(INVALID, problem)
+        const missing: string[] = []
+        for (const reference of referencesOf(current, request.changes)) {
+          await showBead(db, reference).catch((error: unknown) => {
+            if (error instanceof StoreError && error.code === NOT_FOUND) missing.push(reference)
+            else throw error
+          })
+        }
+        if (missing.length > 0) {
+          throw new StoreError(INVALID, `The database has no bead ${missing.join(', ')}, so the page did not change ${id}.`)
+        }
         const commands = editCommands(id, current, request, stampOf(now()))
         let done = 0
         try {

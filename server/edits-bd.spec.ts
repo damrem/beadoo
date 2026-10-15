@@ -103,4 +103,19 @@ describe.skipIf(!hasBd)('an edit from the page in a real bd database', () => {
   it('tells the user when a dependency names a bead that the database does not have', { timeout: 60_000 }, async () => {
     await expect(editNow({ changes: { dependencies: ['t-zzz'] } })).rejects.toThrow(expect.objectContaining({ code: INVALID }))
   })
+
+  it('keeps the old dependency when the user replaces it with a bead that the database does not have', { timeout: 60_000 }, async () => {
+    await editNow({ changes: { dependencies: [other] } })
+    await expect(editNow({ changes: { dependencies: ['t-zzz'] } })).rejects.toThrow(expect.objectContaining({ code: INVALID }))
+    expect(blockersOf(shown(id))).toEqual([other])
+    await editNow({ changes: { dependencies: [] } })
+  })
+
+  it('keeps the title of an epic and leaves it open when bd refuses to close it for an open child', { timeout: 60_000 }, async () => {
+    const delivery = create('Delivery', '-t', 'epic')
+    create('Ship', '--parent', delivery)
+    const request = { version: versionOf(shown(delivery)), changes: { title: 'Delivery v2', status: 'closed' }, closeReason: 'Done' }
+    await expect(store().editBead(db, delivery, request)).rejects.toThrow(/open child/)
+    expect(shown(delivery)).toMatchObject({ title: 'Delivery', status: 'open' })
+  })
 })

@@ -51,6 +51,13 @@ describe('the edit rules of a bead', () => {
     expect(editProblem({ version: '', changes: { status: 'closed' }, closeReason: 'Done' }, editableOf(bead))).toBeNull()
   })
 
+  it('refuses a text with a NUL character, because bd cannot take it', () => {
+    const current = editableOf(bead)
+    expect(editProblem({ version: '', changes: { title: 'Cart\0' } }, current)).toMatch(/NUL/)
+    expect(editProblem({ version: '', changes: { status: 'closed' }, closeReason: 'Done\0' }, current)).toMatch(/NUL/)
+    expect(editProblem({ version: '', changes: {}, noteEntry: 'paused\0' }, current)).toMatch(/NUL/)
+  })
+
   it('refuses a parent that is not a bead id', () => {
     expect(editProblem({ version: '', changes: { parent: '--force' } }, editableOf(bead))).toMatch(/not a bead id/)
   })

@@ -34,7 +34,9 @@ const stored: Bead = {
 
 const version = versionOf(stored)
 
-function fakeTools(answers: Partial<Record<string, RunResult | (() => Promise<RunResult>)>> = {}, bead: Bead = stored) {
+type Answer = RunResult | ((args: readonly string[]) => Promise<RunResult>)
+
+function fakeTools(answers: Partial<Record<string, Answer>> = {}, bead: Bead = stored) {
   const calls: string[][] = []
   const run: RunAsync = async (command, args) => {
     calls.push([command, ...args])
@@ -42,7 +44,7 @@ function fakeTools(answers: Partial<Record<string, RunResult | (() => Promise<Ru
     if (command === 'git') return text(`${EXPORT_FILE}\n`)
     const sub = args.find((arg) => [...WRITES, 'export', 'list', 'show'].includes(arg)) ?? ''
     const answer = answers[sub]
-    if (answer) return typeof answer === 'function' ? answer() : answer
+    if (answer) return typeof answer === 'function' ? answer(args) : answer
     if (sub === 'export') {
       writeFileSync(args[args.indexOf('-o') + 1]!, '{"id":"x"}\n'.repeat(2))
       return text('Exported')
@@ -128,9 +130,29 @@ describe('an edit from the page', () => {
   it('adds and removes the dependencies that the user changed', async () => {
     const { calls } = await edit({ changes: { dependencies: ['s-6'] } })
     expect(writes(calls)).toEqual([
-      ['dep', 'remove', 's-1', 's-5'],
       ['dep', 'add', 's-1', 's-6'],
+      ['dep', 'remove', 's-1', 's-5'],
     ])
+  })
+
+  it('keeps the old dependency and changes nothing when the new dependency names a bead that the database does not have', async () => {
+    const { run, calls } = fakeTools({
+      show: async (args) => (args.includes('s-99') ? failed('Error: no issue found matching "s-99"') : ok([stored])),
+    })
+    await expect(
+      createStore(run, { env: {}, now }).editBead(db, 's-1', { version, changes: { title: 'Basket', dependencies: ['s-99'] } }),
+    ).rejects.toThrow(expect.objectContaining({ code: INVALID, message: expect.stringContaining('s-99') }))
+    expect(writes(calls)).toEqual([])
+  })
+
+  it('changes nothing when the new parent names a bead that the database does not have', async () => {
+    const { run, calls } = fakeTools({
+      show: async (args) => (args.includes('s-98') ? failed('Error: no issue found matching "s-98"') : ok([stored])),
+    })
+    await expect(
+      createStore(run, { env: {}, now }).editBead(db, 's-1', { version, changes: { parent: 's-98', title: 'Basket' } }),
+    ).rejects.toThrow(expect.objectContaining({ code: INVALID, message: expect.stringContaining('s-98') }))
+    expect(writes(calls)).toEqual([])
   })
 
   it('closes the bead with the reason of the user', async () => {
@@ -150,7 +172,7 @@ describe('an edit from the page', () => {
   it('exports the beads once after all the changes of the edit', async () => {
     const { calls } = await edit({ changes: { title: 'Basket', dependencies: [] } })
     const order = calls.filter((call) => call[0] === 'bd').map((call) => call.find((arg) => [...WRITES, 'export'].includes(arg)))
-    expect(order.filter(Boolean)).toEqual(['update', 'dep', 'export'])
+    expect(order.filter(Boolean)).toEqual(['dep', 'update', 'export'])
   })
 
   it('refuses the edit and gives the bead of the database when somebody changed it after the page read it', async () => {
@@ -169,12 +191,27 @@ describe('an edit from the page', () => {
     ).rejects.toThrow(expect.objectContaining({ code: INVALID, message: expect.stringContaining('s-99') }))
   })
 
-  it('says how much of the edit is done, and exports, when a later change fails', async () => {
-    const { run, calls } = fakeTools({ close: failed('cannot close blocked issue: s-1 is blocked by [s-5]') })
+  it('keeps the title, the priority and the notes as they were when bd refuses to close the bead', async () => {
+    const { run, calls } = fakeTools({ close: failed('cannot close s-1: 1 open child issue(s); close children first') })
     const error = await createStore(run, { env: {}, now })
-      .editBead(db, 's-1', { version, changes: { title: 'Basket', status: 'closed' }, closeReason: 'Done' })
+      .editBead(db, 's-1', {
+        version,
+        changes: { title: 'Basket', priority: 0, status: 'closed' },
+        closeReason: 'Done',
+        noteEntry: 'shipped',
+      })
       .catch((caught: Error) => caught)
-    expect((error as Error).message).toMatch(/^The page wrote 1 of 2 changes of the edit, then bd close failed.*blocked by \[s-5\]/)
+    expect((error as Error).message).toMatch(/^bd close failed.*1 open child/)
+    expect(writes(calls)).toEqual([['close', 's-1', '--reason=Done']])
+    expect(calls.some((call) => call.includes('export'))).toBe(false)
+  })
+
+  it('says how much of the edit is done, and exports, when a later change fails', async () => {
+    const { run, calls } = fakeTools({ close: failed('cannot close blocked issue: s-1 is blocked by [s-6]') })
+    const error = await createStore(run, { env: {}, now })
+      .editBead(db, 's-1', { version, changes: { dependencies: ['s-5', 's-6'], status: 'closed' }, closeReason: 'Done' })
+      .catch((caught: Error) => caught)
+    expect((error as Error).message).toMatch(/^The page wrote 1 of 2 changes of the edit, then bd close failed.*blocked by \[s-6\]/)
     expect(calls.some((call) => call.includes('export'))).toBe(true)
   })
 

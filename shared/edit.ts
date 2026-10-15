@@ -108,6 +108,10 @@ export const closes = (current: Pick<EditableFields, 'status'>, changes: Partial
 
 export function editProblem(request: EditRequest, current: EditableFields): string | null {
   const { changes } = request
+  const texts = [...Object.values(changes).flat(), request.closeReason, request.noteEntry]
+  if (texts.some((value) => typeof value === 'string' && value.includes('\0'))) {
+    return 'The edit holds a NUL character, and bd cannot take it.'
+  }
   if (changes.title !== undefined && changes.title.trim() === '') return 'A bead needs a title.'
   if (changes.status !== undefined && !(STATUSES as readonly string[]).includes(changes.status)) {
     return `The status "${changes.status}" is not one of ${STATUSES.join(', ')}.`
