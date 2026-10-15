@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { parseJson, runCheckedAsync } from '../../../lib/process.ts'
+import { checked, parseJson, runCheckedAsync } from '../../../lib/process.ts'
 import type { RunAsync } from '../../../lib/process.ts'
-import { CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN } from '../shared/contract.ts'
+import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN } from '../shared/contract.ts'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry, StoreErrorCode } from '../shared/contract.ts'
 import { createWriteQueue } from './write-queue.ts'
 import type { WriteQueue } from './write-queue.ts'
@@ -14,6 +14,8 @@ export const EXPORT_FILE = '.beads/issues.jsonl'
 const UNKNOWN_ID = /not found|no issues? found/
 
 const HELD_BY_OTHER = /claimed by/
+
+const RECONCILE_LOSS = /auto-export: reconciled [1-9]\d* deleted[^\n]*/
 
 const BEAD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 
@@ -119,9 +121,20 @@ export function createStore(run: RunAsync, { env = process.env, queue = createWr
       await queue(async () => {
         const name = await actor(db)
         const as = name ? ['--actor', name] : []
-        await runCheckedAsync(run, 'bd', ['-C', db.path, ...as, ...CLAIM_ARGS[action](id), '--json'], {
-          timeoutMs: BD_TIMEOUT_MS,
-        }).catch(writeError(id))
+        const args = ['-C', db.path, ...as, ...CLAIM_ARGS[action](id), '--json']
+        const result = await run('bd', args, { timeoutMs: BD_TIMEOUT_MS })
+        const loss = RECONCILE_LOSS.exec(`${result.stderr}\n${result.stdout}`)
+        if (loss) {
+          throw new StoreError(
+            BEADS_DELETED,
+            `bd deleted beads from ${db.path} when it wrote the claim: "${loss[0].trim()}". The page did not export the beads. Restore the deleted beads before the next write.`,
+          )
+        }
+        try {
+          checked(result, 'bd', args)
+        } catch (error) {
+          writeError(id)(error)
+        }
         if (action !== 'renew') await exportAndCheck(db)
       })
       return showBead(db, id)

@@ -28,6 +28,8 @@ export const CONFLICT = 'CONFLICT'
 
 export const EXPORT_MISMATCH = 'EXPORT_MISMATCH'
 
+export const BEADS_DELETED = 'BEADS_DELETED'
+
 export const UNKNOWN_ERROR = 'ERROR'
 
 export type StoreErrorCode =
@@ -36,6 +38,7 @@ export type StoreErrorCode =
   | typeof NOT_FOUND
   | typeof CONFLICT
   | typeof EXPORT_MISMATCH
+  | typeof BEADS_DELETED
 
 export const CLAIM_ACTIONS = ['claim', 'unclaim', 'renew'] as const
 

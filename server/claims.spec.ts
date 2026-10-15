@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RunAsync, RunResult } from '../../../lib/process.ts'
-import { CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN } from '../shared/contract.ts'
+import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN } from '../shared/contract.ts'
 import { createStore, EXPORT_FILE } from './beads-store.ts'
 
 const ok = (value: unknown): RunResult => ({ status: 0, stdout: JSON.stringify(value), stderr: '' })
@@ -116,6 +116,22 @@ describe('a claim from the page', () => {
     await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'unclaim')).rejects.toThrow(
       expect.objectContaining({ code: STORE_NOT_OPEN }),
     )
+  })
+
+  it('reports the beads that bd deleted during the claim, and does not export the smaller database', async () => {
+    const { run, calls } = fakeTools({
+      answers: {
+        update: {
+          status: 0,
+          stdout: '[]',
+          stderr: 'auto-export: reconciled 1 deleted issue(s) ... (deleted from store: s-4)\n',
+        },
+      },
+    })
+    await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')).rejects.toThrow(
+      expect.objectContaining({ code: BEADS_DELETED, message: expect.stringContaining('deleted from store: s-4') }),
+    )
+    expect(bdCalls(calls).some((call) => subOf(call) === 'export')).toBe(false)
   })
 
   it('reports a bead that another actor holds as a conflict', async () => {
