@@ -2,14 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BeadDetail } from '@/components/BeadDetail'
 import { Board } from '@/components/Board'
 import { DatabaseSelector } from '@/components/DatabaseSelector'
+import { EpicLanes } from '@/components/EpicLanes'
 import { EpicSidebar } from '@/components/EpicSidebar'
+import { EpicTable } from '@/components/EpicTable'
 import { FilterBar } from '@/components/FilterBar'
 import { RefreshButton } from '@/components/RefreshButton'
+import { ViewSwitch } from '@/components/ViewSwitch'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
-import { childrenOf, epicsOf, filterBeads, groupByParent, readViewState, writeViewState } from '@/lib/filters'
+import { childrenOf, epicsOf, filterBeads, groupByParent, lanesOf, readViewState, writeViewState } from '@/lib/filters'
 import type { StoredFilters, ViewState } from '@/lib/filters'
 
 export const POLL_MS = 60_000
@@ -46,7 +49,7 @@ export function App() {
 
   useEffect(() => {
     window.history.replaceState(null, '', writeViewState(view))
-    writeStored({ status: view.status, text: view.text })
+    writeStored({ status: view.status, text: view.text, view: view.mode })
   }, [view])
 
   useEffect(() => {
@@ -122,10 +125,18 @@ export function App() {
     [data, groups, epic, view.status, view.text],
   )
 
+  const lanes = useMemo(
+    () => (data ? lanesOf(epics, groups, data.readyIds, view.status, view.text) : []),
+    [data, groups, epics, view.status, view.text],
+  )
+
+  const open = (id: string) => update({ bead: id })
+
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex flex-wrap items-center gap-3 border-b px-4 py-2">
         <h1 className="font-heading text-base font-semibold">Beads</h1>
+        <ViewSwitch mode={view.mode} onMode={(mode) => update({ mode })} />
         <DatabaseSelector
           databases={databases ?? []}
           value={view.db}
@@ -157,13 +168,21 @@ export function App() {
 
       {!selectedDb?.refused && (
         <div className="flex min-h-0 flex-1">
-          {data ? (
+          {data && view.mode === 'epic' ? (
             <>
               <EpicSidebar epics={epics} selected={epic} onSelect={(id) => update({ epic: id })} />
               <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
-                <Board beads={boardBeads} onOpen={(id) => update({ bead: id })} />
+                <Board beads={boardBeads} onOpen={open} />
               </main>
             </>
+          ) : data ? (
+            <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
+              {view.mode === 'lanes' ? (
+                <EpicLanes lanes={lanes} onOpen={open} />
+              ) : (
+                <EpicTable lanes={lanes} onOpen={open} />
+              )}
+            </main>
           ) : (
             !error && <Skeleton aria-label="Loading the beads" className="m-4 h-64 flex-1" />
           )}
@@ -176,7 +195,7 @@ export function App() {
           id={view.bead}
           actor={actor}
           onClose={() => update({ bead: null })}
-          onOpen={(id) => update({ bead: id })}
+          onOpen={open}
           onWritten={refresh}
         />
       )}

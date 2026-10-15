@@ -1,0 +1,63 @@
+import { NoMatch } from '@/components/EpicLanes'
+import { StatusBar } from '@/components/StatusBar'
+import { countLabel, NO_EPIC, statusTitle } from '@/lib/filters'
+import type { Lane } from '@/lib/filters'
+
+const COLUMNS = 6
+
+export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: string) => void }) {
+  if (lanes.length === 0) return <NoMatch />
+  return (
+    <div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-card">
+      <table aria-label="Beads by epic" className="w-full border-collapse text-sm">
+        <thead className="sticky top-0 z-10 bg-card text-left text-xs text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 font-medium">Id</th>
+            <th className="px-3 py-2 font-medium">Title</th>
+            <th className="px-3 py-2 font-medium">Status</th>
+            <th className="px-3 py-2 font-medium">Priority</th>
+            <th className="px-3 py-2 font-medium">Assignee</th>
+            <th className="px-3 py-2 font-medium">Labels</th>
+          </tr>
+        </thead>
+        {lanes.map((lane) => (
+          <tbody key={lane.epic.id} aria-label={lane.epic.title}>
+            <tr className="bg-muted">
+              <th colSpan={COLUMNS} scope="rowgroup" className="px-3 py-2 text-left font-normal">
+                <div className="flex flex-wrap items-center gap-3">
+                  {lane.epic.id !== NO_EPIC && (
+                    <span className="font-mono text-xs text-muted-foreground">{lane.epic.id}</span>
+                  )}
+                  <span className="font-semibold">{lane.epic.title}</span>
+                  <span className="ml-auto flex items-center gap-3">
+                    <StatusBar title={lane.epic.title} counts={lane.epic.counts} />
+                    <span className="text-xs text-muted-foreground">{countLabel(lane.epic.counts)}</span>
+                  </span>
+                </div>
+              </th>
+            </tr>
+            {lane.beads.map((bead) => (
+              <tr key={bead.id} className="border-t hover:bg-accent">
+                <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{bead.id}</td>
+                <td className="px-3 py-2">
+                  <button
+                    type="button"
+                    aria-label={`${bead.id} ${bead.title}`}
+                    onClick={() => onOpen(bead.id)}
+                    className="text-left hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 rounded-sm"
+                  >
+                    {bead.title}
+                  </button>
+                </td>
+                <td className="px-3 py-2">{statusTitle(bead.status)}</td>
+                <td className="px-3 py-2 font-mono text-xs">{bead.priority !== undefined ? `P${bead.priority}` : ''}</td>
+                <td className="px-3 py-2 text-xs text-muted-foreground">{bead.assignee ?? ''}</td>
+                <td className="px-3 py-2 text-xs text-muted-foreground">{bead.labels?.join(' ') ?? ''}</td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </div>
+  )
+}

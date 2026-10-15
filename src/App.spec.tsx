@@ -193,6 +193,120 @@ describe('the beads page', () => {
     expect(JSON.parse(window.localStorage.getItem('beads-page:filters') ?? '{}')).toMatchObject({ status: 'closed' })
   })
 
+  describe('the views of the beads', () => {
+    const cardNames = (scope: HTMLElement) =>
+      within(scope)
+        .queryAllByRole('button', { name: /^t-\d+ / })
+        .map((button) => button.getAttribute('aria-label'))
+        .sort()
+
+    const shownIn = async (view: string) => {
+      await userEvent.click(screen.getByRole('button', { name: view }))
+      return cardNames(screen.getByRole('main'))
+    }
+
+    const shownInEpicBoards = async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Epic board' }))
+      const epics = screen.getByRole('navigation', { name: 'Epics' })
+      const names: (string | null)[] = []
+      for (const epic of within(epics).getAllByRole('button')) {
+        await userEvent.click(epic)
+        names.push(...cardNames(screen.getByRole('main')))
+      }
+      return names.sort()
+    }
+
+    it('shows the same ready beads in the lanes, the table and the epic boards', async () => {
+      render(<App />)
+      await screen.findByText('Cart total')
+      const expected = ['t-1 Cart total', 't-4 Fix the logo']
+      expect(await shownIn('Lanes')).toEqual(expected)
+      expect(await shownIn('Table')).toEqual(expected)
+      expect(await shownInEpicBoards()).toEqual(expected)
+    })
+
+    it('shows the same beads in the three views when the user changes the filters', async () => {
+      render(<App />)
+      await screen.findByText('Cart total')
+      await userEvent.click(screen.getByRole('button', { name: 'All' }))
+      await userEvent.type(screen.getByRole('textbox', { name: 'Find in the titles' }), 'r')
+      const expected = ['t-1 Cart total', 't-3 Receipt mail']
+      expect(await shownIn('Lanes')).toEqual(expected)
+      expect(await shownIn('Table')).toEqual(expected)
+      expect(await shownInEpicBoards()).toEqual(expected)
+    })
+
+    it('shows one lane for each epic and one column for each status in the lanes view', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&status=all&view=lanes')
+      render(<App />)
+      const checkout = await screen.findByRole('region', { name: 'Checkout' })
+      expect(within(checkout).getByText('3 beads')).toBeInTheDocument()
+      expect(within(within(checkout).getByRole('group', { name: 'Checkout: Open' })).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['t-2 Pay button', 't-1 Cart total'])
+      expect(within(checkout).getByRole('group', { name: 'Checkout: Closed' })).toHaveTextContent('Receipt mail')
+      expect(within(screen.getByRole('region', { name: 'No epic' })).getByRole('group', { name: 'No epic: Open' })).toHaveTextContent('Fix the logo')
+      expect(screen.queryByRole('navigation', { name: 'Epics' })).not.toBeInTheDocument()
+    })
+
+    it('shows a table grouped by epic, with a status bar that counts the children of each epic', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&view=table')
+      render(<App />)
+      const checkout = await screen.findByRole('rowgroup', { name: 'Checkout' })
+      expect(within(checkout).getByRole('img', { name: 'Checkout: 2 open · 1 closed' })).toBeInTheDocument()
+      expect(within(checkout).getByRole('button', { name: 't-1 Cart total' })).toBeInTheDocument()
+      expect(within(checkout).queryByText('Pay button')).not.toBeInTheDocument()
+      const noEpic = screen.getByRole('rowgroup', { name: 'No epic' })
+      expect(within(noEpic).getByRole('img', { name: 'No epic: 1 open' })).toBeInTheDocument()
+      expect(within(noEpic).getByRole('button', { name: 't-4 Fix the logo' })).toBeInTheDocument()
+    })
+
+    it('leaves out of the lanes and of the table an epic with no bead that matches the filters', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&view=table&q=logo')
+      render(<App />)
+      expect(await screen.findByRole('rowgroup', { name: 'No epic' })).toBeInTheDocument()
+      expect(screen.queryByRole('rowgroup', { name: 'Checkout' })).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Lanes' }))
+      expect(screen.getByRole('region', { name: 'No epic' })).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Checkout' })).not.toBeInTheDocument()
+    })
+
+    it('tells the user when no bead matches the filters', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&view=lanes&q=nothing-like-this')
+      render(<App />)
+      expect(await screen.findByText('No bead matches the filters.')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Table' }))
+      expect(screen.getByText('No bead matches the filters.')).toBeInTheDocument()
+    })
+
+    it('opens the detail of a bead from a lane card and from a table row', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&view=lanes')
+      render(<App />)
+      await userEvent.click(await screen.findByRole('button', { name: 't-1 Cart total' }))
+      expect(await within(await screen.findByRole('dialog')).findByText('Show the total of the cart.')).toBeInTheDocument()
+      await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      await userEvent.click(screen.getByRole('button', { name: 'Table' }))
+      await userEvent.click(within(screen.getByRole('table', { name: 'Beads by epic' })).getByRole('button', { name: 't-1 Cart total' }))
+      expect(await within(await screen.findByRole('dialog')).findByText('Show the total of the cart.')).toBeInTheDocument()
+      expect(window.location.search).toContain('bead=t-1')
+    })
+
+    it('keeps the view in the link and for the next visit', async () => {
+      render(<App />)
+      await screen.findByText('Cart total')
+      expect(window.location.search).toContain('view=epic')
+      await userEvent.click(screen.getByRole('button', { name: 'Table' }))
+      expect(window.location.search).toContain('view=table')
+      expect(JSON.parse(window.localStorage.getItem('beads-page:filters') ?? '{}')).toMatchObject({ view: 'table' })
+    })
+
+    it('opens the view of the last visit when the link names no view', async () => {
+      window.localStorage.setItem('beads-page:filters', JSON.stringify({ view: 'lanes' }))
+      render(<App />)
+      expect(await screen.findByRole('region', { name: 'Checkout' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Lanes' })).toHaveAttribute('aria-pressed', 'true')
+    })
+  })
+
   describe('the claim lease', () => {
     const now = new Date(2026, 9, 14, 23, 50)
     const claimed = {
