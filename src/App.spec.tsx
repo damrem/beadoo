@@ -60,6 +60,19 @@ afterEach(() => {
 
 const column = (name: string) => screen.getByRole('region', { name })
 
+const withPageToken = () => {
+  beforeEach(() => {
+    const meta = document.createElement('meta')
+    meta.name = 'beads-token'
+    meta.content = 'page-token'
+    document.head.append(meta)
+  })
+
+  afterEach(() => {
+    document.head.querySelector('meta[name="beads-token"]')?.remove()
+  })
+}
+
 describe('the beads page', () => {
   it('shows the ready beads of the epic when the page opens', async () => {
     render(<App />)
@@ -377,15 +390,9 @@ describe('the beads page', () => {
       vi.useFakeTimers({ shouldAdvanceTime: true })
       vi.setSystemTime(new Date(2026, 9, 15, 10, 2))
       answers['/api/actor?db=.claude'] = json({ actor: 'Ann' })
-      const meta = document.createElement('meta')
-      meta.name = 'beads-token'
-      meta.content = 'page-token'
-      document.head.append(meta)
     })
 
-    afterEach(() => {
-      document.head.querySelector('meta[name="beads-token"]')?.remove()
-    })
+    withPageToken()
 
     const openDetail = async (search: string) => {
       window.history.replaceState(null, '', search)
@@ -545,15 +552,9 @@ describe('the beads page', () => {
       })
       answers['/api/beads?db=remote'] = down
       answers['/api/beads?db=local-server'] = down
-      const meta = document.createElement('meta')
-      meta.name = 'beads-token'
-      meta.content = 'page-token'
-      document.head.append(meta)
     })
 
-    afterEach(() => {
-      document.head.querySelector('meta[name="beads-token"]')?.remove()
-    })
+    withPageToken()
 
     it('shows that the database does not answer, and opens it after the user starts its tunnel', async () => {
       window.history.replaceState(null, '', '/?db=remote&status=all')
