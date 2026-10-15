@@ -134,7 +134,38 @@ describe('the tunnels of the Dolt server databases', () => {
     const target = Object.assign(new EventEmitter(), { exit: vi.fn() })
     stopTunnelsOnExit(tunnels, target, () => undefined)
     target.emit(signal)
+    await vi.waitFor(() => expect(target.exit).toHaveBeenCalledWith(0))
     expect(fake.stopped).toEqual([['pkill', '-f', 'db-host']])
+  })
+
+  it('stops a tunnel whose start still runs when the server gets a signal, and exits after that', async () => {
+    const fake = fakeLaunch()
+    let open = () => {}
+    const launch: Launch = (command, args, timeoutMs) =>
+      new Promise((resolve) => {
+        open = () => resolve(fake.launch(command, args, timeoutMs))
+      })
+    const tunnels = createTunnels(launch, fake.launchSync)
+    const start = tunnels.start(remote)
+    const target = Object.assign(new EventEmitter(), { exit: vi.fn() })
+    stopTunnelsOnExit(tunnels, target, () => undefined)
+    target.emit('SIGINT')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(target.exit).not.toHaveBeenCalled()
+    open()
+    await start
+    await vi.waitFor(() => expect(target.exit).toHaveBeenCalledWith(0))
+    expect(fake.stopped).toEqual([['pkill', '-f', 'db-host']])
+  })
+
+  it('stops the tunnels and exits at once when the server gets a second signal during a start', async () => {
+    const fake = fakeLaunch()
+    const tunnels = createTunnels(() => new Promise(() => {}), fake.launchSync)
+    void tunnels.start(remote)
+    const target = Object.assign(new EventEmitter(), { exit: vi.fn() })
+    stopTunnelsOnExit(tunnels, target, () => undefined)
+    target.emit('SIGINT')
+    target.emit('SIGINT')
     expect(target.exit).toHaveBeenCalledWith(0)
   })
 

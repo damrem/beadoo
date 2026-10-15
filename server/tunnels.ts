@@ -94,6 +94,10 @@ export function createTunnels(launch: Launch = realLaunch, launchSync: LaunchSyn
       return task
     },
 
+    async settled(): Promise<void> {
+      await Promise.allSettled([...pending.values()])
+    },
+
     stopAll(): string[] {
       const problems: string[] = []
       for (const [name, tunnel] of started) {
@@ -121,11 +125,17 @@ export function stopTunnelsOnExit(tunnels: Tunnels, target: ExitTarget, report: 
   const stop = () => {
     for (const problem of tunnels.stopAll()) report(problem)
   }
+  const stopAndExit = () => {
+    stop()
+    target.exit(0)
+  }
+  let stopping = false
   target.on('exit', stop)
   for (const signal of EXIT_SIGNALS) {
     target.on(signal, () => {
-      stop()
-      target.exit(0)
+      if (stopping) return stopAndExit()
+      stopping = true
+      void tunnels.settled().then(stopAndExit)
     })
   }
 }
