@@ -18,7 +18,7 @@ const CLAIM_CONFLICT = /claimed by|not claimable|is not assigned/
 
 const NOT_A_REPO = /not a git repository/
 
-const SERVER_DOWN = /Dolt server unreachable[^\n]*/
+const SERVER_DOWN = /dolt server unreachable[^\n]*/i
 
 const RECONCILE_LOSS = /auto-export: reconciled [1-9]\d* deleted[^\n]*/
 

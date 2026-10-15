@@ -92,6 +92,21 @@ describe('the beads that the page reads', () => {
     )
   })
 
+  it('tells the user that the database on a Dolt server does not answer, also when bd writes the cause in lower case', async () => {
+    const down = {
+      status: 1,
+      stdout: '',
+      stderr: 'Error: dolt server unreachable at 127.0.0.1:3307 (is dolt sql-server running?): connection refused',
+    }
+    const { run } = fakeBd({ list: down, ready: down })
+    await expect(createStore(run).listBeads(db)).rejects.toThrow(
+      expect.objectContaining({
+        code: UNREACHABLE,
+        message: expect.stringContaining('does not answer: dolt server unreachable at 127.0.0.1:3307 (is dolt sql-server running?)'),
+      }),
+    )
+  })
+
   it('reports the error that bd prints when the database path is wrong', async () => {
     const { run } = fakeBd({ list: { status: 1, stdout: '', stderr: 'Error: cannot use -C directory' } })
     await expect(createStore(run).listBeads(db)).rejects.toThrow('cannot use -C directory')
