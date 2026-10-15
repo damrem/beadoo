@@ -4,7 +4,7 @@ import { checked, parseJson, runCheckedAsync, withoutWarnings } from '../../../l
 import type { RunAsync } from '../../../lib/process.ts'
 import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN } from '../shared/contract.ts'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry, StoreErrorCode } from '../shared/contract.ts'
-import { editableOf, editProblem, stampOf, versionOf, withEntry } from '../shared/edit.ts'
+import { editableOf, editProblem, ID, stampOf, versionOf, withEntry } from '../shared/edit.ts'
 import type { EditableFields, EditRequest } from '../shared/edit.ts'
 import { createWriteQueue } from './write-queue.ts'
 
@@ -19,8 +19,6 @@ const CLAIM_CONFLICT = /claimed by|not claimable|is not assigned/
 const NOT_A_REPO = /not a git repository/
 
 const RECONCILE_LOSS = /auto-export: reconciled [1-9]\d* deleted[^\n]*/
-
-const BEAD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 
 const CLAIM_ARGS: Record<ClaimAction, (id: string) => string[]> = {
   claim: (id) => ['update', id, '--claim'],
@@ -44,7 +42,7 @@ export type StoreOptions = { env?: Env; now?: () => Date }
 
 const added = (from: string[], to: string[]) => to.filter((value) => !from.includes(value))
 
-export function editCommands(id: string, current: EditableFields, request: EditRequest, stamp: string): string[][] {
+function editCommands(id: string, current: EditableFields, request: EditRequest, stamp: string): string[][] {
   const { changes } = request
   const flags: string[] = []
   const text = (flag: string, value: string | undefined, now: string) => {
@@ -167,7 +165,7 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
   }
 
   const showBead = async (db: DatabaseEntry, id: string): Promise<Bead> => {
-    if (!BEAD_ID.test(id)) throw notFound(id)
+    if (!ID.test(id)) throw notFound(id)
     const shown = await bd(db, ['show', id]).catch((error: unknown) => {
       if (!(error instanceof StoreError) && error instanceof Error && UNKNOWN_ID.test(error.message)) throw notFound(id)
       throw error
@@ -194,7 +192,7 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
 
     async writeClaim(db: DatabaseEntry, id: string, action: ClaimAction): Promise<Bead> {
       usable(db)
-      if (!BEAD_ID.test(id)) throw notFound(id)
+      if (!ID.test(id)) throw notFound(id)
       await queue(async () => {
         await writeBd(db, CLAIM_ARGS[action](id), 'the claim', writeError(id))
         if (action !== 'renew') await exportAndCheck(db)
@@ -204,7 +202,7 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
 
     async editBead(db: DatabaseEntry, id: string, request: EditRequest): Promise<Bead> {
       usable(db)
-      if (!BEAD_ID.test(id)) throw notFound(id)
+      if (!ID.test(id)) throw notFound(id)
       await queue(async () => {
         const bead = await showBead(db, id)
         if (versionOf(bead) !== request.version) {

@@ -12,7 +12,7 @@ export const COMPLEXITY_VALUES = ['0', '1', '2', '3', '4'] as const
 
 const LABEL = /^[^\s,]+$/
 
-const ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+export const ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 
 export type EditableFields = {
   title: string
