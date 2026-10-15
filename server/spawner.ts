@@ -12,7 +12,7 @@ import type { SpawnedSession } from '../shared/spawn.ts'
 import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
 
-export const ORCA_TIMEOUT_MS = 120_000
+const ORCA_TIMEOUT_MS = 120_000
 
 export const realSpawnIo = (): Io => {
   const base = realBaseIo()
