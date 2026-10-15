@@ -259,6 +259,16 @@ describe('the beads page', () => {
       expect(within(noEpic).getByRole('button', { name: 't-4 Fix the logo' })).toBeInTheDocument()
     })
 
+    it('shows the title row of each epic across all the columns of the table', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&view=table')
+      render(<App />)
+      const table = await screen.findByRole('table', { name: 'Beads by epic' })
+      const columns = within(table).getAllByRole('columnheader').length
+      for (const group of within(table).getAllByRole('rowgroup', { name: /./ })) {
+        expect(within(group).getByRole('rowheader')).toHaveAttribute('colspan', String(columns))
+      }
+    })
+
     it('leaves out of the lanes and of the table an epic with no bead that matches the filters', async () => {
       window.history.replaceState(null, '', '/?db=.claude&view=table&q=logo')
       render(<App />)

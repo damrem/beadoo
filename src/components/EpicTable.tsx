@@ -3,7 +3,7 @@ import { StatusBar } from '@/components/StatusBar'
 import { countLabel, NO_EPIC, statusTitle } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
 
-const COLUMNS = 6
+const HEADINGS = ['Id', 'Title', 'Status', 'Priority', 'Assignee', 'Labels']
 
 export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: string) => void }) {
   if (lanes.length === 0) return <NoMatch />
@@ -12,18 +12,17 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
       <table aria-label="Beads by epic" className="w-full border-collapse text-sm">
         <thead className="sticky top-0 z-10 bg-card text-left text-xs text-muted-foreground">
           <tr>
-            <th className="px-3 py-2 font-medium">Id</th>
-            <th className="px-3 py-2 font-medium">Title</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-            <th className="px-3 py-2 font-medium">Priority</th>
-            <th className="px-3 py-2 font-medium">Assignee</th>
-            <th className="px-3 py-2 font-medium">Labels</th>
+            {HEADINGS.map((heading) => (
+              <th key={heading} className="px-3 py-2 font-medium">
+                {heading}
+              </th>
+            ))}
           </tr>
         </thead>
         {lanes.map((lane) => (
           <tbody key={lane.epic.id} aria-label={lane.epic.title}>
             <tr className="bg-muted">
-              <th colSpan={COLUMNS} scope="rowgroup" className="px-3 py-2 text-left font-normal">
+              <th colSpan={HEADINGS.length} scope="rowgroup" className="px-3 py-2 text-left font-normal">
                 <div className="flex flex-wrap items-center gap-3">
                   {lane.epic.id !== NO_EPIC && (
                     <span className="font-mono text-xs text-muted-foreground">{lane.epic.id}</span>
