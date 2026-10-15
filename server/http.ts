@@ -54,6 +54,13 @@ const decoded = (text: string): string | null => {
   }
 }
 
+const claimRoute = (pathname: string): { id: string; action: ClaimAction } | null => {
+  const match = CLAIM_ROUTE.exec(pathname)
+  const id = match?.[1] ? decoded(match[1]) : null
+  const action = match?.[2]
+  return id !== null && isClaimAction(action) ? { id, action } : null
+}
+
 async function serveFile(res: ServerResponse, deps: AppDeps, pathname: string) {
   const path = decoded(pathname)
   if (path === null) {
@@ -91,8 +98,8 @@ export function createHandler(deps: AppDeps) {
       sendJson(res, 403, { error: 'Forbidden: the request needs the page origin and the page token' })
       return
     }
-    const claim = write && req.method === 'POST' ? CLAIM_ROUTE.exec(url.pathname) : null
-    if (write && !(claim && isClaimAction(claim[2]))) {
+    const claim = write && req.method === 'POST' ? claimRoute(url.pathname) : null
+    if (write && !claim) {
       sendJson(res, 404, { error: 'Not found' })
       return
     }
@@ -114,8 +121,8 @@ export function createHandler(deps: AppDeps) {
         sendJson(res, 404, { error: `No database is named "${name ?? ''}" in beads-page.json` })
         return
       }
-      if (claim?.[1] && isClaimAction(claim[2])) {
-        sendJson(res, 200, await deps.store.writeClaim(db, decodeURIComponent(claim[1]), claim[2]))
+      if (claim) {
+        sendJson(res, 200, await deps.store.writeClaim(db, claim.id, claim.action))
         return
       }
       if (url.pathname === '/api/actor') {
@@ -127,8 +134,9 @@ export function createHandler(deps: AppDeps) {
         return
       }
       const match = /^\/api\/beads\/([^/]+)$/.exec(url.pathname)
-      if (match?.[1]) {
-        sendJson(res, 200, await deps.store.showBead(db, decodeURIComponent(match[1])))
+      const id = match?.[1] ? decoded(match[1]) : null
+      if (id !== null) {
+        sendJson(res, 200, await deps.store.showBead(db, id))
         return
       }
       sendJson(res, 404, { error: 'Not found' })

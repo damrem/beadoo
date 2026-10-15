@@ -108,6 +108,10 @@ describe('the page server', () => {
     expect(body).toMatchObject({ id: 's-1', title: 'Cart' })
   })
 
+  it('answers not found to the detail of a bead whose id has a broken escape', async () => {
+    expect((await fetch(`${base}/api/beads/%E0?db=shop`)).status).toBe(404)
+  })
+
   it('tells the user that the database has no bead with this id', async () => {
     const response = await fetch(`${base}/api/beads/s-9?db=shop`)
     expect(response.status).toBe(404)
@@ -167,6 +171,12 @@ describe('the page server', () => {
     it('refuses to write to a database on the Windows mount', async () => {
       const response = await post('/api/beads/s-1/claim?db=win')
       expect(response.status).toBe(503)
+      expect(writes).toEqual([])
+    })
+
+    it('answers not found to a claim of a bead whose id has a broken escape, and writes nothing', async () => {
+      const response = await post('/api/beads/%E0/claim?db=shop')
+      expect(response.status).toBe(404)
       expect(writes).toEqual([])
     })
 
