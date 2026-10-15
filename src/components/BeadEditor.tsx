@@ -136,11 +136,13 @@ export function BeadEditor({
   db,
   bead,
   onSaved,
+  onPartlySaved,
   onCancel,
 }: {
   db: string
   bead: Bead
   onSaved: (bead: Bead) => void
+  onPartlySaved: (bead: Bead) => void
   onCancel: () => void
 }) {
   const [base, setBase] = useState(bead)
@@ -175,7 +177,17 @@ export function BeadEditor({
     try {
       onSaved(await api.edit(db, from.id, request))
     } catch (reason) {
-      const theirs = reason instanceof ApiError && reason.code === STALE ? reason.bead : undefined
+      const latest = reason instanceof ApiError ? reason.bead : undefined
+      if (latest && (reason as ApiError).code !== STALE) {
+        const notes = editableOf(latest).notes
+        if (notes !== before.notes) {
+          setNoteEntry('')
+          setDraft((current) => ({ ...current, notes }))
+        }
+        setBase(latest)
+        onPartlySaved(latest)
+      }
+      const theirs = (reason as ApiError).code === STALE ? latest : undefined
       if (!theirs) {
         setError((reason as Error).message)
         return

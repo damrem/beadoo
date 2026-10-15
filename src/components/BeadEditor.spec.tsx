@@ -55,9 +55,18 @@ afterEach(() => {
 
 const open = (overrides: Partial<Bead> = {}) => {
   const onSaved = vi.fn()
+  const onPartlySaved = vi.fn()
   const onCancel = vi.fn()
-  render(<BeadEditor db=".claude" bead={{ ...bead, ...overrides }} onSaved={onSaved} onCancel={onCancel} />)
-  return { onSaved, onCancel }
+  render(
+    <BeadEditor
+      db=".claude"
+      bead={{ ...bead, ...overrides }}
+      onSaved={onSaved}
+      onPartlySaved={onPartlySaved}
+      onCancel={onCancel}
+    />,
+  )
+  return { onSaved, onPartlySaved, onCancel }
 }
 
 const field = (name: string) => screen.getByLabelText(name)
@@ -146,6 +155,44 @@ describe('the edit of a bead', () => {
     await replace('Title', 'Basket total')
     await save()
     expect(await screen.findByText('A bead takes one complexity label only.')).toBeInTheDocument()
+  })
+
+  describe('when the server wrote a part of the edit, then failed', () => {
+    const written: Bead = {
+      ...bead,
+      notes: '2026-10-14 10:00 started\n2026-10-15 12:30 paused for the review',
+      updated_at: '2026-10-15T12:30:00Z',
+      revision: '42',
+    }
+
+    const partial = {
+      status: 500,
+      body: { error: 'The page wrote 1 of 2 changes of the edit, then bd dep add failed', code: 'PARTIAL_WRITE', bead: written },
+    }
+
+    it('shows the fields that the server wrote in the detail and on the board', async () => {
+      answers = [partial]
+      const { onPartlySaved, onSaved } = open()
+      await userEvent.type(field('New note entry'), 'paused for the review')
+      await replace('Dependencies', 't-2, t-9')
+      await save()
+      expect(await screen.findByText(/wrote 1 of 2 changes/)).toBeInTheDocument()
+      expect(onPartlySaved).toHaveBeenCalledWith(written)
+      expect(onSaved).not.toHaveBeenCalled()
+    })
+
+    it('does not add the note entry a second time when the user saves again', async () => {
+      answers = [partial]
+      open()
+      await userEvent.type(field('New note entry'), 'paused for the review')
+      await replace('Dependencies', 't-2, t-9')
+      await save()
+      await screen.findByText(/wrote 1 of 2 changes/)
+      expect(field('New note entry')).toHaveValue('')
+      await save()
+      await waitFor(() => expect(sent).toHaveLength(2))
+      expect(sent[1]!.body).toEqual({ version: '2026-10-15T12:30:00Z|42', changes: { dependencies: ['t-2', 't-9'] } })
+    })
   })
 
   describe('when somebody changed the bead after the page read it', () => {

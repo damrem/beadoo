@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { checked, parseJson, runCheckedAsync, withoutWarnings } from '../../../lib/process.ts'
 import type { RunAsync } from '../../../lib/process.ts'
-import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN } from '../shared/contract.ts'
+import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, INVALID, NOT_FOUND, PARTIAL_WRITE, REFUSED, STALE, STORE_NOT_OPEN } from '../shared/contract.ts'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry, StoreErrorCode } from '../shared/contract.ts'
 import { closes, editableOf, editProblem, ID, stampOf, versionOf, withEntry } from '../shared/edit.ts'
 import type { EditableFields, EditRequest } from '../shared/edit.ts'
@@ -35,6 +35,8 @@ export class StoreError extends Error {
     this.bead = bead
   }
 }
+
+class UnfinishedWrite extends Error {}
 
 type Env = Record<string, string | undefined>
 
@@ -128,6 +130,7 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
     try {
       checked(result, 'bd', command)
     } catch (error) {
+      if (result.status === null) throw new UnfinishedWrite((error as Error).message)
       onError(error)
     }
   }
@@ -171,6 +174,8 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
       )
     }
   }
+
+  const latest = (db: DatabaseEntry, id: string): Promise<Bead | undefined> => showBead(db, id).catch(() => undefined)
 
   const showBead = async (db: DatabaseEntry, id: string): Promise<Bead> => {
     if (!ID.test(id)) throw notFound(id)
@@ -241,14 +246,26 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
             done += 1
           }
         } catch (error) {
-          if (done === 0 || (error instanceof StoreError && error.code === BEADS_DELETED)) throw error
-          const message = `The page wrote ${done} of ${commands.length} changes of the edit, then ${(error as Error).message}`
-          await exportAndCheck(db).catch((exportError: Error) => {
-            throw new Error(`${message}\n${exportError.message}`)
-          })
-          throw new Error(message)
+          const cause = (error as Error).message
+          if (error instanceof StoreError && error.code === BEADS_DELETED) {
+            throw new StoreError(BEADS_DELETED, cause, await latest(db, id))
+          }
+          if (done === 0 && !(error instanceof UnfinishedWrite)) throw error
+          const message =
+            done > 0
+              ? `The page wrote ${done} of ${commands.length} changes of the edit, then ${cause}`
+              : `bd did not finish the first change of the edit, so the page cannot tell whether bd wrote it: ${cause}`
+          const exported = await exportAndCheck(db).then(
+            () => '',
+            (exportError: Error) => `\n${exportError.message}`,
+          )
+          throw new StoreError(PARTIAL_WRITE, `${message}${exported}`, await latest(db, id))
         }
-        if (commands.length > 0) await exportAndCheck(db)
+        if (commands.length > 0) {
+          await exportAndCheck(db).catch(async (error: Error) => {
+            throw new StoreError(error instanceof StoreError ? error.code : PARTIAL_WRITE, error.message, await latest(db, id))
+          })
+        }
       })
       return showBead(db, id)
     },

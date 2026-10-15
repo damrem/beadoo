@@ -37,6 +37,8 @@ export const STALE = 'STALE'
 
 export const INVALID = 'INVALID'
 
+export const PARTIAL_WRITE = 'PARTIAL_WRITE'
+
 export const UNKNOWN_ERROR = 'ERROR'
 
 export type StoreErrorCode =
@@ -48,6 +50,7 @@ export type StoreErrorCode =
   | typeof BEADS_DELETED
   | typeof STALE
   | typeof INVALID
+  | typeof PARTIAL_WRITE
 
 export const CLAIM_ACTIONS = ['claim', 'unclaim', 'renew'] as const
 

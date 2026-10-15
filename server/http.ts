@@ -183,7 +183,7 @@ export function createHandler(deps: AppDeps) {
       sendJson(res, 404, { error: 'Not found' })
     } catch (error) {
       const code = error instanceof StoreError ? error.code : UNKNOWN_ERROR
-      const bead = error instanceof StoreError && error.code === STALE ? { bead: error.bead } : {}
+      const bead = error instanceof StoreError && error.bead ? { bead: error.bead } : {}
       sendJson(res, statusOf(error), { error: (error as Error).message, code, ...bead })
     }
   }

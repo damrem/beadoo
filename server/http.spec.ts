@@ -34,6 +34,10 @@ beforeEach(async () => {
     async (command, args) => {
       if (command === 'git' && args.includes('config')) return { status: 0, stdout: 'Ann\n', stderr: '' }
       if (command === 'git') return { status: 0, stdout: '', stderr: '' }
+      if (args[4] === 'dep') {
+        writes.push(args.slice(2))
+        return ok({})
+      }
       if (args[4] === 'update' || args[4] === 'unclaim' || args[4] === 'heartbeat') {
         writes.push(args.slice(2))
         if (args[5] === 's-7') return { status: 1, stdout: '', stderr: 'Error updating s-7: issue already claimed by Bob' }
@@ -253,6 +257,17 @@ describe('the page server', () => {
       const response = await send(JSON.stringify({ version: '|', changes: { notes: 'x'.repeat(MAX_BODY_BYTES) } }))
       expect(response.status).toBe(413)
       expect(writes).toEqual([])
+    })
+
+    it('answers with the bead of the database when the server wrote a part of the edit, then failed', async () => {
+      const response = await fetch(`${base}/api/beads/s-7/edit?db=shop`, {
+        method: 'POST',
+        headers: { origin: base, 'x-beads-token': token, 'content-type': 'application/json' },
+        body: JSON.stringify({ version: '|', changes: { title: 'Basket', dependencies: ['s-2'] } }),
+      })
+      expect(response.status).toBe(500)
+      expect(await response.json()).toMatchObject({ code: 'PARTIAL_WRITE', bead: { id: 's-7' } })
+      expect(writes.map((write) => write[2])).toEqual(['dep', 'update'])
     })
 
     it('answers a conflict with the bead of the database when somebody changed it after the page read it', async () => {

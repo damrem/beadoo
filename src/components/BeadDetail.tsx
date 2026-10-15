@@ -127,6 +127,10 @@ export function BeadDetail({
                 setEditing(false)
                 onWritten()
               }}
+              onPartlySaved={(written) => {
+                setLoad((current) => (current?.id === written.id ? { id: written.id, bead: written } : current))
+                onWritten()
+              }}
             />
           )}
           {bead && !editing && (

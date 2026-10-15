@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RunAsync, RunResult } from '../../../lib/process.ts'
-import { BEADS_DELETED, INVALID, NOT_FOUND, REFUSED, STALE } from '../shared/contract.ts'
+import { BEADS_DELETED, INVALID, NOT_FOUND, PARTIAL_WRITE, REFUSED, STALE } from '../shared/contract.ts'
 import type { Bead } from '../shared/contract.ts'
 import { versionOf } from '../shared/edit.ts'
 import type { EditRequest } from '../shared/edit.ts'
@@ -213,6 +213,31 @@ describe('an edit from the page', () => {
       .catch((caught: Error) => caught)
     expect((error as Error).message).toMatch(/^The page wrote 1 of 2 changes of the edit, then bd close failed.*blocked by \[s-6\]/)
     expect(calls.some((call) => call.includes('export'))).toBe(true)
+  })
+
+  it('gives the bead as the database holds it when a later change of the edit fails', async () => {
+    const { run } = fakeTools({ close: failed('cannot close blocked issue: s-1 is blocked by [s-6]') })
+    const error = await createStore(run, { env: {}, now })
+      .editBead(db, 's-1', { version, changes: { dependencies: ['s-5', 's-6'], status: 'closed' }, closeReason: 'Done' })
+      .catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ code: PARTIAL_WRITE, bead: { id: 's-1' } })
+  })
+
+  it('exports the beads and gives the bead when bd does not finish the first change of the edit in time', async () => {
+    const { run, calls } = fakeTools({ update: { status: null, stdout: '', stderr: 'spawnSync bd ETIMEDOUT' } })
+    const error = await createStore(run, { env: {}, now })
+      .editBead(db, 's-1', { version, changes: { title: 'Basket' } })
+      .catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ code: PARTIAL_WRITE, bead: { id: 's-1' }, message: expect.stringMatching(/did not finish/) })
+    expect(calls.some((call) => call.includes('export'))).toBe(true)
+  })
+
+  it('gives the bead with the error when the export fails after the whole edit', async () => {
+    const { run } = fakeTools({ export: failed('disk full') })
+    const error = await createStore(run, { env: {}, now })
+      .editBead(db, 's-1', { version, changes: { title: 'Basket' } })
+      .catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ code: PARTIAL_WRITE, bead: { id: 's-1' }, message: expect.stringMatching(/write is done/) })
   })
 
   it('says that the bead does not exist when a terminal deleted it after the page read it', async () => {
