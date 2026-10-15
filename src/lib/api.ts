@@ -12,22 +12,12 @@ export class ApiError extends Error {
   }
 }
 
-const pageToken = (): string =>
-  document.querySelector<HTMLMetaElement>('meta[name="beads-token"]')?.content ?? ''
-
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, init)
+async function request<T>(path: string): Promise<T> {
+  const response = await fetch(path)
   const body = (await response.json().catch(() => ({}))) as { error?: string; code?: string }
   if (!response.ok) throw new ApiError(body.error ?? `HTTP ${response.status}`, body.code ?? 'ERROR')
   return body as T
 }
-
-export const send = <T>(path: string, method: string, payload?: unknown): Promise<T> =>
-  request<T>(path, {
-    method,
-    headers: { 'content-type': 'application/json', 'x-beads-token': pageToken() },
-    body: payload === undefined ? undefined : JSON.stringify(payload),
-  })
 
 const query = (db: string) => `db=${encodeURIComponent(db)}`
 
