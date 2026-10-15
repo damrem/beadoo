@@ -1,11 +1,14 @@
 import { UNKNOWN_ERROR } from '../../shared/contract'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry } from '../../shared/contract'
+import type { EditRequest } from '../../shared/edit'
 
 export class ApiError extends Error {
   readonly code: string
-  constructor(message: string, code: string) {
+  readonly bead?: Bead
+  constructor(message: string, code: string, bead?: Bead) {
     super(message)
     this.code = code
+    this.bead = bead
   }
 }
 
@@ -14,8 +17,8 @@ const pageToken = (): string =>
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init)
-  const body = (await response.json().catch(() => ({}))) as { error?: string; code?: string }
-  if (!response.ok) throw new ApiError(body.error ?? `HTTP ${response.status}`, body.code ?? UNKNOWN_ERROR)
+  const body = (await response.json().catch(() => ({}))) as { error?: string; code?: string; bead?: Bead }
+  if (!response.ok) throw new ApiError(body.error ?? `HTTP ${response.status}`, body.code ?? UNKNOWN_ERROR, body.bead)
   return body as T
 }
 
@@ -30,5 +33,11 @@ export const api = {
     request<Bead>(`/api/beads/${encodeURIComponent(id)}/${action}?${query(db)}`, {
       method: 'POST',
       headers: { 'x-beads-token': pageToken() },
+    }),
+  edit: (db: string, id: string, edit: EditRequest) =>
+    request<Bead>(`/api/beads/${encodeURIComponent(id)}/edit?${query(db)}`, {
+      method: 'POST',
+      headers: { 'x-beads-token': pageToken(), 'content-type': 'application/json' },
+      body: JSON.stringify(edit),
     }),
 }

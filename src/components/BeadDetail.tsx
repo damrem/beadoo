@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Tag } from '@/components/BeadCard'
+import { BeadEditor } from '@/components/BeadEditor'
 import { ClaimControls } from '@/components/ClaimControls'
+import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -50,9 +52,11 @@ export function BeadDetail({
   const [load, setLoad] = useState<Load | null>(null)
   const [write, setWrite] = useState<Write | null>(null)
   const [reload, setReload] = useState(0)
+  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
     setWrite(null)
+    setEditing(false)
   }, [db, id])
 
   useEffect(() => {
@@ -112,16 +116,35 @@ export function BeadDetail({
               <AlertDescription>{writeError}</AlertDescription>
             </Alert>
           )}
-          {bead && (
+          {bead && editing && (
+            <BeadEditor
+              key={bead.id}
+              db={db}
+              bead={bead}
+              onCancel={() => setEditing(false)}
+              onSaved={(saved) => {
+                setLoad((current) => (current?.id === saved.id ? { id: saved.id, bead: saved } : current))
+                setEditing(false)
+                onWritten()
+              }}
+            />
+          )}
+          {bead && !editing && (
             <>
-              <ClaimControls
-                bead={bead}
-                actor={actor}
-                writing={writing}
-                onAction={(action) => runClaim(bead.id, action)}
-              />
+              <div className="flex flex-wrap gap-2">
+                <ClaimControls
+                  bead={bead}
+                  actor={actor}
+                  writing={writing}
+                  onAction={(action) => runClaim(bead.id, action)}
+                />
+                <Button size="sm" variant="outline" disabled={writing !== null} onClick={() => setEditing(true)}>
+                  Edit
+                </Button>
+              </div>
               <dl className="flex flex-col gap-1.5">
                 <Field label="Status">{bead.status}</Field>
+                {bead.status === 'closed' && bead.close_reason && <Field label="Close reason">{bead.close_reason}</Field>}
                 <Field label="Priority">P{bead.priority}</Field>
                 <Field label="Type">{bead.issue_type}</Field>
                 <Field label="Assignee">{bead.assignee ?? 'nobody'}</Field>

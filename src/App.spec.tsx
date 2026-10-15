@@ -357,6 +357,41 @@ describe('the beads page', () => {
     })
   })
 
+  describe('the edit of a bead from its detail', () => {
+    it('saves the edit, shows the new values and reads the beads again', async () => {
+      answers['POST /api/beads/t-1/edit?db=.claude'] = json({ ...beads[1], title: 'Basket total', status: 'closed', close_reason: 'Shipped' })
+      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      const reads = () => calls.filter((call) => call.startsWith('/api/beads?')).length
+      await waitFor(() => expect(reads()).toBe(1))
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Edit' }))
+      const title = within(dialog).getByLabelText('Title')
+      await userEvent.clear(title)
+      await userEvent.type(title, 'Basket total')
+      await userEvent.selectOptions(within(dialog).getByLabelText('Status'), 'closed')
+      await userEvent.type(within(dialog).getByLabelText('Close reason'), 'Shipped')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+      expect(await within(dialog).findByRole('heading', { name: 'Basket total' })).toBeInTheDocument()
+      expect(within(dialog).getByText('Shipped')).toBeInTheDocument()
+      expect(within(dialog).queryByRole('form', { name: 'Edit the bead' })).not.toBeInTheDocument()
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/edit?db=.claude'])
+      await waitFor(() => expect(reads()).toBe(2))
+    })
+
+    it('shows the detail again and writes nothing when the user cancels the edit', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Edit' }))
+      await userEvent.type(within(dialog).getByLabelText('Title'), ' changed')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+      expect(within(dialog).queryByRole('form', { name: 'Edit the bead' })).not.toBeInTheDocument()
+      expect(within(dialog).getByRole('heading', { name: 'Cart total' })).toBeInTheDocument()
+      expect(writes).toEqual([])
+    })
+  })
+
   it('keeps the beads of the selected database when a slow answer for the previous database arrives', async () => {
     let answerClaude = (_answer: Answer) => {}
     answers['/api/databases'] = json({
