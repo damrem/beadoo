@@ -61,7 +61,7 @@ export function createSpawner(store: Store, io: SessionIo, now: () => Date = () 
           const holder = current.status === 'in_progress' && current.assignee ? ` ${current.assignee} holds it.` : ''
           throw new StoreError(CONFLICT, `The bead ${id} is ${current.status}, so the page starts no session on it.${holder}`, current)
         }
-        await store.writeClaim(db, id, 'claim').catch(async (error: Error) => {
+        const claimed = await store.writeClaim(db, id, 'claim').catch(async (error: Error) => {
           throw writeIsDone(error) ? await giveBack(db, id, undefined, error.message) : error
         })
         let worktree: SessionWorktree | undefined
@@ -78,7 +78,7 @@ export function createSpawner(store: Store, io: SessionIo, now: () => Date = () 
           return { bead: await store.appendNote(db, id, startedNote(stampOf(now()), worktree.path)), ...session }
         } catch (error) {
           const warning = `The session runs, but the page could not write the note of the start: ${(error as Error).message}`
-          return { bead: await store.showBead(db, id), ...session, warning }
+          return { bead: await store.showBead(db, id).catch(() => claimed), ...session, warning }
         }
       } finally {
         running.delete(key)

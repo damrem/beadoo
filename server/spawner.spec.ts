@@ -17,7 +17,7 @@ const WORKTREE_ID = `repo-1::${WORKTREE}`
 
 type Bd = { status: string; assignee?: string; notes: string }
 
-type BdOverrides = { claim?: RunResult; unclaim?: RunResult; note?: RunResult; exportAfter?: string; bead?: Partial<Bd> }
+type BdOverrides = { claim?: RunResult; unclaim?: RunResult; note?: RunResult; exportAfter?: string; bead?: Partial<Bd>; showAfterNote?: RunResult }
 
 function fakeBd(path: string, overrides: BdOverrides = {}) {
   const bead: Bd = { status: 'open', notes: '', ...overrides.bead }
@@ -34,7 +34,7 @@ function fakeBd(path: string, overrides: BdOverrides = {}) {
       return text('Exported')
     }
     if (sub === 'list') return ok([{ id: 's-1' }])
-    if (sub === 'show') return ok([{ id: 's-1', title: 'Cart', ...bead }])
+    if (sub === 'show') return (lastWrite === 'update' && overrides.showAfterNote) || ok([{ id: 's-1', title: 'Cart', ...bead }])
     writes.push(args.slice(args.indexOf(sub!)))
     lastWrite = sub === 'update' && args.includes('--claim') ? 'claim' : sub!
     if (sub === 'update' && args.includes('--claim')) {
@@ -221,6 +221,14 @@ describe('a session that the page starts on a bead', () => {
     const { spawner } = setUp({ note: { status: 1, stdout: '', stderr: 'Error: database is locked' } })
     const session = await spawner.spawn(db, 's-1', 'feat/s-1-cart')
     expect(session).toMatchObject({ terminal: 'term_new', bead: { status: 'in_progress' } })
+    expect(session.warning).toMatch(/The session runs, but the page could not write the note/)
+  })
+
+  it('gives the session and the claimed bead when bd stops to answer after the start', async () => {
+    const down: RunResult = { status: 1, stdout: '', stderr: 'Error: database is locked' }
+    const { spawner } = setUp({ note: down, showAfterNote: down })
+    const session = await spawner.spawn(db, 's-1', 'feat/s-1-cart')
+    expect(session).toMatchObject({ path: WORKTREE, terminal: 'term_new', bead: { id: 's-1', status: 'in_progress', assignee: 'Ann' } })
     expect(session.warning).toMatch(/The session runs, but the page could not write the note/)
   })
 
