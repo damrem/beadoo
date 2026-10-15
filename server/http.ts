@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, join, normalize, sep } from 'node:path'
-import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
+import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN, TUNNEL_ROUTE, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
 import type { ClaimAction } from '../shared/contract.ts'
 import { isEditRequest } from '../shared/edit.ts'
 import { StoreError } from './beads-store.ts'
@@ -48,8 +48,6 @@ export const withToken = (html: string, token: string): string =>
   html.replace('</head>', `  <meta name="beads-token" content="${token}" />\n  </head>`)
 
 const WRITE_ROUTE = /^\/api\/beads\/([^/]+)\/([a-z]+)$/
-
-export const TUNNEL_ROUTE = '/api/tunnel/start'
 
 export const MAX_BODY_BYTES = 1024 * 1024
 

@@ -5,7 +5,7 @@ import { INVALID, REFUSED } from '../shared/contract.ts'
 import { StoreError } from './beads-store.ts'
 import type { ConfiguredDatabase, TunnelCommands } from './config-rules.ts'
 
-export const TUNNEL_TIMEOUT_MS = 30_000
+const TUNNEL_TIMEOUT_MS = 30_000
 
 export type Launch = (command: string, args: readonly string[], timeoutMs: number) => Promise<RunResult>
 
@@ -119,7 +119,7 @@ type ExitTarget = {
   exit(code?: number): unknown
 }
 
-export const EXIT_SIGNALS: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
+const EXIT_SIGNALS: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
 
 export function stopTunnelsOnExit(tunnels: Tunnels, target: ExitTarget, report: (line: string) => void): void {
   const stop = () => {

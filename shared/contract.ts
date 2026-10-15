@@ -55,6 +55,8 @@ export type StoreErrorCode =
   | typeof PARTIAL_WRITE
   | typeof UNREACHABLE
 
+export const TUNNEL_ROUTE = '/api/tunnel/start'
+
 export const CLAIM_ACTIONS = ['claim', 'unclaim', 'renew'] as const
 
 export type ClaimAction = (typeof CLAIM_ACTIONS)[number]

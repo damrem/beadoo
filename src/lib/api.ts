@@ -1,4 +1,4 @@
-import { UNKNOWN_ERROR } from '../../shared/contract'
+import { TUNNEL_ROUTE, UNKNOWN_ERROR } from '../../shared/contract'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry } from '../../shared/contract'
 import type { EditRequest } from '../../shared/edit'
 
@@ -35,7 +35,7 @@ export const api = {
       headers: { 'x-beads-token': pageToken() },
     }),
   startTunnel: (db: string) =>
-    request<{ started: string }>(`/api/tunnel/start?${query(db)}`, {
+    request<{ started: string }>(`${TUNNEL_ROUTE}?${query(db)}`, {
       method: 'POST',
       headers: { 'x-beads-token': pageToken() },
     }).then(() => undefined),
