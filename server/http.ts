@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, join, normalize, sep } from 'node:path'
-import { CLAIM_ACTIONS, CONFLICT, NOT_FOUND, REFUSED, STORE_NOT_OPEN, UNKNOWN_ERROR } from '../shared/contract.ts'
+import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN, UNKNOWN_ERROR } from '../shared/contract.ts'
 import type { ClaimAction, DatabaseEntry } from '../shared/contract.ts'
+import { isEditRequest } from '../shared/edit.ts'
 import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
 import { allowsWrite } from './guard.ts'
@@ -34,17 +35,42 @@ const statusOf = (error: unknown): number => {
   if (!(error instanceof StoreError)) return 500
   if (error.code === STORE_NOT_OPEN || error.code === REFUSED) return 503
   if (error.code === NOT_FOUND) return 404
-  if (error.code === CONFLICT) return 409
+  if (error.code === CONFLICT || error.code === STALE) return 409
+  if (error.code === INVALID) return 400
   return 500
 }
 
 export const withToken = (html: string, token: string): string =>
   html.replace('</head>', `  <meta name="beads-token" content="${token}" />\n  </head>`)
 
-const CLAIM_ROUTE = /^\/api\/beads\/([^/]+)\/([a-z]+)$/
+const WRITE_ROUTE = /^\/api\/beads\/([^/]+)\/([a-z]+)$/
 
-const isClaimAction = (value: string | undefined): value is ClaimAction =>
-  (CLAIM_ACTIONS as readonly string[]).includes(value ?? '')
+export const MAX_BODY_BYTES = 1024 * 1024
+
+type WriteAction = ClaimAction | 'edit'
+
+const isWriteAction = (value: string | undefined): value is WriteAction =>
+  value === 'edit' || (CLAIM_ACTIONS as readonly string[]).includes(value ?? '')
+
+const readBody = (req: IncomingMessage): Promise<string | null> =>
+  new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    let size = 0
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length
+      if (size <= MAX_BODY_BYTES) chunks.push(chunk)
+    })
+    req.on('end', () => resolve(size > MAX_BODY_BYTES ? null : Buffer.concat(chunks).toString('utf8')))
+    req.on('error', reject)
+  })
+
+const parsedBody = (text: string): unknown => {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined
+  }
+}
 
 const decoded = (text: string): string | null => {
   try {
@@ -54,11 +80,11 @@ const decoded = (text: string): string | null => {
   }
 }
 
-const claimRoute = (pathname: string): { id: string; action: ClaimAction } | null => {
-  const match = CLAIM_ROUTE.exec(pathname)
+const writeRoute = (pathname: string): { id: string; action: WriteAction } | null => {
+  const match = WRITE_ROUTE.exec(pathname)
   const id = match?.[1] ? decoded(match[1]) : null
   const action = match?.[2]
-  return id !== null && isClaimAction(action) ? { id, action } : null
+  return id !== null && isWriteAction(action) ? { id, action } : null
 }
 
 async function serveFile(res: ServerResponse, deps: AppDeps, pathname: string) {
@@ -99,8 +125,8 @@ export function createHandler(deps: AppDeps) {
       sendJson(res, 403, { error: 'Forbidden: the request needs the page origin and the page token' })
       return
     }
-    const claim = write && req.method === 'POST' ? claimRoute(url.pathname) : null
-    if (write && !claim) {
+    const target = write && req.method === 'POST' ? writeRoute(url.pathname) : null
+    if (write && !target) {
       sendJson(res, 404, { error: 'Not found' })
       return
     }
@@ -122,8 +148,22 @@ export function createHandler(deps: AppDeps) {
         sendJson(res, 404, { error: `No database is named "${name ?? ''}" in beads-page.json` })
         return
       }
-      if (claim) {
-        sendJson(res, 200, await deps.store.writeClaim(db, claim.id, claim.action))
+      if (target?.action === 'edit') {
+        const text = await readBody(req)
+        if (text === null) {
+          sendJson(res, 413, { error: `The edit is larger than ${MAX_BODY_BYTES} bytes`, code: INVALID })
+          return
+        }
+        const request = parsedBody(text)
+        if (!isEditRequest(request)) {
+          sendJson(res, 400, { error: 'The edit is not a valid request of the page', code: INVALID })
+          return
+        }
+        sendJson(res, 200, await deps.store.editBead(db, target.id, request))
+        return
+      }
+      if (target) {
+        sendJson(res, 200, await deps.store.writeClaim(db, target.id, target.action))
         return
       }
       if (url.pathname === '/api/actor') {
@@ -143,7 +183,8 @@ export function createHandler(deps: AppDeps) {
       sendJson(res, 404, { error: 'Not found' })
     } catch (error) {
       const code = error instanceof StoreError ? error.code : UNKNOWN_ERROR
-      sendJson(res, statusOf(error), { error: (error as Error).message, code })
+      const bead = error instanceof StoreError && error.code === STALE ? { bead: error.bead } : {}
+      sendJson(res, statusOf(error), { error: (error as Error).message, code, ...bead })
     }
   }
 }

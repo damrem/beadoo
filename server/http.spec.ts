@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RunResult } from '../../../lib/process.ts'
 import { createStore } from './beads-store.ts'
-import { createHandler } from './http.ts'
+import { createHandler, MAX_BODY_BYTES } from './http.ts'
 
 const token = 'c'.repeat(64)
 const ok = (value: unknown): RunResult => ({ status: 0, stdout: JSON.stringify(value), stderr: '' })
@@ -209,6 +209,57 @@ describe('the page server', () => {
 
     it('gives the name in which the page claims a bead', async () => {
       expect(await (await fetch(`${base}/api/actor?db=shop`)).json()).toEqual({ actor: 'Ann' })
+    })
+  })
+
+  describe('the edit of a bead', () => {
+    const send = (body: string, headers: Record<string, string> = { origin: base, 'x-beads-token': token }) =>
+      fetch(`${base}/api/beads/s-1/edit?db=shop`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body })
+
+    it('writes the change of the user and answers with the bead', async () => {
+      const response = await send(JSON.stringify({ version: '|', changes: { title: 'Basket' } }))
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({ id: 's-1' })
+      expect(writes).toEqual([['--actor', 'Ann', 'update', 's-1', '--title=Basket', '--json']])
+    })
+
+    it('refuses an edit that comes without the page token and writes nothing', async () => {
+      const response = await send(JSON.stringify({ version: '|', changes: { title: 'Basket' } }), { origin: base })
+      expect(response.status).toBe(403)
+      expect(writes).toEqual([])
+    })
+
+    it('refuses an edit that is not valid JSON and writes nothing', async () => {
+      const response = await send('{"version":')
+      expect(response.status).toBe(400)
+      expect((await response.json()).code).toBe('INVALID')
+      expect(writes).toEqual([])
+    })
+
+    it('refuses an edit of a field that the page does not edit, and writes nothing', async () => {
+      const response = await send(JSON.stringify({ version: '|', changes: { assignee: 'Bob' } }))
+      expect(response.status).toBe(400)
+      expect(writes).toEqual([])
+    })
+
+    it('refuses two complexity labels with the reason, and writes nothing', async () => {
+      const response = await send(JSON.stringify({ version: '|', changes: { labels: ['complexity:1', 'complexity:2'] } }))
+      expect(response.status).toBe(400)
+      expect((await response.json()).error).toMatch(/one complexity label only/)
+      expect(writes).toEqual([])
+    })
+
+    it('refuses an edit that is too large, and writes nothing', async () => {
+      const response = await send(JSON.stringify({ version: '|', changes: { notes: 'x'.repeat(MAX_BODY_BYTES) } }))
+      expect(response.status).toBe(413)
+      expect(writes).toEqual([])
+    })
+
+    it('answers a conflict with the bead of the database when somebody changed it after the page read it', async () => {
+      const response = await send(JSON.stringify({ version: 'old|1', changes: { title: 'Basket' } }))
+      expect(response.status).toBe(409)
+      expect(await response.json()).toMatchObject({ code: 'STALE', bead: { id: 's-1', title: 'Cart' } })
+      expect(writes).toEqual([])
     })
   })
 
