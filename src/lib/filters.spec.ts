@@ -1,4 +1,4 @@
-import { BOARD_COLUMNS, childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, lanesOf, NO_EPIC, orderedCounts, readViewState, statusesOf, writeViewState } from './filters'
+import { BOARD_COLUMNS, childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, lanesOf, NO_EPIC, orderedCounts, readViewState, statusesOf, statusTitle, writeViewState } from './filters'
 import type { Bead } from '../../shared/contract'
 import type { StatusFilter } from './filters'
 
@@ -154,8 +154,16 @@ describe('the filters of the page', () => {
     expect(statusesOf(list).slice(0, BOARD_COLUMNS.length)).toEqual(BOARD_COLUMNS)
   })
 
+  it('names a status with the same words in the epic counts and in the bead rows', () => {
+    expect(countLabel({ in_progress: 1, needs_peer_review: 2 })).toBe(
+      `1 ${statusTitle('in_progress')} · 2 ${statusTitle('needs_peer_review')}`,
+    )
+    expect(statusTitle('in_progress')).toBe('In progress')
+    expect(statusTitle('needs_peer_review')).toBe('Needs peer review')
+  })
+
   it('names each status of the children of an epic with its count, also an unusual status', () => {
-    expect(countLabel({ closed: 1, deferred: 2, open: 3 })).toBe('3 open · 1 closed · 2 deferred')
+    expect(countLabel({ closed: 1, deferred: 2, open: 3 })).toBe('3 Open · 1 Closed · 2 Deferred')
     expect(countLabel({})).toBe('no bead')
   })
 })

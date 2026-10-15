@@ -12,14 +12,17 @@ export const VIEW_MODES = ['lanes', 'table', 'epic'] as const
 
 export type ViewMode = (typeof VIEW_MODES)[number]
 
-export const STATUS_TITLES: Record<string, string> = {
+const STATUS_TITLES: Record<string, string> = {
   open: 'Open',
   in_progress: 'In progress',
   blocked: 'Blocked',
   closed: 'Closed',
 }
 
-export const statusTitle = (status: string): string => STATUS_TITLES[status] ?? status
+export const statusTitle = (status: string): string => {
+  const words = status.replaceAll('_', ' ')
+  return STATUS_TITLES[status] ?? words.charAt(0).toUpperCase() + words.slice(1)
+}
 
 export type ViewState = {
   mode: ViewMode
@@ -108,7 +111,7 @@ export const orderedCounts = (counts: Record<string, number>): { status: string;
 
 export const countLabel = (counts: Record<string, number>): string =>
   orderedCounts(counts)
-    .map(({ status, count }) => `${count} ${status.replace('_', ' ')}`)
+    .map(({ status, count }) => `${count} ${statusTitle(status)}`)
     .join(' · ') || 'no bead'
 
 const countByStatus = (beads: Bead[]): Record<string, number> => {

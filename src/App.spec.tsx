@@ -74,8 +74,8 @@ describe('the beads page', () => {
   it('lists the epics with the count of their children for each status', async () => {
     render(<App />)
     const epics = await screen.findByRole('navigation', { name: 'Epics' })
-    expect(within(epics).getByRole('button', { name: /Checkout.*2 open · 1 closed/ })).toBeInTheDocument()
-    expect(within(epics).getByRole('button', { name: /No epic.*1 open/ })).toBeInTheDocument()
+    expect(within(epics).getByRole('button', { name: /Checkout.*2 Open · 1 Closed/ })).toBeInTheDocument()
+    expect(within(epics).getByRole('button', { name: /No epic.*1 Open/ })).toBeInTheDocument()
   })
 
   it('shows all the children of the epic when the user selects the all filter', async () => {
@@ -251,11 +251,11 @@ describe('the beads page', () => {
       window.history.replaceState(null, '', '/?db=.claude&view=table')
       render(<App />)
       const checkout = await screen.findByRole('rowgroup', { name: 'Checkout' })
-      expect(within(checkout).getByRole('img', { name: 'Checkout: 2 open · 1 closed' })).toBeInTheDocument()
+      expect(within(checkout).getByRole('img', { name: 'Checkout: 2 Open · 1 Closed' })).toBeInTheDocument()
       expect(within(checkout).getByRole('button', { name: 't-1 Cart total' })).toBeInTheDocument()
       expect(within(checkout).queryByText('Pay button')).not.toBeInTheDocument()
       const noEpic = screen.getByRole('rowgroup', { name: 'No epic' })
-      expect(within(noEpic).getByRole('img', { name: 'No epic: 1 open' })).toBeInTheDocument()
+      expect(within(noEpic).getByRole('img', { name: 'No epic: 1 Open' })).toBeInTheDocument()
       expect(within(noEpic).getByRole('button', { name: 't-4 Fix the logo' })).toBeInTheDocument()
     })
 
