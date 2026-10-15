@@ -3,7 +3,7 @@ import { realBaseIo } from '../../../lib/cli.ts'
 import { realRun } from '../../../lib/process.ts'
 import { createSessionWorktree, startSessionTerminal } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
 import type { Io, SessionWorktree } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
-import { beadSessionCommand, releasedNote, startedNote } from '../../../skills/handoffs/scripts/start-handoff-session-rules.ts'
+import { beadSessionCommand, releasedMessage, releasedNote, startedNote, worktreeStays } from '../../../skills/handoffs/scripts/start-handoff-session-rules.ts'
 import { CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED } from '../shared/contract.ts'
 import type { DatabaseEntry } from '../shared/contract.ts'
 import { ID, stampOf } from '../shared/edit.ts'
@@ -29,15 +29,14 @@ export function createSpawner(store: Store, io: Io, now: () => Date = () => new 
   const running = new Set<string>()
 
   const giveBack = async (db: DatabaseEntry, id: string, worktree: SessionWorktree | undefined, reason: string) => {
-    const kept = worktree ? ` The worktree ${worktree.path} stays.` : ''
     try {
       await store.writeClaim(db, id, 'unclaim')
       if (worktree) await store.appendNote(db, id, releasedNote(stampOf(now()), worktree.path, reason))
-      return new StoreError(SPAWN_FAILED, `${reason}\nThe bead ${id} is open again.${kept}`)
+      return new StoreError(SPAWN_FAILED, releasedMessage(reason, id, worktree?.path))
     } catch (error) {
       return new StoreError(
         SPAWN_FAILED,
-        `${reason}\nThe page could not give the bead ${id} back: ${(error as Error).message}.${kept} Release the claim of the bead.`,
+        `${reason}\nThe page could not give the bead ${id} back: ${(error as Error).message}.${worktreeStays(worktree?.path)} Release the claim of the bead.`,
       )
     }
   }
