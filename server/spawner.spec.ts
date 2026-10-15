@@ -2,18 +2,14 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RunAsync, RunResult } from '../../../lib/process.ts'
-import type { Io } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
 import { CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED } from '../shared/contract.ts'
 import { createStore, EXPORT_FILE } from './beads-store.ts'
+import { FAKE_WORKTREE as WORKTREE, FAKE_WORKTREE_ID as WORKTREE_ID, fakeOrca, orcaFailure } from './fake-orca.ts'
+import type { OrcaOverrides } from './fake-orca.ts'
 import { createSpawner } from './spawner.ts'
 
 const ok = (value: unknown): RunResult => ({ status: 0, stdout: JSON.stringify(value), stderr: '' })
 const text = (stdout: string): RunResult => ({ status: 0, stdout, stderr: '' })
-const orcaOk = (result: unknown): RunResult => ok({ ok: true, result })
-const orcaFailure = (message: string): RunResult => ({ status: 1, stdout: JSON.stringify({ ok: false, error: { message } }), stderr: '' })
-
-const WORKTREE = '/home/me/orca/workspaces/shop/feat-s-1-cart'
-const WORKTREE_ID = `repo-1::${WORKTREE}`
 
 type Bd = { status: string; assignee?: string; notes: string }
 
@@ -59,39 +55,6 @@ function fakeBd(path: string, overrides: BdOverrides = {}, events: string[] = []
   return { run, bead, writes }
 }
 
-function fakeOrca(overrides: { repos?: unknown[]; create?: RunResult; send?: RunResult; rename?: RunResult } = {}, events: string[] = []) {
-  const calls: string[] = []
-  let branch = 'feat-s-1-cart'
-  const io: Io = {
-    home: '/home/me',
-    cwd: '/home/me',
-    env: {},
-    now: () => new Date(2026, 9, 16, 9, 5),
-    exists: () => true,
-    log: () => undefined,
-    run: (command, args) => {
-      calls.push(`${command} ${args.join(' ')}`)
-      events.push(`${command} ${args.join(' ')}`)
-      if (command === 'git' && args.includes('--show-toplevel')) return text('/home/me\n')
-      if (command === 'git' && args.includes('-m')) {
-        if (overrides.rename) return overrides.rename
-        branch = args.at(-1)!
-        return text('')
-      }
-      if (command === 'git') return text(`${branch}\n`)
-      const sub = `${args[0]} ${args[1]}`
-      if (sub === 'repo list') return orcaOk({ repos: overrides.repos ?? [{ id: 'repo-1', path: shopPath }] })
-      if (sub === 'worktree create') return orcaOk({ worktree: { id: WORKTREE_ID, path: WORKTREE } })
-      if (sub === 'terminal create') return overrides.create ?? orcaOk({ terminal: { handle: 'term_new' } })
-      if (sub === 'terminal send') return overrides.send ?? orcaOk({ accepted: true })
-      if (sub === 'terminal list') return orcaOk({ terminals: [{ handle: 'term_setup' }, { handle: 'term_new' }] })
-      if (sub === 'terminal close') return orcaOk({})
-      return { status: 1, stdout: '', stderr: `unexpected ${command} ${args.join(' ')}` }
-    },
-  }
-  return { io, calls }
-}
-
 let shopPath: string
 let db: { name: string; path: string }
 
@@ -103,10 +66,10 @@ beforeEach(() => {
 
 const now = () => new Date(2026, 9, 16, 9, 5)
 
-const setUp = (bdOverrides: BdOverrides = {}, orcaOverrides = {}) => {
+const setUp = (bdOverrides: BdOverrides = {}, orcaOverrides: OrcaOverrides = {}) => {
   const events: string[] = []
   const bd = fakeBd(shopPath, bdOverrides, events)
-  const orca = fakeOrca(orcaOverrides, events)
+  const orca = fakeOrca(shopPath, orcaOverrides, events)
   const store = createStore(bd.run, { env: {}, now })
   return { ...bd, ...orca, events, spawner: createSpawner(store, orca.io, now) }
 }

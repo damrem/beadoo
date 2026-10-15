@@ -9,6 +9,7 @@ import { realRun, realRunAsync, runChecked } from '../../../lib/process.ts'
 import type { RunAsync, RunOptions } from '../../../lib/process.ts'
 import type { Bead } from '../shared/contract.ts'
 import { createStore, EXPORT_FILE } from './beads-store.ts'
+import { fakeOrca } from './fake-orca.ts'
 import { createSpawner } from './spawner.ts'
 import type { ConfiguredDatabase } from './config-rules.ts'
 import { createHandler } from './http.ts'
@@ -140,12 +141,7 @@ describe.skipIf(!hasTools)('a database on a real Dolt server behind a tunnel', (
         databases: () => [db],
         store,
         tunnels,
-        spawner: createSpawner(store, {
-          cwd: root,
-          exists: () => false,
-          log: () => undefined,
-          run: () => ({ status: 1, stdout: '', stderr: 'this spec starts no session' }),
-        }),
+        spawner: createSpawner(store, fakeOrca(root).io),
         distDir,
         origin: base,
         token,

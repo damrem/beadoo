@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { RunResult } from '../../../lib/process.ts'
 import { createStore } from './beads-store.ts'
 import { createHandler, MAX_BODY_BYTES } from './http.ts'
+import { FAKE_WORKTREE, FAKE_WORKTREE_ID, fakeOrca, orcaFailure } from './fake-orca.ts'
 import { createSpawner } from './spawner.ts'
 import { createTunnels } from './tunnels.ts'
 
@@ -22,30 +23,7 @@ let writes: string[][]
 let tunnelUp: boolean
 let launches: string[][]
 let tunnelAnswer: RunResult
-let orcaCalls: string[]
-let terminalAnswer: RunResult
-let worktreeGate: Promise<void>
-
-const orcaOk = (result: unknown): RunResult => ok({ ok: true, result })
-
-const sessionIo = () => ({
-  home: '/home/me',
-  cwd: '/home/me',
-  env: {},
-  now: () => new Date(2026, 9, 16, 9, 5),
-  exists: () => true,
-  log: () => undefined,
-  run: (command: string, args: readonly string[]): RunResult | Promise<RunResult> => {
-    orcaCalls.push(`${command} ${args.join(' ')}`)
-    if (command === 'git') return { status: 0, stdout: 'feat/s-1-cart\n', stderr: '' }
-    const sub = `${args[0]} ${args[1]}`
-    if (sub === 'repo list') return orcaOk({ repos: [{ id: 'repo-1', path: '/home/me/shop' }] })
-    if (sub === 'worktree create') return worktreeGate.then(() => orcaOk({ worktree: { id: 'wt-1', path: '/home/me/wt/s-1-cart' } }))
-    if (sub === 'terminal create') return terminalAnswer
-    if (sub === 'terminal list') return orcaOk({ terminals: [] })
-    return orcaOk({})
-  },
-})
+let orca: ReturnType<typeof fakeOrca>
 
 beforeEach(async () => {
   const root = mkdtempSync(join(tmpdir(), 'beads-root-'))
@@ -62,9 +40,7 @@ beforeEach(async () => {
   tunnelUp = false
   launches = []
   tunnelAnswer = { status: 0, stdout: '', stderr: '' }
-  orcaCalls = []
-  terminalAnswer = orcaOk({ terminal: { handle: 'term-1' } })
-  worktreeGate = Promise.resolve()
+  orca = fakeOrca('/home/me/shop')
   const store = createStore(
     async (command, args) => {
       if (command === 'git' && args.includes('config')) return { status: 0, stdout: 'Ann\n', stderr: '' }
@@ -110,7 +86,7 @@ beforeEach(async () => {
         { name: 'remote', path: '/home/me/remote', tunnel: { start: ['ssh', '-fN', 'db-host'], stop: ['pkill', 'ssh'] } },
       ],
       store,
-      spawner: createSpawner(store, sessionIo()),
+      spawner: createSpawner(store, orca.io),
       tunnels: createTunnels(
         async (command, args) => {
           launches.push([command, ...args])
@@ -332,13 +308,13 @@ describe('the page server', () => {
       expect(response.status).toBe(200)
       expect(await response.json()).toMatchObject({
         bead: { id: 's-1', status: 'in_progress' },
-        worktree: 'wt-1',
-        path: '/home/me/wt/s-1-cart',
+        worktree: FAKE_WORKTREE_ID,
+        path: FAKE_WORKTREE,
         branch: 'feat/s-1-cart',
-        terminal: 'term-1',
+        terminal: 'term_new',
       })
       expect(writes[0]).toEqual(['--actor', 'Ann', 'update', 's-1', '--claim', '--json'])
-      expect(orcaCalls.some((call) => call.startsWith('orca worktree create --repo id:repo-1 --name feat/s-1-cart'))).toBe(true)
+      expect(orca.calls.some((call) => call.startsWith('orca worktree create --repo id:repo-1 --name feat/s-1-cart'))).toBe(true)
     })
 
     it('refuses a start on a bead that is already in progress, and claims nothing', async () => {
@@ -347,14 +323,14 @@ describe('the page server', () => {
       expect(response.status).toBe(409)
       expect((await response.json()).code).toBe('CONFLICT')
       expect(writes).toEqual([])
-      expect(orcaCalls).toEqual([])
+      expect(orca.calls).toEqual([])
     })
 
     it('refuses a start that comes without the page token, and claims nothing', async () => {
       const response = await spawn(JSON.stringify({ branch: 'feat/s-1-cart' }), { origin: base })
       expect(response.status).toBe(403)
       expect(writes).toEqual([])
-      expect(orcaCalls).toEqual([])
+      expect(orca.calls).toEqual([])
     })
 
     it('refuses a start with no branch, and claims nothing', async () => {
@@ -368,7 +344,7 @@ describe('the page server', () => {
       const response = await spawn(JSON.stringify({ branch: 'feat/$(rm -rf ~)' }))
       expect(response.status).toBe(400)
       expect(writes).toEqual([])
-      expect(orcaCalls).toEqual([])
+      expect(orca.calls).toEqual([])
     })
 
     it('refuses to start a session from a database on the Windows mount', async () => {
@@ -379,11 +355,11 @@ describe('the page server', () => {
 
     it('answers the other requests of the page while Orca creates the worktree', async () => {
       let finish!: () => void
-      worktreeGate = new Promise((resolve) => {
+      orca.overrides.worktreeGate = new Promise((resolve) => {
         finish = resolve
       })
       const started = spawn(JSON.stringify({ branch: 'feat/s-1-cart' }))
-      await vi.waitFor(() => expect(orcaCalls.some((call) => call.startsWith('orca worktree create'))).toBe(true))
+      await vi.waitFor(() => expect(orca.calls.some((call) => call.startsWith('orca worktree create'))).toBe(true))
       const list = await fetch(`${base}/api/beads?db=shop`)
       expect(list.status).toBe(200)
       finish()
@@ -391,7 +367,7 @@ describe('the page server', () => {
     })
 
     it('tells the user why the session did not start, and that the bead is open again', async () => {
-      terminalAnswer = { status: 1, stdout: JSON.stringify({ ok: false, error: { message: 'Timed out' } }), stderr: '' }
+      orca.overrides.create = orcaFailure('Timed out')
       const response = await spawn(JSON.stringify({ branch: 'feat/s-1-cart' }))
       expect(response.status).toBe(502)
       expect(await response.json()).toMatchObject({ code: 'SPAWN_FAILED', error: expect.stringMatching(/Timed out[\s\S]*s-1 is open again/) })
