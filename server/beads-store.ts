@@ -101,8 +101,10 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
 
   const notFound = (id: string) => new StoreError(NOT_FOUND, `bd show gave no bead for ${id}`)
 
-  const editError = (error: unknown): never => {
-    if (error instanceof Error && UNKNOWN_ID.test(error.message)) throw new StoreError(INVALID, error.message)
+  const editError = (id: string) => (error: unknown): never => {
+    if (error instanceof Error && UNKNOWN_ID.test(error.message)) {
+      throw error.message.includes(`"${id}"`) ? notFound(id) : new StoreError(INVALID, error.message)
+    }
     throw error
   }
 
@@ -235,7 +237,7 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
         let done = 0
         try {
           for (const command of commands) {
-            await writeBd(db, command, 'the edit', editError)
+            await writeBd(db, command, 'the edit', editError(id))
             done += 1
           }
         } catch (error) {

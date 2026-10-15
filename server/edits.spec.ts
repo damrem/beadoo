@@ -215,6 +215,13 @@ describe('an edit from the page', () => {
     expect(calls.some((call) => call.includes('export'))).toBe(true)
   })
 
+  it('says that the bead does not exist when a terminal deleted it after the page read it', async () => {
+    const gone = failed('Error resolving s-1: no issue found matching "s-1"')
+    await expect(edit({ changes: { title: 'Basket' } }, { update: gone })).rejects.toThrow(
+      expect.objectContaining({ code: NOT_FOUND }),
+    )
+  })
+
   it('reports the beads that bd deleted during the edit, and does not export the smaller database', async () => {
     const { run, calls } = fakeTools({
       update: { status: 0, stdout: '{}', stderr: 'auto-export: reconciled 1 deleted issue(s) (deleted from store: s-4)\n' },
