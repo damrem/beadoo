@@ -60,6 +60,17 @@ export function createTunnels(launch: Launch = realLaunch, launchSync: LaunchSyn
   const pending = new Map<string, Promise<void>>()
 
   const startOnce = async (name: string, tunnel: TunnelCommands): Promise<void> => {
+    const earlier = started.get(name)
+    if (earlier) {
+      const [stopCommand, ...stopArgs] = earlier.stop
+      const stopped = await launch(stopCommand!, stopArgs, TUNNEL_TIMEOUT_MS)
+      if (stopped.status !== 0) {
+        throw new Error(
+          `The tunnel of "${name}" is open from an earlier start, and it did not stop: ${earlier.stop.join(' ')} failed (${detailOf(stopped)}).`,
+        )
+      }
+      started.delete(name)
+    }
     const [command, ...args] = tunnel.start
     const result = await launch(command!, args, TUNNEL_TIMEOUT_MS)
     if (result.status !== 0) {

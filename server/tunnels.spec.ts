@@ -77,6 +77,30 @@ describe('the tunnels of the Dolt server databases', () => {
     expect(fake.started).toEqual([['ssh', '-fN', 'db-host']])
   })
 
+  it('stops the tunnel that the page opened before, then starts it again, when the user clicks again', async () => {
+    const fake = fakeLaunch()
+    const tunnels = createTunnels(fake.launch, fake.launchSync)
+    await tunnels.start(remote)
+    await tunnels.start(remote)
+    expect(fake.started).toEqual([['ssh', '-fN', 'db-host'], ['pkill', '-f', 'db-host'], ['ssh', '-fN', 'db-host']])
+    tunnels.stopAll()
+    expect(fake.stopped).toEqual([['pkill', '-f', 'db-host']])
+  })
+
+  it('does not start the tunnel again when the tunnel that the page opened before does not stop', async () => {
+    const fake = fakeLaunch()
+    const launch: Launch = async (command, args, timeoutMs) =>
+      command === 'pkill' ? { status: 2, stdout: '', stderr: 'pkill: permission denied' } : fake.launch(command, args, timeoutMs)
+    const tunnels = createTunnels(launch, fake.launchSync)
+    await tunnels.start(remote)
+    await expect(tunnels.start(remote)).rejects.toThrow(
+      'The tunnel of "remote" is open from an earlier start, and it did not stop: pkill -f db-host failed (pkill: permission denied).',
+    )
+    expect(fake.started).toEqual([['ssh', '-fN', 'db-host']])
+    tunnels.stopAll()
+    expect(fake.stopped).toEqual([['pkill', '-f', 'db-host']])
+  })
+
   it('tells the user that the config gives no tunnel for the database', async () => {
     const fake = fakeLaunch()
     await expect(createTunnels(fake.launch, fake.launchSync).start({ name: 'shop', path: '/home/me/shop' })).rejects.toThrow(
