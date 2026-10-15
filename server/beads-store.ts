@@ -15,6 +15,8 @@ const UNKNOWN_ID = /not found|no issues? found/
 
 const HELD_BY_OTHER = /claimed by/
 
+const NOT_A_REPO = /not a git repository/
+
 const RECONCILE_LOSS = /auto-export: reconciled [1-9]\d* deleted[^\n]*/
 
 const BEAD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
@@ -75,8 +77,18 @@ export function createStore(run: RunAsync, { env = process.env, queue = createWr
   const actor = async (db: DatabaseEntry): Promise<string> =>
     env.BEADS_ACTOR?.trim() || (await gitText(db, ['config', 'user.name'])) || env.USER?.trim() || ''
 
+  const tracksExport = async (db: DatabaseEntry): Promise<boolean> => {
+    const result = await run('git', ['-C', db.path, 'ls-files', '--', EXPORT_FILE], { timeoutMs: BD_TIMEOUT_MS })
+    if (result.status === 0) return result.stdout.trim() !== ''
+    if (NOT_A_REPO.test(result.stderr)) return false
+    const detail = (result.stderr || result.stdout).trim() || `exit ${result.status ?? 'none'}`
+    throw new Error(
+      `The write is done, but git could not tell whether ${db.path} tracks ${EXPORT_FILE}, so the page did not export the beads: ${detail}. Run bd export -o ${join(db.path, EXPORT_FILE)}.`,
+    )
+  }
+
   const exportAndCheck = async (db: DatabaseEntry) => {
-    if ((await gitText(db, ['ls-files', '--', EXPORT_FILE])) === '') return
+    if (!(await tracksExport(db))) return
     const file = join(db.path, EXPORT_FILE)
     await runCheckedAsync(run, 'bd', ['-C', db.path, 'export', '-o', file], { timeoutMs: BD_TIMEOUT_MS })
     const lines = (await readFile(file, 'utf8')).split('\n').filter((line) => line.trim() !== '').length

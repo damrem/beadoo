@@ -104,6 +104,23 @@ describe('a claim from the page', () => {
     expect(bdCalls(calls).some((call) => subOf(call) === 'export')).toBe(false)
   })
 
+  it('does not export when the database is not in a git repo', async () => {
+    const { run, calls } = fakeTools({
+      answers: { 'ls-files': failed('fatal: not a git repository (or any of the parent directories): .git') },
+    })
+    await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')).resolves.toMatchObject({ id: 's-1' })
+    expect(bdCalls(calls).some((call) => subOf(call) === 'export')).toBe(false)
+  })
+
+  it('reports an error when git cannot tell whether the repo tracks the export file', async () => {
+    const { run } = fakeTools({
+      answers: { 'ls-files': failed('fatal: detected dubious ownership in repository') },
+    })
+    await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')).rejects.toThrow(
+      expect.objectContaining({ message: expect.stringContaining('detected dubious ownership') }),
+    )
+  })
+
   it('reports an error when the export file and the database do not hold the same count of beads', async () => {
     const { run } = fakeTools({ exportLines: 2, listed: 3 })
     await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')).rejects.toThrow(
