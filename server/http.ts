@@ -1,13 +1,15 @@
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, join, normalize, sep } from 'node:path'
-import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, STALE, STORE_NOT_OPEN, TUNNEL_ROUTE, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
+import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED, STALE, STORE_NOT_OPEN, TUNNEL_ROUTE, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
 import type { ClaimAction } from '../shared/contract.ts'
 import { isEditRequest } from '../shared/edit.ts'
+import { isSpawnRequest } from '../shared/spawn.ts'
 import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
 import { publicEntry } from './config-rules.ts'
 import type { ConfiguredDatabase } from './config-rules.ts'
+import type { Spawner } from './spawner.ts'
 import type { Tunnels } from './tunnels.ts'
 import { allowsWrite } from './guard.ts'
 
@@ -15,6 +17,7 @@ export type AppDeps = {
   databases: () => ConfiguredDatabase[]
   store: Store
   tunnels: Tunnels
+  spawner: Spawner
   distDir: string
   origin: string
   token: string
@@ -41,6 +44,7 @@ const statusOf = (error: unknown): number => {
   if (error.code === NOT_FOUND) return 404
   if (error.code === CONFLICT || error.code === STALE) return 409
   if (error.code === INVALID) return 400
+  if (error.code === SPAWN_FAILED) return 502
   return 500
 }
 
@@ -51,10 +55,10 @@ const WRITE_ROUTE = /^\/api\/beads\/([^/]+)\/([a-z]+)$/
 
 export const MAX_BODY_BYTES = 1024 * 1024
 
-type WriteAction = ClaimAction | 'edit'
+type WriteAction = ClaimAction | 'edit' | 'spawn'
 
 const isWriteAction = (value: string | undefined): value is WriteAction =>
-  value === 'edit' || (CLAIM_ACTIONS as readonly string[]).includes(value ?? '')
+  value === 'edit' || value === 'spawn' || (CLAIM_ACTIONS as readonly string[]).includes(value ?? '')
 
 const readBody = (req: IncomingMessage): Promise<string | null> =>
   new Promise((resolve, reject) => {
@@ -158,13 +162,21 @@ export function createHandler(deps: AppDeps) {
         sendJson(res, 200, { started: db.name })
         return
       }
-      if (target?.action === 'edit') {
+      if (target?.action === 'edit' || target?.action === 'spawn') {
         const text = await readBody(req)
         if (text === null) {
-          sendJson(res, 413, { error: `The edit is larger than ${MAX_BODY_BYTES} bytes`, code: INVALID })
+          sendJson(res, 413, { error: `The ${target.action} request is larger than ${MAX_BODY_BYTES} bytes`, code: INVALID })
           return
         }
         const request = parsedBody(text)
+        if (target.action === 'spawn') {
+          if (!isSpawnRequest(request)) {
+            sendJson(res, 400, { error: 'The spawn request gives no branch', code: INVALID })
+            return
+          }
+          sendJson(res, 200, await deps.spawner.spawn(db, target.id, request.branch))
+          return
+        }
         if (!isEditRequest(request)) {
           sendJson(res, 400, { error: 'The edit is not a valid request of the page', code: INVALID })
           return

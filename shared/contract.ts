@@ -41,6 +41,8 @@ export const PARTIAL_WRITE = 'PARTIAL_WRITE'
 
 export const UNREACHABLE = 'UNREACHABLE'
 
+export const SPAWN_FAILED = 'SPAWN_FAILED'
+
 export const UNKNOWN_ERROR = 'ERROR'
 
 export type StoreErrorCode =
@@ -54,6 +56,7 @@ export type StoreErrorCode =
   | typeof INVALID
   | typeof PARTIAL_WRITE
   | typeof UNREACHABLE
+  | typeof SPAWN_FAILED
 
 export const TUNNEL_ROUTE = '/api/tunnel/start'
 

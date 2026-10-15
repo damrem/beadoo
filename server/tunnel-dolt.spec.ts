@@ -9,6 +9,7 @@ import { realRun, realRunAsync, runChecked } from '../../../lib/process.ts'
 import type { RunAsync, RunOptions } from '../../../lib/process.ts'
 import type { Bead } from '../shared/contract.ts'
 import { createStore, EXPORT_FILE } from './beads-store.ts'
+import { createSpawner } from './spawner.ts'
 import type { ConfiguredDatabase } from './config-rules.ts'
 import { createHandler } from './http.ts'
 import { createTunnels } from './tunnels.ts'
@@ -132,12 +133,22 @@ describe.skipIf(!hasTools)('a database on a real Dolt server behind a tunnel', (
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
     const distDir = join(root, 'dist')
     mkdirSync(distDir)
+    const store = createStore(run, { env: { BEADS_ACTOR: 'Ann' } })
     server.on(
       'request',
       createHandler({
         databases: () => [db],
-        store: createStore(run, { env: { BEADS_ACTOR: 'Ann' } }),
+        store,
         tunnels,
+        spawner: createSpawner(store, {
+          home: root,
+          cwd: root,
+          env: {},
+          now: () => new Date(),
+          exists: () => false,
+          log: () => undefined,
+          run: () => ({ status: 1, stdout: '', stderr: 'this spec starts no session' }),
+        }),
         distDir,
         origin: base,
         token,
