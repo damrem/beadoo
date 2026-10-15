@@ -19,7 +19,7 @@ type Bd = { status: string; assignee?: string; notes: string }
 
 type BdOverrides = { claim?: RunResult; unclaim?: RunResult; note?: RunResult; exportAfter?: string; bead?: Partial<Bd>; showAfterNote?: RunResult }
 
-function fakeBd(path: string, overrides: BdOverrides = {}) {
+function fakeBd(path: string, overrides: BdOverrides = {}, events: string[] = []) {
   const bead: Bd = { status: 'open', notes: '', ...overrides.bead }
   const writes: string[][] = []
   let lastWrite = ''
@@ -36,6 +36,7 @@ function fakeBd(path: string, overrides: BdOverrides = {}) {
     if (sub === 'list') return ok([{ id: 's-1' }])
     if (sub === 'show') return (lastWrite === 'update' && overrides.showAfterNote) || ok([{ id: 's-1', title: 'Cart', ...bead }])
     writes.push(args.slice(args.indexOf(sub!)))
+    events.push(`bd ${args.slice(args.indexOf(sub!)).join(' ')}`)
     lastWrite = sub === 'update' && args.includes('--claim') ? 'claim' : sub!
     if (sub === 'update' && args.includes('--claim')) {
       if (overrides.claim) return overrides.claim
@@ -58,7 +59,7 @@ function fakeBd(path: string, overrides: BdOverrides = {}) {
   return { run, bead, writes }
 }
 
-function fakeOrca(overrides: { repos?: unknown[]; create?: RunResult; send?: RunResult; rename?: RunResult } = {}) {
+function fakeOrca(overrides: { repos?: unknown[]; create?: RunResult; send?: RunResult; rename?: RunResult } = {}, events: string[] = []) {
   const calls: string[] = []
   let branch = 'feat-s-1-cart'
   const io: Io = {
@@ -70,6 +71,7 @@ function fakeOrca(overrides: { repos?: unknown[]; create?: RunResult; send?: Run
     log: () => undefined,
     run: (command, args) => {
       calls.push(`${command} ${args.join(' ')}`)
+      events.push(`${command} ${args.join(' ')}`)
       if (command === 'git' && args.includes('--show-toplevel')) return text('/home/me\n')
       if (command === 'git' && args.includes('-m')) {
         if (overrides.rename) return overrides.rename
@@ -102,18 +104,20 @@ beforeEach(() => {
 const now = () => new Date(2026, 9, 16, 9, 5)
 
 const setUp = (bdOverrides: BdOverrides = {}, orcaOverrides = {}) => {
-  const bd = fakeBd(shopPath, bdOverrides)
-  const orca = fakeOrca(orcaOverrides)
+  const events: string[] = []
+  const bd = fakeBd(shopPath, bdOverrides, events)
+  const orca = fakeOrca(orcaOverrides, events)
   const store = createStore(bd.run, { env: {}, now })
-  return { ...bd, ...orca, spawner: createSpawner(store, orca.io, now) }
+  return { ...bd, ...orca, events, spawner: createSpawner(store, orca.io, now) }
 }
 
 describe('a session that the page starts on a bead', () => {
   it('claims the bead before it creates the worktree, then starts Claude in a new terminal of the worktree', async () => {
-    const { spawner, writes, calls } = setUp()
+    const { spawner, events, calls } = setUp()
     const session = await spawner.spawn(db, 's-1', 'feat/s-1-cart')
-    expect(writes[0]).toEqual(['update', 's-1', '--claim', '--json'])
-    expect(calls.findIndex((call) => call.startsWith('orca worktree create'))).toBeGreaterThan(-1)
+    const claim = events.indexOf('bd update s-1 --claim --json')
+    expect(claim).toBeGreaterThan(-1)
+    expect(events.findIndex((event) => event.startsWith('orca worktree create'))).toBeGreaterThan(claim)
     const send = calls.find((call) => call.startsWith('orca terminal send'))
     expect(send).toContain(`bd -C ${shopPath} show s-1`)
     expect(send).toContain('claude --permission-mode plan')
