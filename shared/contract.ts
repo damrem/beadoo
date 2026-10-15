@@ -24,6 +24,19 @@ export const REFUSED = 'REFUSED'
 
 export const NOT_FOUND = 'NOT_FOUND'
 
+export const CONFLICT = 'CONFLICT'
+
+export const EXPORT_MISMATCH = 'EXPORT_MISMATCH'
+
 export const UNKNOWN_ERROR = 'ERROR'
 
-export type StoreErrorCode = typeof STORE_NOT_OPEN | typeof REFUSED | typeof NOT_FOUND
+export type StoreErrorCode =
+  | typeof STORE_NOT_OPEN
+  | typeof REFUSED
+  | typeof NOT_FOUND
+  | typeof CONFLICT
+  | typeof EXPORT_MISMATCH
+
+export const CLAIM_ACTIONS = ['claim', 'unclaim', 'renew'] as const
+
+export type ClaimAction = (typeof CLAIM_ACTIONS)[number]
