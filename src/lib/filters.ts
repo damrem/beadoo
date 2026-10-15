@@ -60,9 +60,10 @@ export type Groups = Map<string, Bead[]>
 
 export function groupByParent(beads: Bead[]): Groups {
   const ids = new Set(beads.map((bead) => bead.id))
+  const parents = new Set(beads.flatMap((bead) => (bead.parent && ids.has(bead.parent) ? [bead.parent] : [])))
   const groups: Groups = new Map()
   for (const bead of beads) {
-    const key = bead.parent && ids.has(bead.parent) ? bead.parent : isEpic(bead) ? null : NO_EPIC
+    const key = bead.parent && ids.has(bead.parent) ? bead.parent : isEpic(bead) || parents.has(bead.id) ? null : NO_EPIC
     if (key === null) continue
     const group = groups.get(key)
     if (group) group.push(bead)

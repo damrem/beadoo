@@ -78,7 +78,15 @@ describe('the filters of the page', () => {
     ]
     expect(epicsIn(withChore, 'all').map((epic) => epic.id)).toContain('c-1')
     expect(childrenIn(withChore, 'c-1').map((bead) => bead.id)).toEqual(['c-1.1'])
-    expect(childrenIn(withChore, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4', 'c-1'])
+  })
+
+  it('shows a parent that is not an epic only in the epic list, and not also as a card under "No epic"', () => {
+    const withChore: Bead[] = [
+      ...beads,
+      { id: 'c-1', title: 'Tidy the repo', status: 'open', issue_type: 'chore' },
+      { id: 'c-1.1', title: 'Remove the old script', status: 'open', parent: 'c-1' },
+    ]
+    expect(childrenIn(withChore, NO_EPIC).map((bead) => bead.id)).toEqual(['t-4'])
   })
 
   it('keeps a closed epic in the list while one of its children is still open', () => {
