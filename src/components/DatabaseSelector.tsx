@@ -1,5 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { DatabaseEntry } from '@/lib/api'
+import type { DatabaseEntry } from '../../shared/contract'
 
 export function DatabaseSelector({
   databases,

@@ -8,7 +8,7 @@ import { RefreshButton } from '@/components/RefreshButton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import type { BeadList, DatabaseEntry } from '@/lib/api'
+import type { BeadList, DatabaseEntry } from '../shared/contract'
 import { childrenOf, epicsOf, filterBeads, groupByParent, readViewState, writeViewState } from '@/lib/filters'
 import type { StoredFilters, ViewState } from '@/lib/filters'
 

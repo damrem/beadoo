@@ -1,4 +1,4 @@
-import type { Bead } from './filters'
+import type { Bead } from '../../shared/contract'
 
 export type LeaseState = { kind: 'none' } | { kind: 'active'; until: Date } | { kind: 'expired'; at: Date }
 

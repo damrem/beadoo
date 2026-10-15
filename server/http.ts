@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, join, normalize, sep } from 'node:path'
-import { StoreError, STORE_NOT_OPEN } from './beads-store.ts'
+import { NOT_FOUND, REFUSED, STORE_NOT_OPEN, UNKNOWN_ERROR } from '../shared/contract.ts'
+import type { DatabaseEntry } from '../shared/contract.ts'
+import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
-import type { DatabaseEntry } from './config-rules.ts'
 import { allowsWrite } from './guard.ts'
 
 export type AppDeps = {
@@ -31,8 +32,8 @@ const sendJson = (res: ServerResponse, status: number, body: unknown) => {
 
 const statusOf = (error: unknown): number => {
   if (!(error instanceof StoreError)) return 500
-  if (error.code === STORE_NOT_OPEN || error.code === 'REFUSED') return 503
-  if (error.code === 'NOT_FOUND') return 404
+  if (error.code === STORE_NOT_OPEN || error.code === REFUSED) return 503
+  if (error.code === NOT_FOUND) return 404
   return 500
 }
 
@@ -116,7 +117,7 @@ export function createHandler(deps: AppDeps) {
       }
       sendJson(res, 404, { error: 'Not found' })
     } catch (error) {
-      const code = error instanceof StoreError ? error.code : 'ERROR'
+      const code = error instanceof StoreError ? error.code : UNKNOWN_ERROR
       sendJson(res, statusOf(error), { error: (error as Error).message, code })
     }
   }

@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import type { Bead } from '@/lib/filters'
+import type { Bead } from '../../shared/contract'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

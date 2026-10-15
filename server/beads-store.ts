@@ -1,22 +1,17 @@
 import { parseJson, runCheckedAsync } from '../../../lib/process.ts'
 import type { RunAsync } from '../../../lib/process.ts'
-import type { DatabaseEntry } from './config-rules.ts'
+import { NOT_FOUND, REFUSED, STORE_NOT_OPEN } from '../shared/contract.ts'
+import type { Bead, BeadList, DatabaseEntry, StoreErrorCode } from '../shared/contract.ts'
 
 export const BD_TIMEOUT_MS = 15_000
-
-export const STORE_NOT_OPEN = 'STORE_NOT_OPEN'
 
 const UNKNOWN_ID = /not found|no issues found/
 
 const BEAD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 
-export type Bead = { id: string; title: string; status: string; parent?: string; [key: string]: unknown }
-
-export type BeadList = { beads: Bead[]; readyIds: string[] }
-
 export class StoreError extends Error {
-  readonly code: string
-  constructor(code: string, message: string) {
+  readonly code: StoreErrorCode
+  constructor(code: StoreErrorCode, message: string) {
     super(message)
     this.code = code
   }
@@ -24,7 +19,7 @@ export class StoreError extends Error {
 
 export function createStore(run: RunAsync) {
   const bd = async (db: DatabaseEntry, args: string[]): Promise<unknown> => {
-    if (db.refused) throw new StoreError('REFUSED', db.refused)
+    if (db.refused) throw new StoreError(REFUSED, db.refused)
     const stdout = await runCheckedAsync(run, 'bd', ['-C', db.path, '--readonly', ...args, '--json'], { timeoutMs: BD_TIMEOUT_MS })
     return parseJson(stdout, `bd ${args[0]}`)
   }
@@ -43,7 +38,7 @@ export function createStore(run: RunAsync) {
     },
 
     async showBead(db: DatabaseEntry, id: string): Promise<Bead> {
-      const notFound = new StoreError('NOT_FOUND', `bd show gave no bead for ${id}`)
+      const notFound = new StoreError(NOT_FOUND, `bd show gave no bead for ${id}`)
       if (!BEAD_ID.test(id)) throw notFound
       const shown = await bd(db, ['show', id]).catch((error: unknown) => {
         if (!(error instanceof StoreError) && error instanceof Error && UNKNOWN_ID.test(error.message)) throw notFound

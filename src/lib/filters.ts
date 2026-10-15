@@ -1,18 +1,4 @@
-export type Bead = {
-  id: string
-  title: string
-  status: string
-  priority?: number
-  issue_type?: string
-  assignee?: string
-  labels?: string[]
-  parent?: string
-  description?: string
-  notes?: string
-  heartbeat_at?: string
-  lease_expires_at?: string
-  dependencies?: { id: string; title?: string; status?: string; dependency_type?: string }[]
-}
+import type { Bead } from '../../shared/contract'
 
 export const STATUS_FILTERS = ['ready', 'all', 'open', 'in_progress', 'closed'] as const
 

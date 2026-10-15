@@ -29,6 +29,7 @@ beforeEach(async () => {
   const store = createStore(async (_command, args) => {
     if (args[3] === 'list') return listGate.then(() => listAnswer)
     if (args[3] === 'ready') return ok([{ id: 's-1' }])
+    if (args[3] === 'show' && args[4] === 's-9') return { status: 1, stdout: '', stderr: 'Issue s-9 not found' }
     if (args[3] === 'show') return ok([{ id: args[4], title: 'Cart', status: 'open' }])
     return { status: 1, stdout: '', stderr: 'unexpected' }
   })
@@ -86,6 +87,12 @@ describe('the page server', () => {
   it('gives the detail of one bead', async () => {
     const body = await (await fetch(`${base}/api/beads/s-1?db=shop`)).json()
     expect(body).toMatchObject({ id: 's-1', title: 'Cart' })
+  })
+
+  it('tells the user that the database has no bead with this id', async () => {
+    const response = await fetch(`${base}/api/beads/s-9?db=shop`)
+    expect(response.status).toBe(404)
+    expect((await response.json()).code).toBe('NOT_FOUND')
   })
 
   it('refuses a write that comes without the page token', async () => {

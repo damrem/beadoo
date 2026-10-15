@@ -1,5 +1,6 @@
 import type { RunAsync, RunResult } from '../../../lib/process.ts'
-import { createStore, STORE_NOT_OPEN } from './beads-store.ts'
+import { NOT_FOUND, STORE_NOT_OPEN } from '../shared/contract.ts'
+import { createStore } from './beads-store.ts'
 
 const db = { name: 'shop', path: '/home/me/shop' }
 const ok = (value: unknown): RunResult => ({ status: 0, stdout: JSON.stringify(value), stderr: '' })
@@ -65,13 +66,13 @@ describe('the beads that the page reads', () => {
     const { run } = fakeBd({
       show: { status: 1, stdout: '', stderr: 'Issue s-9 not found\nHint: this ID may have never existed' },
     })
-    await expect(createStore(run).showBead(db, 's-9')).rejects.toThrow(expect.objectContaining({ code: 'NOT_FOUND' }))
+    await expect(createStore(run).showBead(db, 's-9')).rejects.toThrow(expect.objectContaining({ code: NOT_FOUND }))
   })
 
   it('does not pass an id that looks like an option to bd', async () => {
     const { run, calls } = fakeBd({})
     await expect(createStore(run).showBead(db, '--db=/other/path')).rejects.toThrow(
-      expect.objectContaining({ code: 'NOT_FOUND' }),
+      expect.objectContaining({ code: NOT_FOUND }),
     )
     expect(calls).toEqual([])
   })

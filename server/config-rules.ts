@@ -1,4 +1,4 @@
-export type DatabaseEntry = { name: string; path: string; refused?: string }
+import type { DatabaseEntry } from '../shared/contract.ts'
 
 export type PageConfig = { databases: DatabaseEntry[] }
 

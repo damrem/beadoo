@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { Bead } from '@/lib/filters'
+import type { Bead } from '../../shared/contract'
 import { leaseLabel, leaseState } from '@/lib/lease'
 
 export function Tag({ children }: { children: ReactNode }) {

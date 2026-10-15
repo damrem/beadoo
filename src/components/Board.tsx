@@ -1,6 +1,6 @@
 import { BeadCard } from '@/components/BeadCard'
 import { columnsOf } from '@/lib/filters'
-import type { Bead } from '@/lib/filters'
+import type { Bead } from '../../shared/contract'
 
 const COLUMN_TITLES: Record<string, string> = {
   open: 'Open',

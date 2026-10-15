@@ -1,5 +1,5 @@
 import { leaseLabel, leaseState } from './lease'
-import type { Bead } from './filters'
+import type { Bead } from '../../shared/contract'
 
 const now = new Date(2026, 9, 14, 23, 50)
 

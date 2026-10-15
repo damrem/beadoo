@@ -1,8 +1,5 @@
-import type { Bead } from './filters'
-
-export type DatabaseEntry = { name: string; path: string; refused?: string }
-
-export type BeadList = { beads: Bead[]; readyIds: string[] }
+import { UNKNOWN_ERROR } from '../../shared/contract'
+import type { Bead, BeadList, DatabaseEntry } from '../../shared/contract'
 
 export class ApiError extends Error {
   readonly code: string
@@ -15,7 +12,7 @@ export class ApiError extends Error {
 async function request<T>(path: string): Promise<T> {
   const response = await fetch(path)
   const body = (await response.json().catch(() => ({}))) as { error?: string; code?: string }
-  if (!response.ok) throw new ApiError(body.error ?? `HTTP ${response.status}`, body.code ?? 'ERROR')
+  if (!response.ok) throw new ApiError(body.error ?? `HTTP ${response.status}`, body.code ?? UNKNOWN_ERROR)
   return body as T
 }
 

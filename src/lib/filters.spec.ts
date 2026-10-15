@@ -1,5 +1,6 @@
 import { childrenOf, columnsOf, epicsOf, filterBeads, groupByParent, NO_EPIC, readViewState, writeViewState } from './filters'
-import type { Bead, StatusFilter } from './filters'
+import type { Bead } from '../../shared/contract'
+import type { StatusFilter } from './filters'
 
 const epicsIn = (list: Bead[], status: StatusFilter) => epicsOf(list, groupByParent(list), status)
 const childrenIn = (list: Bead[], epic: string) => childrenOf(groupByParent(list), epic)
