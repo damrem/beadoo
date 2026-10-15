@@ -1,13 +1,6 @@
 import { cn } from '@/lib/utils'
-import { NO_EPIC } from '@/lib/filters'
+import { countLabel, NO_EPIC } from '@/lib/filters'
 import type { EpicEntry } from '@/lib/filters'
-
-const COUNT_ORDER = ['open', 'in_progress', 'blocked', 'closed']
-
-const countLabel = (counts: Record<string, number>): string =>
-  COUNT_ORDER.filter((status) => counts[status])
-    .map((status) => `${counts[status]} ${status.replace('_', ' ')}`)
-    .join(' · ') || 'no bead'
 
 export function EpicSidebar({
   epics,

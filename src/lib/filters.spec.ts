@@ -1,4 +1,4 @@
-import { childrenOf, columnsOf, epicsOf, filterBeads, groupByParent, NO_EPIC, readViewState, writeViewState } from './filters'
+import { childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, lanesOf, NO_EPIC, readViewState, writeViewState } from './filters'
 import type { Bead } from '../../shared/contract'
 import type { StatusFilter } from './filters'
 
@@ -34,12 +34,28 @@ describe('the filters of the page', () => {
     })
   })
 
+  it('shows the board of one epic when the user chose no view', () => {
+    expect(readViewState('', {}).mode).toBe('epic')
+  })
+
+  it('keeps the last view of the user when the link holds none', () => {
+    expect(readViewState('?db=shop', { view: 'lanes' }).mode).toBe('lanes')
+  })
+
+  it('follows the view of the link before the last view of the user', () => {
+    expect(readViewState('?view=table', { view: 'lanes' }).mode).toBe('table')
+  })
+
+  it('ignores a view name that it does not know', () => {
+    expect(readViewState('?view=wrong', { view: 'other' }).mode).toBe('epic')
+  })
+
   it('ignores a filter name that it does not know', () => {
     expect(readViewState('?status=wrong', {}).status).toBe('ready')
   })
 
-  it('puts the database, the epic, the open bead and the filters in the link', () => {
-    const state = { db: 'shop', epic: 'e-1', bead: 't-1', status: 'open' as const, text: 'cart' }
+  it('puts the view, the database, the epic, the open bead and the filters in the link', () => {
+    const state = { mode: 'table' as const, db: 'shop', epic: 'e-1', bead: 't-1', status: 'open' as const, text: 'cart' }
     expect(readViewState(writeViewState(state), {})).toEqual(state)
   })
 
@@ -108,5 +124,31 @@ describe('the filters of the page', () => {
       ['closed', ['t-3']],
       ['deferred', ['t-5']],
     ])
+  })
+
+  it('puts in each lane the beads of one epic that match the filter, and leaves out an epic with no match', () => {
+    const list: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
+    const groups = groupByParent(list)
+    const lanes = lanesOf(epicsOf(list, groups, 'ready'), groups, ['t-1', 't-4'], 'ready', '')
+    expect(lanes.map((lane) => [lane.epic.id, lane.beads.map((bead) => bead.id)])).toEqual([
+      ['e-1', ['t-1']],
+      [NO_EPIC, ['t-4']],
+    ])
+  })
+
+  it('sorts the beads of a lane by priority', () => {
+    const list: Bead[] = [
+      { id: 'e-1', title: 'Checkout', status: 'open', issue_type: 'epic' },
+      { id: 't-1', title: 'Late', status: 'open', parent: 'e-1', priority: 3 },
+      { id: 't-2', title: 'Urgent', status: 'open', parent: 'e-1', priority: 0 },
+    ]
+    const groups = groupByParent(list)
+    const [lane] = lanesOf(epicsOf(list, groups, 'all'), groups, [], 'all', '')
+    expect(lane.beads.map((bead) => bead.id)).toEqual(['t-2', 't-1'])
+  })
+
+  it('names each status of the children of an epic with its count, also an unusual status', () => {
+    expect(countLabel({ closed: 1, deferred: 2, open: 3 })).toBe('3 open · 1 closed · 2 deferred')
+    expect(countLabel({})).toBe('no bead')
   })
 })
