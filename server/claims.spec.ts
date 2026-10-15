@@ -112,10 +112,22 @@ describe('a claim from the page', () => {
     expect(bdCalls(calls).some((call) => subOf(call) === 'export')).toBe(false)
   })
 
-  it('exports after a claim when bd cannot tell the mode of the database', async () => {
-    const { run, calls } = fakeTools({ server: true, answers: { context: failed('Error: no beads directory') } })
-    await createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')
-    expect(bdCalls(calls).some((call) => subOf(call) === 'export')).toBe(true)
+  it.each([
+    ['bd fails', failed('Error: no beads directory')],
+    ['bd does not answer in time', { status: null, stdout: '', stderr: '' }],
+    ['bd gives no JSON', text('not json')],
+  ])('does not export after a claim, and tells the user, when %s to tell the mode of the database', async (_case, context) => {
+    const { run, calls } = fakeTools({ server: true, answers: { context } })
+    await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')).rejects.toThrow(
+      /The write is done, but bd context could not tell whether .* is on a Dolt server, so the page did not export the beads/,
+    )
+    expect(bdCalls(calls).some((call) => subOf(call) === 'export')).toBe(false)
+  })
+
+  it('does not ask bd for the mode of the database when the repo does not track the export file', async () => {
+    const { run, calls } = fakeTools({ tracked: false, answers: { context: failed('Error: no beads directory') } })
+    await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')).resolves.toMatchObject({ id: 's-1' })
+    expect(bdCalls(calls).some((call) => subOf(call) === 'context')).toBe(false)
   })
 
   it('tells the user that the Dolt server does not answer when the claim cannot reach it', async () => {

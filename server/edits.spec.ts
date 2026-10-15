@@ -42,7 +42,7 @@ function fakeTools(answers: Partial<Record<string, Answer>> = {}, bead: Bead = s
     calls.push([command, ...args])
     if (command === 'git' && args.includes('config')) return text('Ann\n')
     if (command === 'git') return text(`${EXPORT_FILE}\n`)
-    const sub = args.find((arg) => [...WRITES, 'export', 'list', 'show'].includes(arg)) ?? ''
+    const sub = args.find((arg) => [...WRITES, 'export', 'list', 'show', 'context'].includes(arg)) ?? ''
     const answer = answers[sub]
     if (answer) return typeof answer === 'function' ? answer(args) : answer
     if (sub === 'export') {
@@ -50,6 +50,7 @@ function fakeTools(answers: Partial<Record<string, Answer>> = {}, bead: Bead = s
       return text('Exported')
     }
     if (sub === 'list') return ok([{ id: 's-0' }, { id: 's-1' }])
+    if (sub === 'context') return ok({ dolt_mode: 'embedded' })
     if (sub === 'show') return ok([bead])
     if (WRITES.includes(sub)) return ok({})
     return failed(`unexpected ${command} ${args.join(' ')}`)

@@ -160,18 +160,29 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
 
   const onServer = async (db: DatabaseEntry): Promise<boolean> => {
     const result = await run('bd', ['-C', db.path, 'context', '--json'], { timeoutMs: BD_TIMEOUT_MS })
-    if (result.status !== 0) return false
-    try {
-      return (parseJson(result.stdout, 'bd context') as { dolt_mode?: unknown }).dolt_mode === 'server'
-    } catch {
-      return false
+    const unknownMode = (detail: string) =>
+      new Error(
+        `The write is done, but bd context could not tell whether ${db.path} is on a Dolt server, so the page did not export the beads: ${detail}. When the database is not on a Dolt server, run bd export -o ${join(db.path, EXPORT_FILE)}.`,
+      )
+    if (result.status !== 0) {
+      throw unknownMode(
+        withoutWarnings(result.stderr).trim() ||
+          (result.status === null ? `did not finish in ${BD_TIMEOUT_MS / 1000} s` : `exit ${result.status}`),
+      )
     }
+    let mode: unknown
+    try {
+      mode = (parseJson(result.stdout, 'bd context') as { dolt_mode?: unknown }).dolt_mode
+    } catch (error) {
+      throw unknownMode((error as Error).message)
+    }
+    if (mode !== 'server' && mode !== 'embedded') throw unknownMode(`dolt_mode is ${JSON.stringify(mode)}`)
+    return mode === 'server'
   }
 
   const tracksExport = async (db: DatabaseEntry): Promise<boolean> => {
-    if (await onServer(db)) return false
     const result = await run('git', ['-C', db.path, 'ls-files', '--', EXPORT_FILE], { timeoutMs: BD_TIMEOUT_MS })
-    if (result.status === 0) return result.stdout.trim() !== ''
+    if (result.status === 0) return result.stdout.trim() !== '' && !(await onServer(db))
     if (NOT_A_REPO.test(result.stderr)) return false
     const detail = (result.stderr || result.stdout).trim() || `exit ${result.status ?? 'none'}`
     throw new Error(
