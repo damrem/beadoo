@@ -142,6 +142,16 @@ describe('a session that the page starts on a bead', () => {
     expect(calls.filter((call) => call.startsWith('orca'))).toEqual([])
   })
 
+  it('gives the bead back as open, and starts no session, when the export fails after the claim', async () => {
+    const { spawner, writes, calls, bead } = setUp({ exportAfter: 'claim' })
+    await expect(spawner.spawn(db, 's-1', 'feat/s-1-cart')).rejects.toThrow(
+      expect.objectContaining({ code: SPAWN_FAILED, message: expect.stringMatching(/bd export failed[\s\S]*s-1 is open again/) }),
+    )
+    expect(writes.map((write) => write[0])).toEqual(['update', 'unclaim'])
+    expect(calls.filter((call) => call.startsWith('orca'))).toEqual([])
+    expect(bead).toMatchObject({ status: 'open', notes: '' })
+  })
+
   it('gives the bead back as open, and keeps no note, when Orca does not know the repo of the database', async () => {
     const { spawner, writes, bead } = setUp({}, { repos: [{ id: 'other', path: '/home/me/other' }] })
     await expect(spawner.spawn(db, 's-1', 'feat/s-1-cart')).rejects.toThrow(
