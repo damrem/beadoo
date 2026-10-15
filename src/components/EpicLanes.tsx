@@ -1,10 +1,7 @@
 import { BeadCard } from '@/components/BeadCard'
+import { NoMatch } from '@/components/NoMatch'
 import { columnsOf, NO_EPIC, statusesOf, statusTitle } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
-
-export function NoMatch() {
-  return <p className="p-4 text-sm text-muted-foreground">No bead matches the filters.</p>
-}
 
 export function EpicLanes({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: string) => void }) {
   if (lanes.length === 0) return <NoMatch />

@@ -1,4 +1,4 @@
-import { NoMatch } from '@/components/EpicLanes'
+import { NoMatch } from '@/components/NoMatch'
 import { StatusBar } from '@/components/StatusBar'
 import { countLabel, NO_EPIC, statusTitle } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
