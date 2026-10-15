@@ -193,9 +193,13 @@ export function BeadEditor({
         return
       }
       const fields = changedFields(before, editableOf(theirs))
-      if (fields.length === 0 && !retried) {
+      if (fields.length === 0) {
         setBase(theirs)
-        await save(theirs, values, true)
+        if (!retried) {
+          await save(theirs, values, true)
+          return
+        }
+        setError('Somebody changed this bead again while the page saved it. Save again.')
         return
       }
       const edited = changedFields(before, values)

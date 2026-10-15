@@ -260,5 +260,24 @@ describe('the edit of a bead', () => {
       expect(sent.map((request) => request.body.version)).toEqual(['2026-10-15T10:00:00Z|41', '2026-10-15T10:00:00Z|43'])
       expect(screen.queryByRole('region', { name: 'Conflict' })).not.toBeInTheDocument()
     })
+
+    it('asks the user to save again, with no empty comparison, when the bead changes again during the second save', async () => {
+      answers = [
+        { status: 409, body: { error: 'changed', code: 'STALE', bead: { ...bead, revision: '43' } } },
+        { status: 409, body: { error: 'changed', code: 'STALE', bead: { ...bead, revision: '44' } } },
+      ]
+      const { onSaved } = open()
+      await replace('Title', 'Basket total')
+      await save()
+      expect(await screen.findByText(/changed this bead again/)).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Conflict' })).not.toBeInTheDocument()
+      await save()
+      await waitFor(() => expect(onSaved).toHaveBeenCalled())
+      expect(sent.map((request) => request.body.version)).toEqual([
+        '2026-10-15T10:00:00Z|41',
+        '2026-10-15T10:00:00Z|43',
+        '2026-10-15T10:00:00Z|44',
+      ])
+    })
   })
 })
