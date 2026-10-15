@@ -11,7 +11,7 @@ export const BD_TIMEOUT_MS = 15_000
 
 export const EXPORT_FILE = '.beads/issues.jsonl'
 
-const UNKNOWN_ID = /not found|no issues found/
+const UNKNOWN_ID = /not found|no issues? found/
 
 const HELD_BY_OTHER = /claimed by/
 

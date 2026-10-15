@@ -127,9 +127,13 @@ describe('a claim from the page', () => {
     )
   })
 
-  it('reports a bead that the database does not have as not found', async () => {
-    const { run } = fakeTools({ answers: { unclaim: failed('Error: issue s-9 not found') } })
-    await expect(createStore(run, { env: {} }).writeClaim(db, 's-9', 'unclaim')).rejects.toThrow(
+  it.each([
+    ['claim', 'update'],
+    ['unclaim', 'unclaim'],
+    ['renew', 'heartbeat'],
+  ] as const)('reports a bead that the database does not have as not found when the user asks to %s it', async (action, sub) => {
+    const { run } = fakeTools({ answers: { [sub]: failed('Error resolving s-9: no issue found matching "s-9"') } })
+    await expect(createStore(run, { env: {} }).writeClaim(db, 's-9', action)).rejects.toThrow(
       expect.objectContaining({ code: NOT_FOUND }),
     )
   })
