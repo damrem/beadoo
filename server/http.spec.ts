@@ -15,6 +15,8 @@ let server: Server
 let base: string
 let listAnswer: RunResult
 let listGate: Promise<void>
+let claimed: Set<string>
+let writes: string[][]
 
 beforeEach(async () => {
   const root = mkdtempSync(join(tmpdir(), 'beads-root-'))
@@ -26,13 +28,30 @@ beforeEach(async () => {
   writeFileSync(join(distDir, 'assets', 'app.js'), 'console.log(1)')
   listAnswer = ok([{ id: 's-1', title: 'Cart', status: 'open' }])
   listGate = Promise.resolve()
-  const store = createStore(async (_command, args) => {
-    if (args[3] === 'list') return listGate.then(() => listAnswer)
-    if (args[3] === 'ready') return ok([{ id: 's-1' }])
-    if (args[3] === 'show' && args[4] === 's-9') return { status: 1, stdout: '', stderr: 'Issue s-9 not found' }
-    if (args[3] === 'show') return ok([{ id: args[4], title: 'Cart', status: 'open' }])
-    return { status: 1, stdout: '', stderr: 'unexpected' }
-  })
+  claimed = new Set()
+  writes = []
+  const store = createStore(
+    async (command, args) => {
+      if (command === 'git' && args.includes('config')) return { status: 0, stdout: 'Ann\n', stderr: '' }
+      if (command === 'git') return { status: 0, stdout: '', stderr: '' }
+      if (args[4] === 'update' || args[4] === 'unclaim' || args[4] === 'heartbeat') {
+        writes.push(args.slice(2))
+        if (args[5] === 's-7') return { status: 1, stdout: '', stderr: 'Error updating s-7: issue already claimed by Bob' }
+        if (args[4] === 'update') claimed.add(args[5]!)
+        if (args[4] === 'unclaim') claimed.delete(args[5]!)
+        return ok([])
+      }
+      if (args[3] === 'list') return listGate.then(() => listAnswer)
+      if (args[3] === 'ready') return ok([{ id: 's-1' }])
+      if (args[3] === 'show' && args[4] === 's-9') return { status: 1, stdout: '', stderr: 'Issue s-9 not found' }
+      if (args[3] === 'show') {
+        const status = claimed.has(args[4]!) ? 'in_progress' : 'open'
+        return ok([{ id: args[4], title: 'Cart', status, ...(status === 'in_progress' ? { assignee: 'Ann' } : {}) }])
+      }
+      return { status: 1, stdout: '', stderr: 'unexpected' }
+    },
+    { env: {} },
+  )
   server = createServer()
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
@@ -100,12 +119,60 @@ describe('the page server', () => {
     expect(response.status).toBe(403)
   })
 
-  it('accepts the guard of a write from the page, but has no write route yet', async () => {
-    const response = await fetch(`${base}/api/x`, {
+  it('answers not found to a write that the page does not know', async () => {
+    const response = await fetch(`${base}/api/beads/s-1/delete?db=shop`, {
       method: 'POST',
       headers: { origin: base, 'x-beads-token': token },
     })
     expect(response.status).toBe(404)
+    expect(writes).toEqual([])
+  })
+
+  describe('the claim of a bead', () => {
+    const post = (path: string, headers: Record<string, string> = { origin: base, 'x-beads-token': token }) =>
+      fetch(`${base}${path}`, { method: 'POST', headers })
+
+    it('claims the bead and answers with the claimed bead', async () => {
+      const response = await post('/api/beads/s-1/claim?db=shop')
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({ id: 's-1', status: 'in_progress', assignee: 'Ann' })
+      expect(writes).toEqual([['--actor', 'Ann', 'update', 's-1', '--claim', '--json']])
+    })
+
+    it('releases the claim of the bead', async () => {
+      await post('/api/beads/s-1/claim?db=shop')
+      const response = await post('/api/beads/s-1/unclaim?db=shop')
+      expect(await response.json()).toMatchObject({ id: 's-1', status: 'open' })
+      expect(writes.at(-1)).toEqual(['--actor', 'Ann', 'unclaim', 's-1', '--json'])
+    })
+
+    it('renews the lease of the claim', async () => {
+      const response = await post('/api/beads/s-1/renew?db=shop')
+      expect(response.status).toBe(200)
+      expect(writes).toEqual([['--actor', 'Ann', 'heartbeat', 's-1', '--json']])
+    })
+
+    it('refuses a claim that comes without the page token and writes nothing', async () => {
+      const response = await post('/api/beads/s-1/claim?db=shop', { origin: base })
+      expect(response.status).toBe(403)
+      expect(writes).toEqual([])
+    })
+
+    it('tells the user that another actor holds the bead', async () => {
+      const response = await post('/api/beads/s-7/claim?db=shop')
+      expect(response.status).toBe(409)
+      expect(await response.json()).toMatchObject({ code: 'CONFLICT', error: expect.stringContaining('claimed by Bob') })
+    })
+
+    it('refuses to write to a database on the Windows mount', async () => {
+      const response = await post('/api/beads/s-1/claim?db=win')
+      expect(response.status).toBe(503)
+      expect(writes).toEqual([])
+    })
+
+    it('gives the name in which the page claims a bead', async () => {
+      expect(await (await fetch(`${base}/api/actor?db=shop`)).json()).toEqual({ actor: 'Ann' })
+    })
   })
 
   it('puts the page token in the page', async () => {

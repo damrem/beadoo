@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, join, normalize, sep } from 'node:path'
-import { NOT_FOUND, REFUSED, STORE_NOT_OPEN, UNKNOWN_ERROR } from '../shared/contract.ts'
-import type { DatabaseEntry } from '../shared/contract.ts'
+import { CLAIM_ACTIONS, CONFLICT, NOT_FOUND, REFUSED, STORE_NOT_OPEN, UNKNOWN_ERROR } from '../shared/contract.ts'
+import type { ClaimAction, DatabaseEntry } from '../shared/contract.ts'
 import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
 import { allowsWrite } from './guard.ts'
@@ -34,11 +34,17 @@ const statusOf = (error: unknown): number => {
   if (!(error instanceof StoreError)) return 500
   if (error.code === STORE_NOT_OPEN || error.code === REFUSED) return 503
   if (error.code === NOT_FOUND) return 404
+  if (error.code === CONFLICT) return 409
   return 500
 }
 
 export const withToken = (html: string, token: string): string =>
   html.replace('</head>', `  <meta name="beads-token" content="${token}" />\n  </head>`)
+
+const CLAIM_ROUTE = /^\/api\/beads\/([^/]+)\/([a-z]+)$/
+
+const isClaimAction = (value: string | undefined): value is ClaimAction =>
+  (CLAIM_ACTIONS as readonly string[]).includes(value ?? '')
 
 const decoded = (text: string): string | null => {
   try {
@@ -80,11 +86,13 @@ export function createHandler(deps: AppDeps) {
       return
     }
     const url = new URL(req.url ?? '/', deps.origin)
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      if (!allowsWrite(req.headers, deps.origin, deps.token)) {
-        sendJson(res, 403, { error: 'Forbidden: the request needs the page origin and the page token' })
-        return
-      }
+    const write = req.method !== 'GET' && req.method !== 'HEAD'
+    if (write && !allowsWrite(req.headers, deps.origin, deps.token)) {
+      sendJson(res, 403, { error: 'Forbidden: the request needs the page origin and the page token' })
+      return
+    }
+    const claim = write && req.method === 'POST' ? CLAIM_ROUTE.exec(url.pathname) : null
+    if (write && !(claim && isClaimAction(claim[2]))) {
       sendJson(res, 404, { error: 'Not found' })
       return
     }
@@ -104,6 +112,14 @@ export function createHandler(deps: AppDeps) {
       const db = databases.find((entry) => entry.name === name)
       if (!db) {
         sendJson(res, 404, { error: `No database is named "${name ?? ''}" in beads-page.json` })
+        return
+      }
+      if (claim?.[1] && isClaimAction(claim[2])) {
+        sendJson(res, 200, await deps.store.writeClaim(db, decodeURIComponent(claim[1]), claim[2]))
+        return
+      }
+      if (url.pathname === '/api/actor') {
+        sendJson(res, 200, { actor: await deps.store.actor(db) })
         return
       }
       if (url.pathname === '/api/beads') {
