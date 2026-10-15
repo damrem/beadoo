@@ -56,6 +56,11 @@ export function createSpawner(store: Store, io: SessionIo, now: () => Date = () 
       if (running.has(key)) throw new StoreError(CONFLICT, `The page already starts a session on ${id}.`)
       running.add(key)
       try {
+        const current = await store.showBead(db, id)
+        if (current.status === 'in_progress' || current.status === 'closed') {
+          const holder = current.status === 'in_progress' && current.assignee ? ` ${current.assignee} holds it.` : ''
+          throw new StoreError(CONFLICT, `The bead ${id} is ${current.status}, so the page starts no session on it.${holder}`, current)
+        }
         await store.writeClaim(db, id, 'claim').catch(async (error: Error) => {
           throw writeIsDone(error) ? await giveBack(db, id, undefined, error.message) : error
         })

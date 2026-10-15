@@ -17,10 +17,10 @@ const WORKTREE_ID = `repo-1::${WORKTREE}`
 
 type Bd = { status: string; assignee?: string; notes: string }
 
-type BdOverrides = { claim?: RunResult; unclaim?: RunResult; note?: RunResult; exportAfter?: string }
+type BdOverrides = { claim?: RunResult; unclaim?: RunResult; note?: RunResult; exportAfter?: string; bead?: Partial<Bd> }
 
 function fakeBd(path: string, overrides: BdOverrides = {}) {
-  const bead: Bd = { status: 'open', notes: '' }
+  const bead: Bd = { status: 'open', notes: '', ...overrides.bead }
   const writes: string[][] = []
   let lastWrite = ''
   const run: RunAsync = async (command, args) => {
@@ -134,6 +134,23 @@ describe('a session that the page starts on a bead', () => {
     const session = await spawner.spawn(db, 's-1', 'feat/s-1-cart')
     expect(session.bead).toMatchObject({ status: 'in_progress', assignee: 'Ann', notes: `started 2026-10-16 09:05 in ${WORKTREE}` })
     expect(session.warning).toBeUndefined()
+  })
+
+  it('refuses a bead that the user already holds, and keeps the claim of the first session', async () => {
+    const { spawner, writes, calls, bead } = setUp({ bead: { status: 'in_progress', assignee: 'Ann' } }, { create: orcaFailure('Timed out') })
+    await expect(spawner.spawn(db, 's-1', 'feat/s-1-cart')).rejects.toThrow(
+      expect.objectContaining({ code: CONFLICT, message: expect.stringMatching(/s-1 is in_progress[\s\S]*Ann holds it/) }),
+    )
+    expect(writes).toEqual([])
+    expect(calls).toEqual([])
+    expect(bead).toMatchObject({ status: 'in_progress', assignee: 'Ann' })
+  })
+
+  it('refuses a closed bead, and writes nothing', async () => {
+    const { spawner, writes, calls } = setUp({ bead: { status: 'closed' } })
+    await expect(spawner.spawn(db, 's-1', 'feat/s-1-cart')).rejects.toThrow(expect.objectContaining({ code: CONFLICT }))
+    expect(writes).toEqual([])
+    expect(calls).toEqual([])
   })
 
   it('creates no worktree when another actor holds the bead', async () => {

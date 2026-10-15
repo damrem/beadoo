@@ -341,6 +341,15 @@ describe('the page server', () => {
       expect(orcaCalls.some((call) => call.startsWith('orca worktree create --repo id:repo-1 --name feat/s-1-cart'))).toBe(true)
     })
 
+    it('refuses a start on a bead that is already in progress, and claims nothing', async () => {
+      claimed.add('s-1')
+      const response = await spawn(JSON.stringify({ branch: 'feat/s-1-cart' }))
+      expect(response.status).toBe(409)
+      expect((await response.json()).code).toBe('CONFLICT')
+      expect(writes).toEqual([])
+      expect(orcaCalls).toEqual([])
+    })
+
     it('refuses a start that comes without the page token, and claims nothing', async () => {
       const response = await spawn(JSON.stringify({ branch: 'feat/s-1-cart' }), { origin: base })
       expect(response.status).toBe(403)
