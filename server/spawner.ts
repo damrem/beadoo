@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { realRunAsync } from '../../../lib/process.ts'
-import { createSessionWorktree, startSessionTerminal } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
+import { createSessionWorktree, startSessionTerminal, WorktreeStepError } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
 import type { SessionIo, SessionWorktree } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
 import { beadSessionCommand, releasedMessage, releasedNote, startedNote, worktreeStays } from '../../../skills/handoffs/scripts/start-handoff-session-rules.ts'
 import { CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED } from '../shared/contract.ts'
@@ -54,7 +54,8 @@ export function createSpawner(store: Store, io: SessionIo, now: () => Date = () 
           worktree = await createSessionWorktree(io, db.path, { branch, lineage: 'independent' })
           terminal = await startSessionTerminal(io, worktree, beadSessionCommand(id, db.path, worktree.path))
         } catch (error) {
-          throw await giveBack(db, id, worktree, (error as Error).message)
+          const made = worktree ?? (error instanceof WorktreeStepError ? error.worktree : undefined)
+          throw await giveBack(db, id, made, (error as Error).message)
         }
         const session = { worktree: worktree.id, path: worktree.path, branch: worktree.branch, terminal }
         try {

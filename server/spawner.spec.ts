@@ -53,7 +53,7 @@ function fakeBd(path: string, overrides: { claim?: RunResult; unclaim?: RunResul
   return { run, bead, writes }
 }
 
-function fakeOrca(overrides: { repos?: unknown[]; create?: RunResult; send?: RunResult } = {}) {
+function fakeOrca(overrides: { repos?: unknown[]; create?: RunResult; send?: RunResult; rename?: RunResult } = {}) {
   const calls: string[] = []
   let branch = 'feat-s-1-cart'
   const io: Io = {
@@ -67,6 +67,7 @@ function fakeOrca(overrides: { repos?: unknown[]; create?: RunResult; send?: Run
       calls.push(`${command} ${args.join(' ')}`)
       if (command === 'git' && args.includes('--show-toplevel')) return text('/home/me\n')
       if (command === 'git' && args.includes('-m')) {
+        if (overrides.rename) return overrides.rename
         branch = args.at(-1)!
         return text('')
       }
@@ -151,7 +152,16 @@ describe('a session that the page starts on a bead', () => {
       expect.objectContaining({ message: expect.stringMatching(new RegExp(`Timed out[\\s\\S]*open again\\. The worktree ${WORKTREE} stays`)) }),
     )
     expect(bead.status).toBe('open')
-    expect(bead.notes).toMatch(/^released 2026-10-16 09:05: the Orca terminal step failed/)
+    expect(bead.notes).toMatch(/^released 2026-10-16 09:05: no session started in [\s\S]*Timed out/)
+  })
+
+  it('gives the bead back and names the worktree that stays when git cannot rename the branch of the new worktree', async () => {
+    const { spawner, bead } = setUp({}, { rename: { status: 128, stdout: '', stderr: "fatal: a branch named 'feat/s-1-cart' already exists" } })
+    await expect(spawner.spawn(db, 's-1', 'feat/s-1-cart')).rejects.toThrow(
+      expect.objectContaining({ message: expect.stringMatching(new RegExp(`already exists[\\s\\S]*open again\\. The worktree ${WORKTREE} stays`)) }),
+    )
+    expect(bead.status).toBe('open')
+    expect(bead.notes).toContain(`released 2026-10-16 09:05: no session started in ${WORKTREE}. Cause: git -C failed (exit 128): fatal: a branch named`)
   })
 
   it('tells the user to release the claim when the page cannot give the bead back', async () => {
