@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RunAsync, RunResult } from '../../../lib/process.ts'
-import { BEADS_DELETED, INVALID, NOT_FOUND, PARTIAL_WRITE, REFUSED, STALE } from '../shared/contract.ts'
+import { BEADS_DELETED, INVALID, NOT_FOUND, PARTIAL_WRITE, REFUSED, STALE, UNREACHABLE } from '../shared/contract.ts'
 import type { Bead } from '../shared/contract.ts'
 import { versionOf } from '../shared/edit.ts'
 import type { EditRequest } from '../shared/edit.ts'
@@ -284,6 +284,35 @@ describe('an edit from the page', () => {
     const order = calls.filter((call) => call[0] === 'bd').map((call) => call.find((arg) => ['update', 'export', 'show'].includes(arg)))
     expect(order.filter((sub) => sub !== 'show' && sub !== undefined)).toEqual(['update', 'export', 'update', 'export'])
     expect(order.indexOf('show')).toBeGreaterThan(order.indexOf('export'))
+  })
+
+  it('does not export after an edit in a database on a Dolt server, also when the repo tracks the export file', async () => {
+    const { result, calls } = await edit({ changes: { title: 'Basket', dependencies: [] } }, { context: ok({ dolt_mode: 'server' }) })
+    expect(writes(calls)).toEqual([['dep', 'remove', 's-1', 's-5'], ['update', 's-1', '--title=Basket']])
+    expect(calls.some((call) => call.includes('export'))).toBe(false)
+    expect(result).toMatchObject({ id: 's-1' })
+  })
+
+  it('tells the user that the Dolt server does not answer when the edit cannot reach it, and does not export', async () => {
+    const down = failed('Error: failed to open database: Dolt server unreachable at 127.0.0.1:3307: connection refused')
+    const { run, calls } = fakeTools({ update: down, context: ok({ dolt_mode: 'server' }) })
+    await expect(
+      createStore(run, { env: {}, now }).editBead(db, 's-1', { version, changes: { title: 'Basket' } }),
+    ).rejects.toThrow(expect.objectContaining({ code: UNREACHABLE, message: expect.stringContaining('Start its tunnel') }))
+    expect(calls.some((call) => call.includes('export'))).toBe(false)
+  })
+
+  it('says how much of the edit is done, and does not export, when the Dolt server stops answering during the edit', async () => {
+    const down = failed('Error: failed to open database: Dolt server unreachable at 127.0.0.1:3307: connection refused')
+    const { run, calls } = fakeTools({ update: down, context: failed('Error: failed to open database') })
+    const error = await createStore(run, { env: {}, now })
+      .editBead(db, 's-1', { version, changes: { title: 'Basket', dependencies: ['s-5', 's-6'] } })
+      .catch((caught: unknown) => caught)
+    expect(error).toMatchObject({
+      code: PARTIAL_WRITE,
+      message: expect.stringMatching(/^The page wrote 1 of 2 changes of the edit, then .*does not answer[\s\S]*did not export the beads/),
+    })
+    expect(calls.some((call) => call.includes('export'))).toBe(false)
   })
 
   it('does not write to a database on the Windows mount', async () => {
