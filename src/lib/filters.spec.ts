@@ -1,4 +1,4 @@
-import { childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, lanesOf, NO_EPIC, readViewState, writeViewState } from './filters'
+import { BOARD_COLUMNS, childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, lanesOf, NO_EPIC, orderedCounts, readViewState, statusesOf, writeViewState } from './filters'
 import type { Bead } from '../../shared/contract'
 import type { StatusFilter } from './filters'
 
@@ -145,6 +145,13 @@ describe('the filters of the page', () => {
     const groups = groupByParent(list)
     const [lane] = lanesOf(epicsOf(list, groups, 'all'), groups, [], 'all', '')
     expect(lane.beads.map((bead) => bead.id)).toEqual(['t-2', 't-1'])
+  })
+
+  it('shows the statuses of the epic counts in the same order as the status columns', () => {
+    const counts = { deferred: 1, closed: 1, blocked: 1, in_progress: 1, open: 1 }
+    const list: Bead[] = Object.keys(counts).map((status, index) => ({ id: `t-${index}`, title: status, status }))
+    expect(orderedCounts(counts).map((part) => part.status)).toEqual(statusesOf(list))
+    expect(statusesOf(list).slice(0, BOARD_COLUMNS.length)).toEqual(BOARD_COLUMNS)
   })
 
   it('names each status of the children of an epic with its count, also an unusual status', () => {

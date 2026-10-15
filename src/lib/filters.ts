@@ -99,10 +99,10 @@ const byPriorityThenId = (a: Bead, b: Bead): number =>
 
 export type EpicEntry = { id: string; title: string; status: string; counts: Record<string, number> }
 
-const COUNT_ORDER = ['open', 'in_progress', 'blocked', 'closed']
+const inStatusOrder = (statuses: string[]): string[] => [...new Set([...BOARD_COLUMNS, ...statuses])]
 
 export const orderedCounts = (counts: Record<string, number>): { status: string; count: number }[] =>
-  [...new Set([...COUNT_ORDER, ...Object.keys(counts)])]
+  inStatusOrder(Object.keys(counts))
     .filter((status) => counts[status])
     .map((status) => ({ status, count: counts[status] }))
 
@@ -133,7 +133,7 @@ export function epicsOf(beads: Bead[], groups: Groups, status: StatusFilter): Ep
   return [...epics, { id: NO_EPIC, title: 'No epic', status: 'open', counts: countByStatus(childrenOf(groups, NO_EPIC)) }]
 }
 
-export const statusesOf = (beads: Bead[]): string[] => [...new Set([...BOARD_COLUMNS, ...beads.map((bead) => bead.status)])]
+export const statusesOf = (beads: Bead[]): string[] => inStatusOrder(beads.map((bead) => bead.status))
 
 export function columnsOf(beads: Bead[], statuses: string[] = statusesOf(beads)): { status: string; beads: Bead[] }[] {
   return statuses.map((status) => ({
