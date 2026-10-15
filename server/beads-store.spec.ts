@@ -1,5 +1,5 @@
 import type { RunAsync, RunResult } from '../../../lib/process.ts'
-import { NOT_FOUND, STORE_NOT_OPEN } from '../shared/contract.ts'
+import { NOT_FOUND, STORE_NOT_OPEN, UNREACHABLE } from '../shared/contract.ts'
 import { createStore } from './beads-store.ts'
 
 const db = { name: 'shop', path: '/home/me/shop' }
@@ -75,6 +75,21 @@ describe('the beads that the page reads', () => {
   it('reports a store that did not open instead of an empty board', async () => {
     const { run } = fakeBd({ list: ok([]), ready: ok([]) })
     await expect(createStore(run).listBeads(db)).rejects.toThrow(expect.objectContaining({ code: STORE_NOT_OPEN }))
+  })
+
+  it('tells the user that the database on a Dolt server does not answer, and not that the store is empty', async () => {
+    const down = {
+      status: 1,
+      stdout: '',
+      stderr: 'Error: failed to open database: Dolt server unreachable at 127.0.0.1:3307: dial tcp 127.0.0.1:3307: connect: connection refused\n\nThe Dolt server may not be running. Try:\n  bd dolt start',
+    }
+    const { run } = fakeBd({ list: down, ready: down })
+    await expect(createStore(run).listBeads(db)).rejects.toThrow(
+      expect.objectContaining({
+        code: UNREACHABLE,
+        message: 'The database "shop" does not answer: Dolt server unreachable at 127.0.0.1:3307: dial tcp 127.0.0.1:3307: connect: connection refused. Start its tunnel or its Dolt server.',
+      }),
+    )
   })
 
   it('reports the error that bd prints when the database path is wrong', async () => {

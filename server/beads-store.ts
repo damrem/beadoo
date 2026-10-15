@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { checked, parseJson, runCheckedAsync, withoutWarnings } from '../../../lib/process.ts'
 import type { RunAsync } from '../../../lib/process.ts'
-import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, INVALID, NOT_FOUND, PARTIAL_WRITE, REFUSED, STALE, STORE_NOT_OPEN } from '../shared/contract.ts'
+import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, INVALID, NOT_FOUND, PARTIAL_WRITE, REFUSED, STALE, STORE_NOT_OPEN, UNREACHABLE } from '../shared/contract.ts'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry, StoreErrorCode } from '../shared/contract.ts'
 import { closes, editableOf, editProblem, ID, stampOf, versionOf, withEntry } from '../shared/edit.ts'
 import type { EditableFields, EditRequest } from '../shared/edit.ts'
@@ -17,6 +17,8 @@ const UNKNOWN_ID = /not found|no issues? found/
 const CLAIM_CONFLICT = /claimed by|not claimable|is not assigned/
 
 const NOT_A_REPO = /not a git repository/
+
+const SERVER_DOWN = /Dolt server unreachable[^\n]*/
 
 const RECONCILE_LOSS = /auto-export: reconciled [1-9]\d* deleted[^\n]*/
 
@@ -37,6 +39,13 @@ export class StoreError extends Error {
 }
 
 class UnfinishedWrite extends Error {}
+
+const unreachable = (db: DatabaseEntry, error: unknown): StoreError | null => {
+  const down = error instanceof Error ? SERVER_DOWN.exec(error.message) : null
+  return down
+    ? new StoreError(UNREACHABLE, `The database "${db.name}" does not answer: ${down[0].trim()}. Start its tunnel or its Dolt server.`)
+    : null
+}
 
 type Env = Record<string, string | undefined>
 
@@ -86,7 +95,11 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
 
   const bd = async (db: DatabaseEntry, args: string[]): Promise<unknown> => {
     usable(db)
-    const stdout = await runCheckedAsync(run, 'bd', ['-C', db.path, '--readonly', ...args, '--json'], { timeoutMs: BD_TIMEOUT_MS })
+    const stdout = await runCheckedAsync(run, 'bd', ['-C', db.path, '--readonly', ...args, '--json'], {
+      timeoutMs: BD_TIMEOUT_MS,
+    }).catch((error: unknown) => {
+      throw unreachable(db, error) ?? error
+    })
     return parseJson(stdout, `bd ${args[0]}`)
   }
 
@@ -131,6 +144,8 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
       checked(result, 'bd', command)
     } catch (error) {
       if (result.status === null) throw new UnfinishedWrite((error as Error).message)
+      const down = unreachable(db, error)
+      if (down) throw down
       onError(error)
     }
   }
@@ -143,7 +158,18 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
   const actor = async (db: DatabaseEntry): Promise<string> =>
     env.BEADS_ACTOR?.trim() || (await gitText(db, ['config', 'user.name'])) || env.USER?.trim() || ''
 
+  const onServer = async (db: DatabaseEntry): Promise<boolean> => {
+    const result = await run('bd', ['-C', db.path, 'context', '--json'], { timeoutMs: BD_TIMEOUT_MS })
+    if (result.status !== 0) return false
+    try {
+      return (parseJson(result.stdout, 'bd context') as { dolt_mode?: unknown }).dolt_mode === 'server'
+    } catch {
+      return false
+    }
+  }
+
   const tracksExport = async (db: DatabaseEntry): Promise<boolean> => {
+    if (await onServer(db)) return false
     const result = await run('git', ['-C', db.path, 'ls-files', '--', EXPORT_FILE], { timeoutMs: BD_TIMEOUT_MS })
     if (result.status === 0) return result.stdout.trim() !== ''
     if (NOT_A_REPO.test(result.stderr)) return false

@@ -19,7 +19,7 @@ export type Bead = {
 
 export type BeadList = { beads: Bead[]; readyIds: string[] }
 
-export type DatabaseEntry = { name: string; path: string; refused?: string }
+export type DatabaseEntry = { name: string; path: string; refused?: string; hasTunnel?: boolean }
 
 export const STORE_NOT_OPEN = 'STORE_NOT_OPEN'
 
@@ -39,6 +39,8 @@ export const INVALID = 'INVALID'
 
 export const PARTIAL_WRITE = 'PARTIAL_WRITE'
 
+export const UNREACHABLE = 'UNREACHABLE'
+
 export const UNKNOWN_ERROR = 'ERROR'
 
 export type StoreErrorCode =
@@ -51,6 +53,7 @@ export type StoreErrorCode =
   | typeof STALE
   | typeof INVALID
   | typeof PARTIAL_WRITE
+  | typeof UNREACHABLE
 
 export const CLAIM_ACTIONS = ['claim', 'unclaim', 'renew'] as const
 

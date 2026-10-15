@@ -2,17 +2,18 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RunAsync, RunResult } from '../../../lib/process.ts'
-import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN } from '../shared/contract.ts'
+import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN, UNREACHABLE } from '../shared/contract.ts'
 import { createStore, EXPORT_FILE } from './beads-store.ts'
 
 const ok = (value: unknown): RunResult => ({ status: 0, stdout: JSON.stringify(value), stderr: '' })
 const text = (stdout: string): RunResult => ({ status: 0, stdout, stderr: '' })
 const failed = (stderr: string): RunResult => ({ status: 1, stdout: '', stderr })
 
-const SUBCOMMANDS = ['update', 'unclaim', 'heartbeat', 'export', 'list', 'show', 'ready', 'config', 'ls-files']
+const SUBCOMMANDS = ['update', 'unclaim', 'heartbeat', 'export', 'list', 'show', 'ready', 'config', 'ls-files', 'context']
 
 type Fake = {
   tracked: boolean
+  server: boolean
   gitUser: string
   exportLines: number
   listed: number
@@ -20,7 +21,7 @@ type Fake = {
 }
 
 function fakeTools(overrides: Partial<Fake> = {}) {
-  const fake: Fake = { tracked: true, gitUser: 'Ann', exportLines: 2, listed: 2, answers: {}, ...overrides }
+  const fake: Fake = { tracked: true, server: false, gitUser: 'Ann', exportLines: 2, listed: 2, answers: {}, ...overrides }
   const calls: string[][] = []
   const run: RunAsync = async (command, args) => {
     calls.push([command, ...args])
@@ -28,6 +29,7 @@ function fakeTools(overrides: Partial<Fake> = {}) {
     const answer = fake.answers[sub]
     if (answer) return typeof answer === 'function' ? answer() : answer
     if (sub === 'config') return fake.gitUser ? text(`${fake.gitUser}\n`) : failed('')
+    if (sub === 'context') return ok({ dolt_mode: fake.server ? 'server' : 'embedded' })
     if (sub === 'ls-files') return text(fake.tracked ? `${EXPORT_FILE}\n` : '')
     if (sub === 'export') {
       writeFileSync(args[args.indexOf('-o') + 1]!, '{"id":"x"}\n'.repeat(fake.exportLines))
@@ -100,8 +102,30 @@ describe('a claim from the page', () => {
     const { run, calls } = fakeTools()
     await createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')
     const subs = bdCalls(calls).map(subOf)
-    expect(subs.slice(0, 3)).toEqual(['update', 'export', 'list'])
+    expect(subs.filter((sub) => sub !== 'context').slice(0, 3)).toEqual(['update', 'export', 'list'])
     expect(bdCalls(calls)).toContainEqual(['-C', db.path, 'export', '-o', join(db.path, EXPORT_FILE)])
+  })
+
+  it('does not export after a claim in a database on a Dolt server, also when the repo tracks the export file', async () => {
+    const { run, calls } = fakeTools({ server: true })
+    await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')).resolves.toMatchObject({ id: 's-1' })
+    expect(bdCalls(calls).some((call) => subOf(call) === 'export')).toBe(false)
+  })
+
+  it('exports after a claim when bd cannot tell the mode of the database', async () => {
+    const { run, calls } = fakeTools({ server: true, answers: { context: failed('Error: no beads directory') } })
+    await createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')
+    expect(bdCalls(calls).some((call) => subOf(call) === 'export')).toBe(true)
+  })
+
+  it('tells the user that the Dolt server does not answer when the claim cannot reach it', async () => {
+    const { run, calls } = fakeTools({
+      answers: { update: failed('Error: failed to open database: Dolt server unreachable at 127.0.0.1:3307: connection refused') },
+    })
+    await expect(createStore(run, { env: {} }).writeClaim(db, 's-1', 'claim')).rejects.toThrow(
+      expect.objectContaining({ code: UNREACHABLE, message: expect.stringContaining('Start its tunnel') }),
+    )
+    expect(bdCalls(calls).some((call) => subOf(call) === 'export')).toBe(false)
   })
 
   it('does not export when the repo of the database does not track the export file', async () => {
