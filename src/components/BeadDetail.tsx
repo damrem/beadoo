@@ -52,6 +52,10 @@ export function BeadDetail({
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
+    setWrite(null)
+  }, [db, id])
+
+  useEffect(() => {
     if (!id) return
     let live = true
     setLoad((current) => (current?.id === id && current.bead ? current : { id }))

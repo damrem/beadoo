@@ -329,6 +329,23 @@ describe('the beads page', () => {
       expect(await within(dialog).findByText('Bob')).toBeInTheDocument()
     })
 
+    it('does not show the error of a failed claim again when the user opens the bead a second time', async () => {
+      answers['POST /api/beads/t-1/claim?db=.claude'] = json(
+        { error: 'issue already claimed by Bob', code: 'CONFLICT' },
+        409,
+      )
+      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim' }))
+      expect(await within(dialog).findByText('issue already claimed by Bob')).toBeInTheDocument()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      await userEvent.click(await screen.findByRole('button', { name: 't-1 Cart total' }))
+      const again = await screen.findByRole('dialog')
+      expect(await within(again).findByRole('button', { name: 'Claim' })).toBeInTheDocument()
+      expect(within(again).queryByText('issue already claimed by Bob')).not.toBeInTheDocument()
+      expect(within(again).queryByText('The page could not change the claim')).not.toBeInTheDocument()
+    })
+
     it('tells the user when the export file and the database do not hold the same count of beads', async () => {
       answers['POST /api/beads/t-1/claim?db=.claude'] = json(
         { error: 'The write is done, but /home/me/.claude/.beads/issues.jsonl holds 2 lines and bd list gives 3 beads.', code: 'EXPORT_MISMATCH' },
