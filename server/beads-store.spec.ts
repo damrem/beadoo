@@ -41,7 +41,7 @@ describe('the beads that the page reads', () => {
     expect(calls).toHaveLength(2)
   })
 
-  it('reads the ready beads at the same time as the list, so the page waits for one bd start only', async () => {
+  it('shows the board after one wait for the database, and not after two waits in a row', async () => {
     let endList = () => {}
     const started: string[] = []
     const run: RunAsync = async (_command, args) => {
@@ -50,7 +50,6 @@ describe('the beads that the page reads', () => {
         await new Promise<void>((resolve) => {
           endList = resolve
         })
-        return ok([{ id: 's-1', title: 'Cart', status: 'open' }])
       }
       return ok([{ id: 's-1', title: 'Cart', status: 'open' }])
     }
