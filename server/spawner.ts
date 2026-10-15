@@ -9,7 +9,7 @@ import type { DatabaseEntry } from '../shared/contract.ts'
 import { ID, stampOf } from '../shared/edit.ts'
 import { branchProblem } from '../shared/spawn.ts'
 import type { SpawnedSession } from '../shared/spawn.ts'
-import { StoreError } from './beads-store.ts'
+import { StoreError, writeIsDone } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
 
 const ORCA_TIMEOUT_MS = 120_000
@@ -25,16 +25,25 @@ export function createSpawner(store: Store, io: SessionIo, now: () => Date = () 
   const running = new Set<string>()
 
   const giveBack = async (db: DatabaseEntry, id: string, worktree: SessionWorktree | undefined, reason: string) => {
+    const problems: string[] = []
     try {
       await store.writeClaim(db, id, 'unclaim')
-      if (worktree) await store.appendNote(db, id, releasedNote(stampOf(now()), worktree.path, reason))
-      return new StoreError(SPAWN_FAILED, releasedMessage(reason, id, worktree?.path))
     } catch (error) {
-      return new StoreError(
-        SPAWN_FAILED,
-        `${reason}\nThe page could not give the bead ${id} back: ${(error as Error).message}.${worktreeStays(worktree?.path)} Release the claim of the bead.`,
-      )
+      const cause = (error as Error).message
+      if (!writeIsDone(error)) {
+        return new StoreError(
+          SPAWN_FAILED,
+          `${reason}\nThe page could not give the bead ${id} back: ${cause}.${worktreeStays(worktree?.path)} Release the claim of the bead.`,
+        )
+      }
+      problems.push(cause)
     }
+    if (worktree) {
+      await store.appendNote(db, id, releasedNote(stampOf(now()), worktree.path, reason)).catch((error: Error) => {
+        problems.push(writeIsDone(error) ? error.message : `The page could not write the released note: ${error.message}`)
+      })
+    }
+    return new StoreError(SPAWN_FAILED, [releasedMessage(reason, id, worktree?.path), ...problems].join('\n'))
   }
 
   return {

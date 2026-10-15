@@ -17,21 +17,26 @@ const WORKTREE_ID = `repo-1::${WORKTREE}`
 
 type Bd = { status: string; assignee?: string; notes: string }
 
-function fakeBd(path: string, overrides: { claim?: RunResult; unclaim?: RunResult; note?: RunResult } = {}) {
+type BdOverrides = { claim?: RunResult; unclaim?: RunResult; note?: RunResult; exportAfter?: string }
+
+function fakeBd(path: string, overrides: BdOverrides = {}) {
   const bead: Bd = { status: 'open', notes: '' }
   const writes: string[][] = []
+  let lastWrite = ''
   const run: RunAsync = async (command, args) => {
     if (command === 'git' && args.includes('config')) return text('Ann\n')
     if (command === 'git') return text(`${EXPORT_FILE}\n`)
     const sub = args.find((arg) => ['update', 'unclaim', 'export', 'list', 'show', 'context'].includes(arg))
     if (sub === 'context') return ok({ dolt_mode: 'embedded' })
     if (sub === 'export') {
+      if (overrides.exportAfter === lastWrite) return { status: 1, stdout: '', stderr: 'Error: disk full' }
       writeFileSync(args[args.indexOf('-o') + 1]!, '{"id":"s-1"}\n')
       return text('Exported')
     }
     if (sub === 'list') return ok([{ id: 's-1' }])
     if (sub === 'show') return ok([{ id: 's-1', title: 'Cart', ...bead }])
     writes.push(args.slice(args.indexOf(sub!)))
+    lastWrite = sub === 'update' && args.includes('--claim') ? 'claim' : sub!
     if (sub === 'update' && args.includes('--claim')) {
       if (overrides.claim) return overrides.claim
       Object.assign(bead, { status: 'in_progress', assignee: 'Ann' })
@@ -96,7 +101,7 @@ beforeEach(() => {
 
 const now = () => new Date(2026, 9, 16, 9, 5)
 
-const setUp = (bdOverrides = {}, orcaOverrides = {}) => {
+const setUp = (bdOverrides: BdOverrides = {}, orcaOverrides = {}) => {
   const bd = fakeBd(shopPath, bdOverrides)
   const orca = fakeOrca(orcaOverrides)
   const store = createStore(bd.run, { env: {}, now })
@@ -162,6 +167,17 @@ describe('a session that the page starts on a bead', () => {
     )
     expect(bead.status).toBe('open')
     expect(bead.notes).toContain(`released 2026-10-16 09:05: no session started in ${WORKTREE}. Cause: git -C failed (exit 128): fatal: a branch named`)
+  })
+
+  it('tells the user that the bead is open again, and keeps the released note, when the export fails after the release', async () => {
+    const { spawner, bead } = setUp({ exportAfter: 'unclaim' }, { send: orcaFailure('terminal is gone') })
+    const failure = spawner.spawn(db, 's-1', 'feat/s-1-cart')
+    await expect(failure).rejects.toThrow(
+      expect.objectContaining({ code: SPAWN_FAILED, message: expect.stringMatching(/terminal is gone\nThe bead s-1 is open again[\s\S]*bd export failed/) }),
+    )
+    await expect(failure).rejects.toThrow(expect.objectContaining({ message: expect.not.stringMatching(/could not give the bead/) }))
+    expect(bead.status).toBe('open')
+    expect(bead.notes).toMatch(/^released 2026-10-16 09:05: no session started in [\s\S]*terminal is gone/)
   })
 
   it('tells the user to release the claim when the page cannot give the bead back', async () => {

@@ -40,6 +40,15 @@ export class StoreError extends Error {
 
 class UnfinishedWrite extends Error {}
 
+const doneWrites = new WeakSet<Error>()
+
+export const writeIsDone = (error: unknown): boolean => error instanceof Error && doneWrites.has(error)
+
+const afterWrite = (error: unknown): never => {
+  if (error instanceof Error) doneWrites.add(error)
+  throw error
+}
+
 const unreachable = (db: DatabaseEntry, error: unknown): StoreError | null => {
   const down = error instanceof Error ? SERVER_DOWN.exec(error.message) : null
   return down
@@ -245,7 +254,7 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
       if (!ID.test(id)) throw notFound(id)
       await queue(async () => {
         await writeBd(db, CLAIM_ARGS[action](id), 'the claim', writeError(id))
-        if (action !== 'renew') await exportAndCheck(db)
+        if (action !== 'renew') await exportAndCheck(db).catch(afterWrite)
       })
       return showBead(db, id)
     },
@@ -255,7 +264,7 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
       if (!ID.test(id)) throw notFound(id)
       await queue(async () => {
         await writeBd(db, ['update', id, `--append-notes=${note}`], 'the note', editError(id))
-        await exportAndCheck(db)
+        await exportAndCheck(db).catch(afterWrite)
       })
       return showBead(db, id)
     },
