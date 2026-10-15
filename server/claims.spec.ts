@@ -230,7 +230,7 @@ describe('a claim from the page', () => {
     expect(calls).toEqual([])
   })
 
-  it('does not pass an id that looks like an option to bd', async () => {
+  it('refuses a bead id that starts with a dash as not found, and changes nothing', async () => {
     const { run, calls } = fakeTools()
     await expect(createStore(run, { env: {} }).writeClaim(db, '--force', 'unclaim')).rejects.toThrow(
       expect.objectContaining({ code: NOT_FOUND }),
