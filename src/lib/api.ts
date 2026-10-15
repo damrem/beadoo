@@ -34,6 +34,11 @@ export const api = {
       method: 'POST',
       headers: { 'x-beads-token': pageToken() },
     }),
+  startTunnel: (db: string) =>
+    request<{ started: string }>(`/api/tunnel/start?${query(db)}`, {
+      method: 'POST',
+      headers: { 'x-beads-token': pageToken() },
+    }).then(() => undefined),
   edit: (db: string, id: string, edit: EditRequest) =>
     request<Bead>(`/api/beads/${encodeURIComponent(id)}/edit?${query(db)}`, {
       method: 'POST',

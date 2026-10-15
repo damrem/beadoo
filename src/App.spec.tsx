@@ -527,6 +527,70 @@ describe('the beads page', () => {
     })
   })
 
+  describe('a database on a Dolt server that does not answer', () => {
+    const down = json(
+      {
+        error: 'The database "remote" does not answer: Dolt server unreachable at 127.0.0.1:3307. Start its tunnel or its Dolt server.',
+        code: 'UNREACHABLE',
+      },
+      503,
+    )
+
+    beforeEach(() => {
+      answers['/api/databases'] = json({
+        databases: [
+          { name: 'remote', path: '/home/me/remote', hasTunnel: true },
+          { name: 'local-server', path: '/home/me/local-server' },
+        ],
+      })
+      answers['/api/beads?db=remote'] = down
+      answers['/api/beads?db=local-server'] = down
+      const meta = document.createElement('meta')
+      meta.name = 'beads-token'
+      meta.content = 'page-token'
+      document.head.append(meta)
+    })
+
+    afterEach(() => {
+      document.head.querySelector('meta[name="beads-token"]')?.remove()
+    })
+
+    it('shows that the database does not answer, and opens it after the user starts its tunnel', async () => {
+      window.history.replaceState(null, '', '/?db=remote&status=all')
+      render(<App />)
+      const alert = await screen.findByRole('alert')
+      expect(within(alert).getByText('The database "remote" does not answer')).toBeInTheDocument()
+      expect(within(alert).getByText(/Dolt server unreachable at 127.0.0.1:3307/)).toBeInTheDocument()
+      answers['POST /api/tunnel/start?db=remote'] = json({ started: 'remote' })
+      answers['/api/beads?db=remote'] = json({ beads, readyIds: [] })
+      await userEvent.click(within(alert).getByRole('button', { name: 'Start the tunnel' }))
+      expect(await screen.findByText('Cart total')).toBeInTheDocument()
+      expect(writes).toEqual([{ path: '/api/tunnel/start?db=remote', token: 'page-token' }])
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('tells the user why the tunnel did not start', async () => {
+      window.history.replaceState(null, '', '/?db=remote')
+      render(<App />)
+      const alert = await screen.findByRole('alert')
+      answers['POST /api/tunnel/start?db=remote'] = json(
+        { error: 'The tunnel of "remote" did not start: ssh -fN db-host failed (Could not resolve hostname db-host).', code: 'ERROR' },
+        500,
+      )
+      await userEvent.click(within(alert).getByRole('button', { name: 'Start the tunnel' }))
+      expect(await within(alert).findByRole('status')).toHaveTextContent('Could not resolve hostname db-host')
+      expect(within(alert).getByRole('button', { name: 'Start the tunnel' })).toBeEnabled()
+    })
+
+    it('tells the user to start the Dolt server when the config gives no tunnel for the database', async () => {
+      window.history.replaceState(null, '', '/?db=local-server')
+      render(<App />)
+      const alert = await screen.findByRole('alert')
+      expect(within(alert).getByText(/gives no tunnel for this database/)).toBeInTheDocument()
+      expect(within(alert).queryByRole('button')).not.toBeInTheDocument()
+    })
+  })
+
   it('keeps the beads of the selected database when a slow answer for the previous database arrives', async () => {
     let answerClaude = (_answer: Answer) => {}
     answers['/api/databases'] = json({

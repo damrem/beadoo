@@ -7,10 +7,12 @@ import { EpicSidebar } from '@/components/EpicSidebar'
 import { EpicTable } from '@/components/EpicTable'
 import { FilterBar } from '@/components/FilterBar'
 import { RefreshButton } from '@/components/RefreshButton'
+import { UnreachableAlert } from '@/components/UnreachableAlert'
 import { ViewSwitch } from '@/components/ViewSwitch'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
+import { UNREACHABLE } from '../shared/contract'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
 import { childrenOf, epicsOf, filterBeads, groupByParent, lanesOf, readViewState, writeViewState } from '@/lib/filters'
 import type { StoredFilters, ViewState } from '@/lib/filters'
@@ -40,6 +42,7 @@ export function App() {
   const [databases, setDatabases] = useState<DatabaseEntry[] | null>(null)
   const [data, setData] = useState<BeadList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [unreachable, setUnreachable] = useState(false)
   const [loading, setLoading] = useState(false)
   const [lastRead, setLastRead] = useState<Date | null>(null)
   const [actor, setActor] = useState<string | null>(null)
@@ -79,9 +82,14 @@ export function App() {
         if (!current()) return
         setData(list)
         setError(null)
+        setUnreachable(false)
         setLastRead(new Date())
       })
-      .catch((reason: Error) => current() && setError(reason.message))
+      .catch((reason: Error) => {
+        if (!current()) return
+        setError(reason.message)
+        setUnreachable(reason instanceof ApiError && reason.code === UNREACHABLE)
+      })
       .finally(() => current() && setLoading(false))
   }, [selectedDb])
 
@@ -102,6 +110,7 @@ export function App() {
     activeDb.current = selectedDb?.name ?? null
     setData(null)
     setError(null)
+    setUnreachable(false)
     refresh()
     const timer = window.setInterval(refresh, POLL_MS)
     return () => window.clearInterval(timer)
@@ -156,7 +165,16 @@ export function App() {
           <AlertDescription>{selectedDb.refused}</AlertDescription>
         </Alert>
       )}
-      {error && (
+      {error && unreachable && selectedDb && (
+        <UnreachableAlert
+          key={selectedDb.name}
+          name={selectedDb.name}
+          message={error}
+          hasTunnel={Boolean(selectedDb.hasTunnel)}
+          onStart={() => api.startTunnel(selectedDb.name).then(refresh)}
+        />
+      )}
+      {error && !unreachable && (
         <Alert variant="destructive" className="m-4 w-auto">
           <AlertTitle>The page could not read the beads</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
