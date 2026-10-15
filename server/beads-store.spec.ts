@@ -60,7 +60,15 @@ describe('the beads that the page reads', () => {
     expect((await result).readyIds).toEqual(['s-1'])
   })
 
-  it('reports a store that did not open also when the read of the ready beads fails', async () => {
+  it('reports the error that bd prints when the beads are there but the read of the ready beads fails', async () => {
+    const { run } = fakeBd({
+      list: ok([{ id: 's-1', title: 'Cart', status: 'open' }]),
+      ready: { status: 1, stdout: '', stderr: 'Error: ready query failed' },
+    })
+    await expect(createStore(run).listBeads(db)).rejects.toThrow('ready query failed')
+  })
+
+  it('reports a store that did not open, and not the ready error, when both reads fail', async () => {
     const { run } = fakeBd({ list: ok([]), ready: { status: 1, stdout: '', stderr: 'Error: no database' } })
     await expect(createStore(run).listBeads(db)).rejects.toThrow(expect.objectContaining({ code: STORE_NOT_OPEN }))
   })
