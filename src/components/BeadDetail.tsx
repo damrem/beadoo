@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Tag } from '@/components/BeadCard'
 import { BeadEditor } from '@/components/BeadEditor'
-import { ClaimControls } from '@/components/ClaimControls'
+import { claimActions, ClaimControls } from '@/components/ClaimControls'
+import { SessionStarted, SpawnControls } from '@/components/SpawnControls'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import type { Bead, ClaimAction } from '../../shared/contract'
+import type { SpawnedSession } from '../../shared/spawn'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -32,7 +34,7 @@ function Text({ label, value }: { label: string; value?: string | null }) {
 
 type Load = { id: string; bead?: Bead; error?: string }
 
-type Write = { id: string; action: ClaimAction | null; error?: string }
+type Write = { id: string; action: ClaimAction | 'spawn' | null; error?: string; failed?: 'claim' | 'spawn'; session?: SpawnedSession }
 
 export function BeadDetail({
   db,
@@ -87,10 +89,26 @@ export function BeadDetail({
       .finally(onWritten)
   }
 
+  const runSpawn = (beadId: string, branch: string) => {
+    setWrite({ id: beadId, action: 'spawn' })
+    api
+      .spawn(db, beadId, branch)
+      .then((session) => {
+        setLoad((current) => (current?.id === beadId ? { id: beadId, bead: session.bead } : current))
+        setWrite({ id: beadId, action: null, session })
+      })
+      .catch((reason: Error) => {
+        setWrite({ id: beadId, action: null, error: reason.message, failed: 'spawn' })
+        setReload((count) => count + 1)
+      })
+      .finally(onWritten)
+  }
+
   const bead = load?.id === id ? load.bead : undefined
   const error = load?.id === id ? load.error : undefined
   const writing = write?.id === id ? write.action : null
   const writeError = write?.id === id ? write.error : undefined
+  const session = write?.id === id ? write.session : undefined
   const blockers = bead?.dependencies?.filter((dep) => dep.dependency_type !== 'parent-child') ?? []
   const now = new Date()
   const leaseText = bead && leaseLabel(leaseState(bead, now), now)
@@ -112,10 +130,13 @@ export function BeadDetail({
           {!bead && !error && <Skeleton className="h-40 w-full" />}
           {writeError && (
             <Alert variant="destructive">
-              <AlertTitle>The page could not change the claim</AlertTitle>
+              <AlertTitle>
+                {write?.failed === 'spawn' ? 'The page could not start a session' : 'The page could not change the claim'}
+              </AlertTitle>
               <AlertDescription>{writeError}</AlertDescription>
             </Alert>
           )}
+          {session && <SessionStarted session={session} />}
           {bead && editing && (
             <BeadEditor
               key={bead.id}
@@ -145,6 +166,15 @@ export function BeadDetail({
                 <Button size="sm" variant="outline" disabled={writing !== null} onClick={() => setEditing(true)}>
                   Edit
                 </Button>
+                {claimActions(bead, actor).includes('claim') && (
+                  <SpawnControls
+                    key={bead.id}
+                    bead={bead}
+                    disabled={writing !== null}
+                    spawning={writing === 'spawn'}
+                    onSpawn={(branch) => runSpawn(bead.id, branch)}
+                  />
+                )}
               </div>
               <dl className="flex flex-col gap-1.5">
                 <Field label="Status">{bead.status}</Field>

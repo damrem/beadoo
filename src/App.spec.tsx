@@ -377,6 +377,96 @@ describe('the beads page', () => {
     })
   })
 
+  describe('the start of a session on a bead', () => {
+    const session = {
+      bead: { ...beads[1], status: 'in_progress', assignee: 'Ann', notes: 'started 2026-10-16 09:05 in /home/me/wt/t-1' },
+      worktree: 'repo::/home/me/wt/t-1',
+      path: '/home/me/wt/t-1',
+      branch: 'feat/t-1-cart-total',
+      terminal: 'term_7',
+    }
+
+    beforeEach(() => {
+      answers['/api/actor?db=.claude'] = json({ actor: 'Ann' })
+    })
+
+    withPageToken()
+
+    const openDetail = async (search = '/?db=.claude&bead=t-1') => {
+      window.history.replaceState(null, '', search)
+      render(<App />)
+      return screen.findByRole('dialog')
+    }
+
+    const spawnBody = () => {
+      const call = vi.mocked(fetch).mock.calls.find(([path]) => String(path).includes('/spawn?'))
+      return call ? JSON.parse(String(call[1]?.body)) : undefined
+    }
+
+    it('proposes a branch from the id and the title of the bead', async () => {
+      const dialog = await openDetail()
+      expect(await within(dialog).findByLabelText('Branch of the session')).toHaveValue('feat/t-1-cart-total')
+    })
+
+    it('claims the bead and starts a session with one click, then shows the worktree, the branch and the terminal', async () => {
+      answers['POST /api/beads/t-1/spawn?db=.claude'] = json(session)
+      const dialog = await openDetail()
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim and spawn' }))
+      expect(await within(dialog).findByText('A session started on the bead')).toBeInTheDocument()
+      expect(within(dialog).getByText('/home/me/wt/t-1')).toBeInTheDocument()
+      expect(within(dialog).getByText('feat/t-1-cart-total')).toBeInTheDocument()
+      expect(within(dialog).getByText('term_7')).toBeInTheDocument()
+      expect(within(dialog).getByText('in_progress')).toBeInTheDocument()
+      expect(writes).toEqual([{ path: '/api/beads/t-1/spawn?db=.claude', token: 'page-token' }])
+      expect(spawnBody()).toEqual({ branch: 'feat/t-1-cart-total' })
+    })
+
+    it('starts the session on the branch that the user typed', async () => {
+      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, branch: 'fix/cart-total' })
+      const dialog = await openDetail()
+      const branch = await within(dialog).findByLabelText('Branch of the session')
+      await userEvent.clear(branch)
+      await userEvent.type(branch, 'fix/cart-total')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Claim and spawn' }))
+      await within(dialog).findByText('A session started on the bead')
+      expect(spawnBody()).toEqual({ branch: 'fix/cart-total' })
+    })
+
+    it('does not start a session on a branch that is not a type and a slug, and tells the user why', async () => {
+      const dialog = await openDetail()
+      const branch = await within(dialog).findByLabelText('Branch of the session')
+      await userEvent.clear(branch)
+      await userEvent.type(branch, 'Cart')
+      expect(within(dialog).getByRole('button', { name: 'Claim and spawn' })).toBeDisabled()
+      expect(within(dialog).getByText(/Give the branch as <type>\/<slug>/)).toBeInTheDocument()
+    })
+
+    it('tells the user why the session did not start', async () => {
+      answers['POST /api/beads/t-1/spawn?db=.claude'] = json(
+        { error: 'orca terminal create failed: Timed out\nThe bead t-1 is open again.', code: 'SPAWN_FAILED' },
+        502,
+      )
+      const dialog = await openDetail()
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim and spawn' }))
+      expect(await within(dialog).findByText('The page could not start a session')).toBeInTheDocument()
+      expect(within(dialog).getByText(/The bead t-1 is open again/)).toBeInTheDocument()
+    })
+
+    it('shows the warning when the session runs but the page could not note its start', async () => {
+      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, warning: 'The session runs, but the page could not write the note of the start' })
+      const dialog = await openDetail()
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim and spawn' }))
+      expect(await within(dialog).findByText(/could not write the note of the start/)).toBeInTheDocument()
+    })
+
+    it('does not offer to start a session on a bead that another actor holds', async () => {
+      answers['/api/beads/t-1?db=.claude'] = json({ ...beads[1], status: 'in_progress', assignee: 'Bob' })
+      const dialog = await openDetail()
+      await within(dialog).findByText('Bob')
+      expect(within(dialog).queryByRole('button', { name: 'Claim and spawn' })).not.toBeInTheDocument()
+    })
+  })
+
   describe('the claim of a bead', () => {
     const mine = {
       ...beads[1],

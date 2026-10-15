@@ -1,6 +1,7 @@
 import { TUNNEL_ROUTE, UNKNOWN_ERROR } from '../../shared/contract'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry } from '../../shared/contract'
 import type { EditRequest } from '../../shared/edit'
+import type { SpawnedSession } from '../../shared/spawn'
 
 export class ApiError extends Error {
   readonly code: string
@@ -39,6 +40,12 @@ export const api = {
       method: 'POST',
       headers: { 'x-beads-token': pageToken() },
     }).then(() => undefined),
+  spawn: (db: string, id: string, branch: string) =>
+    request<SpawnedSession>(`/api/beads/${encodeURIComponent(id)}/spawn?${query(db)}`, {
+      method: 'POST',
+      headers: { 'x-beads-token': pageToken(), 'content-type': 'application/json' },
+      body: JSON.stringify({ branch }),
+    }),
   edit: (db: string, id: string, edit: EditRequest) =>
     request<Bead>(`/api/beads/${encodeURIComponent(id)}/edit?${query(db)}`, {
       method: 'POST',

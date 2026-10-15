@@ -17,7 +17,7 @@ export function ClaimControls({
 }: {
   bead: Bead
   actor: string | null
-  writing: ClaimAction | null
+  writing: ClaimAction | 'spawn' | null
   onAction: (action: ClaimAction) => void
 }) {
   const actions = claimActions(bead, actor)
