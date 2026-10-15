@@ -29,7 +29,11 @@ export const realLaunch: Launch = (command, args, timeoutMs) =>
       resolve(result)
     }
     const timer = setTimeout(() => {
-      child.kill('SIGTERM')
+      try {
+        process.kill(-child.pid!, 'SIGTERM')
+      } catch {
+        child.kill('SIGTERM')
+      }
       finish({ status: null, stdout: '', stderr: `did not finish in ${timeoutMs / 1000} s` })
     }, timeoutMs)
     child.stderr?.on('data', (chunk: Buffer) => {
@@ -59,6 +63,8 @@ export function createTunnels(launch: Launch = realLaunch, launchSync: LaunchSyn
     const [command, ...args] = tunnel.start
     const result = await launch(command!, args, TUNNEL_TIMEOUT_MS)
     if (result.status !== 0) {
+      const [stopCommand, ...stopArgs] = tunnel.stop
+      await launch(stopCommand!, stopArgs, TUNNEL_TIMEOUT_MS)
       throw new Error(
         `The tunnel of "${name}" did not start: ${tunnel.start.join(' ')} failed (${detailOf(result)}). Use a start command that returns when the tunnel is open, as ssh -f.`,
       )

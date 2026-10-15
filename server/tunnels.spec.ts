@@ -1,4 +1,7 @@
 import { EventEmitter } from 'node:events'
+import { mkdtempSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { RunResult } from '../../../lib/process.ts'
 import { INVALID, REFUSED } from '../shared/contract.ts'
 import type { ConfiguredDatabase } from './config-rules.ts'
@@ -42,12 +45,20 @@ describe('the tunnels of the Dolt server databases', () => {
     expect(fake.stopped).toEqual([])
   })
 
-  it('does not stop a tunnel whose start failed', async () => {
+  it('runs the stop command at once when the start fails, because the start can leave a part of the tunnel open', async () => {
     const fake = fakeLaunch({ status: 255, stdout: '', stderr: 'ssh: connect to host db-host port 22: Connection refused' })
     const tunnels = createTunnels(fake.launch, fake.launchSync)
     await expect(tunnels.start(remote)).rejects.toThrow('ssh: connect to host db-host port 22: Connection refused')
+    expect(fake.started).toEqual([['ssh', '-fN', 'db-host'], ['pkill', '-f', 'db-host']])
     tunnels.stopAll()
     expect(fake.stopped).toEqual([])
+  })
+
+  it('runs the stop command at once when the start does not return in time', async () => {
+    const fake = fakeLaunch({ status: null, stdout: '', stderr: 'did not finish in 30 s' })
+    const tunnels = createTunnels(fake.launch, fake.launchSync)
+    await expect(tunnels.start(remote)).rejects.toThrow('did not finish in 30 s')
+    expect(fake.started).toEqual([['ssh', '-fN', 'db-host'], ['pkill', '-f', 'db-host']])
   })
 
   it('stops a tunnel one time only, also when the server stops two times', async () => {
@@ -140,6 +151,15 @@ describe('the start command of a tunnel', () => {
   it('stops a start command that does not return in time', async () => {
     const result = await realLaunch('sleep', ['5'], 300)
     expect(result).toMatchObject({ status: null, stderr: 'did not finish in 0.3 s' })
+  })
+
+  it('stops the processes that a start command started when the start does not return in time', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'beads-tunnel-'))
+    const pidFile = join(dir, 'pid')
+    const result = await realLaunch('sh', ['-c', `sleep 30 & echo $! > ${pidFile}; wait`], 500)
+    expect(result.status).toBeNull()
+    const pid = Number(readFileSync(pidFile, 'utf8'))
+    await vi.waitFor(() => expect(() => process.kill(pid, 0)).toThrow())
   })
 
   it('reports a start program that does not exist', async () => {
