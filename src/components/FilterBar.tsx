@@ -44,7 +44,7 @@ export function FilterBar({
       <Input
         aria-label="Find in the titles"
         placeholder="Find in the titles"
-        className="h-7 w-56"
+        className="h-7 w-40"
         value={text}
         onChange={(event) => onText(event.target.value)}
       />

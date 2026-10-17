@@ -17,7 +17,7 @@ export function DatabaseSelector({
         if (typeof name === 'string') onChange(name)
       }}
     >
-      <SelectTrigger aria-label="Database" className="min-w-40">
+      <SelectTrigger aria-label="Database" className="min-w-32">
         <SelectValue placeholder="Database" />
       </SelectTrigger>
       <SelectContent>
