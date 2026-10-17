@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AttributeFilters } from '@/components/AttributeFilters'
 import { BeadDetail } from '@/components/BeadDetail'
 import { Board } from '@/components/Board'
 import { DatabaseSelector } from '@/components/DatabaseSelector'
@@ -14,7 +15,18 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { api, ApiError } from '@/lib/api'
 import { UNREACHABLE } from '../shared/contract'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
-import { childrenOf, epicsOf, filterBeads, groupByParent, lanesOf, readViewState, writeViewState } from '@/lib/filters'
+import {
+  childrenOf,
+  epicsOf,
+  filterBeads,
+  groupByParent,
+  labelsOf,
+  lanesOf,
+  prioritiesOf,
+  readViewState,
+  typesOf,
+  writeViewState,
+} from '@/lib/filters'
 import type { BeadFilter, StoredFilters, ViewState } from '@/lib/filters'
 
 export const POLL_MS = 60_000
@@ -127,6 +139,11 @@ export function App() {
 
   const epics = useMemo(() => (data ? epicsOf(data.beads, groups, view.status) : []), [data, groups, view.status])
 
+  const options = useMemo(() => {
+    const loaded = data?.beads ?? []
+    return { labels: labelsOf(loaded), types: typesOf(loaded), priorities: prioritiesOf(loaded) }
+  }, [data])
+
   const filter = useMemo<BeadFilter>(
     () => ({ status: view.status, text: view.text, labels: view.labels, type: view.type, priority: view.priority }),
     [view.status, view.text, view.labels, view.type, view.priority],
@@ -165,6 +182,17 @@ export function App() {
           text={view.text}
           onStatus={(status) => update({ status })}
           onText={(text) => update({ text })}
+        />
+        <AttributeFilters
+          labels={view.labels}
+          type={view.type}
+          priority={view.priority}
+          labelOptions={options.labels}
+          typeOptions={options.types}
+          priorityOptions={options.priorities}
+          onLabels={(labels) => update({ labels })}
+          onType={(type) => update({ type })}
+          onPriority={(priority) => update({ priority })}
         />
         <div className="ml-auto">
           <RefreshButton lastRead={lastRead} loading={loading} onRefresh={refresh} />

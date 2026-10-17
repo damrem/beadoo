@@ -249,6 +249,89 @@ describe('the beads page', () => {
       expect(await shownInEpicBoards()).toEqual(expected)
     })
 
+    describe('the label, type and priority filters', () => {
+      beforeEach(() => {
+        answers['/api/beads?db=.claude'] = json({
+          beads: [
+            beads[0],
+            { ...beads[1], labels: ['front', 'urgent'] },
+            { ...beads[2], labels: ['front'] },
+            { ...beads[3], issue_type: 'bug', priority: 1, labels: ['front', 'urgent'] },
+            { ...beads[4], issue_type: 'bug', priority: 2, labels: ['urgent', 'front'] },
+          ],
+          readyIds: ['t-1', 't-4'],
+        })
+      })
+
+      const select = (name: string) => screen.getByRole('combobox', { name })
+
+      it('shows the same beads in the three views when the user selects labels and a type', async () => {
+        window.history.replaceState(null, '', '/?db=.claude&status=all')
+        render(<App />)
+        await screen.findByText('Cart total')
+        await userEvent.selectOptions(select('Label filter'), 'front')
+        await userEvent.selectOptions(select('Label filter'), 'urgent')
+        const allLabels = ['t-1 Cart total', 't-3 Receipt mail', 't-4 Fix the logo']
+        expect(await shownIn('Lanes')).toEqual(allLabels)
+        expect(await shownIn('Table')).toEqual(allLabels)
+        expect(await shownInEpicBoards()).toEqual(allLabels)
+        await userEvent.selectOptions(select('Type filter'), 'bug')
+        const bugs = ['t-3 Receipt mail', 't-4 Fix the logo']
+        expect(await shownIn('Lanes')).toEqual(bugs)
+        expect(await shownIn('Table')).toEqual(bugs)
+        expect(await shownInEpicBoards()).toEqual(bugs)
+      })
+
+      it('shows a bead again when the user removes a label filter that the bead does not hold', async () => {
+        window.history.replaceState(null, '', '/?db=.claude&status=all&view=lanes&label=front&label=urgent')
+        render(<App />)
+        await screen.findByText('Cart total')
+        expect(screen.queryByText('Pay button')).not.toBeInTheDocument()
+        await userEvent.click(screen.getByRole('button', { name: 'Remove the label filter urgent' }))
+        expect(screen.getByText('Pay button')).toBeInTheDocument()
+        expect(window.location.search).not.toContain('label=urgent')
+      })
+
+      it('offers the labels, the types and the priorities that the loaded beads hold', async () => {
+        render(<App />)
+        await screen.findByText('Cart total')
+        const values = (name: string) =>
+          within(select(name))
+            .getAllByRole('option')
+            .map((option) => option.textContent)
+        expect(values('Label filter')).toEqual(['Add a label', 'front', 'urgent'])
+        expect(values('Type filter')).toEqual(['All types', 'bug', 'epic', 'task'])
+        expect(values('Priority filter')).toEqual(['All priorities', 'P1', 'P2'])
+      })
+
+      it('keeps the label, type and priority filters in the link and for the next visit', async () => {
+        render(<App />)
+        await screen.findByText('Cart total')
+        await userEvent.selectOptions(select('Label filter'), 'front')
+        await userEvent.selectOptions(select('Type filter'), 'bug')
+        await userEvent.selectOptions(select('Priority filter'), 'P2')
+        const params = new URLSearchParams(window.location.search)
+        expect(params.getAll('label')).toEqual(['front'])
+        expect(params.get('type')).toBe('bug')
+        expect(params.get('priority')).toBe('2')
+        expect(JSON.parse(window.localStorage.getItem('beads-page:filters') ?? '{}')).toMatchObject({
+          labels: ['front'],
+          type: 'bug',
+          priority: 2,
+        })
+      })
+
+      it('opens the page with the label, type and priority filters that the link names', async () => {
+        window.history.replaceState(null, '', '/?db=.claude&status=all&view=table&label=urgent&type=bug&priority=2')
+        render(<App />)
+        const table = await screen.findByRole('table', { name: 'Beads by epic' })
+        expect(cardNames(table)).toEqual(['t-4 Fix the logo'])
+        expect(select('Type filter')).toHaveValue('bug')
+        expect(select('Priority filter')).toHaveValue('2')
+        expect(screen.getByRole('button', { name: 'Remove the label filter urgent' })).toBeInTheDocument()
+      })
+    })
+
     it('shows one lane for each epic and one column for each status in the lanes view', async () => {
       window.history.replaceState(null, '', '/?db=.claude&status=all&view=lanes')
       render(<App />)
