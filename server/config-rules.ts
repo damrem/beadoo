@@ -32,13 +32,13 @@ const isTunnel = (value: unknown): value is TunnelCommands =>
 
 export function checkDatabases(config: unknown): ConfiguredDatabase[] {
   const databases = (config as { databases?: unknown } | null)?.databases
-  if (!Array.isArray(databases)) throw new Error('beads-page.json holds no "databases" list')
+  if (!Array.isArray(databases)) throw new Error('beadoo.json holds no "databases" list')
   return databases.map((entry, index) => {
-    if (!isEntry(entry)) throw new Error(`beads-page.json: entry ${index} needs a "name" and a "path"`)
+    if (!isEntry(entry)) throw new Error(`beadoo.json: entry ${index} needs a "name" and a "path"`)
     const { name, path } = entry
     if (entry.tunnel !== undefined && !isTunnel(entry.tunnel)) {
       throw new Error(
-        `beads-page.json: the "tunnel" of entry ${index} needs a "start" and a "stop" command, each a list of strings that starts with the program`,
+        `beadoo.json: the "tunnel" of entry ${index} needs a "start" and a "stop" command, each a list of strings that starts with the program`,
       )
     }
     const tunnel = entry.tunnel ? { tunnel: { start: [...entry.tunnel.start], stop: [...entry.tunnel.stop] } } : {}

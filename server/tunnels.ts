@@ -86,7 +86,7 @@ export function createTunnels(launch: Launch = realLaunch, launchSync: LaunchSyn
   return {
     start(db: ConfiguredDatabase): Promise<void> {
       if (db.refused) return Promise.reject(new StoreError(REFUSED, db.refused))
-      if (!db.tunnel) return Promise.reject(new StoreError(INVALID, `beads-page.json gives no tunnel for the database "${db.name}".`))
+      if (!db.tunnel) return Promise.reject(new StoreError(INVALID, `beadoo.json gives no tunnel for the database "${db.name}".`))
       const running = pending.get(db.name)
       if (running) return running
       const task = startOnce(db.name, db.tunnel).finally(() => pending.delete(db.name))

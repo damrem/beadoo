@@ -36,7 +36,7 @@ export function UnreachableAlert({
             {starting ? 'Starting the tunnel…' : 'Start the tunnel'}
           </Button>
         ) : (
-          <p>beads-page.json gives no tunnel for this database. Start its Dolt server, then refresh.</p>
+          <p>beadoo.json gives no tunnel for this database. Start its Dolt server, then refresh.</p>
         )}
         {failure && <p role="status">{failure}</p>}
       </AlertDescription>
