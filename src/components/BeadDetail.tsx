@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LabelTags } from '@/components/BeadCard'
 import { BeadEditor } from '@/components/BeadEditor'
@@ -15,6 +15,8 @@ import type { SpawnedSession } from '../../shared/spawn'
 import { statusEmoji, typeEmoji } from '@/lib/emojis'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
 
+const Markdown = lazy(() => import('@/components/Markdown').then((module) => ({ default: module.Markdown })))
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="grid grid-cols-[7rem_1fr] gap-2 text-sm">
@@ -29,7 +31,9 @@ function Text({ label, value }: { label: string; value?: string | null }) {
   return (
     <section className="flex flex-col gap-1">
       <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</h3>
-      <pre className="font-sans text-sm whitespace-pre-wrap">{value}</pre>
+      <Suspense fallback={<p className="text-sm whitespace-pre-wrap">{value}</p>}>
+        <Markdown text={value} />
+      </Suspense>
     </section>
   )
 }
