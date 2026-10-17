@@ -856,12 +856,31 @@ describe('the beadoo page', () => {
       const alert = await screen.findByRole('alert')
       expect(within(alert).getByText('The database "remote" does not answer')).toBeInTheDocument()
       expect(within(alert).getByText(/Dolt server unreachable at 127.0.0.1:3307/)).toBeInTheDocument()
+      expect(alert.textContent?.match(/does not answer/g)).toHaveLength(1)
       answers['POST /api/tunnel/start?db=remote'] = json({ started: 'remote' })
       answers['/api/beads?db=remote'] = json({ beads, readyIds: [] })
       await userEvent.click(within(alert).getByRole('button', { name: 'Start the tunnel' }))
       expect(await screen.findByText('Cart total')).toBeInTheDocument()
       expect(writes).toEqual([{ path: '/api/tunnel/start?db=remote', token: 'page-token' }])
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('shows no read time of the previous database when the user selects a database that does not answer', async () => {
+      answers['/api/databases'] = json({
+        databases: [
+          { name: '.claude', path: '/home/me/.claude' },
+          { name: 'remote', path: '/home/me/remote', hasTunnel: true },
+        ],
+      })
+      answers['/api/beads?db=.claude'] = json({ beads, readyIds: ['t-1', 't-4'] })
+      window.history.replaceState(null, '', '/?db=.claude')
+      render(<App />)
+      await screen.findByText('Cart total')
+      expect(screen.queryByText('Not read')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('combobox', { name: 'Database' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'remote' }))
+      await screen.findByRole('alert')
+      expect(screen.getByText('Not read')).toBeInTheDocument()
     })
 
     it('tells the user why the tunnel did not start', async () => {

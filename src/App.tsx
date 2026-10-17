@@ -135,6 +135,7 @@ export function App() {
     setData(null)
     setError(null)
     setUnreachable(false)
+    setLastRead(null)
     refresh()
     const timer = window.setInterval(refresh, POLL_MS)
     return () => window.clearInterval(timer)

@@ -16,6 +16,8 @@ export function UnreachableAlert({
 }) {
   const [starting, setStarting] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
+  const title = `The database "${name}" does not answer`
+  const cause = message.startsWith(`${title}: `) ? message.slice(title.length + 2) : message
 
   const start = () => {
     setStarting(true)
@@ -28,9 +30,9 @@ export function UnreachableAlert({
   return (
     <Alert variant="destructive" className="m-4 w-auto">
       <PlugZapIcon />
-      <AlertTitle>The database "{name}" does not answer</AlertTitle>
+      <AlertTitle>{title}</AlertTitle>
       <AlertDescription>
-        <p>{message}</p>
+        <p>{cause}</p>
         {hasTunnel ? (
           <Button variant="outline" size="sm" className="mt-2" onClick={start} disabled={starting}>
             {starting ? 'Starting the tunnel…' : 'Start the tunnel'}
