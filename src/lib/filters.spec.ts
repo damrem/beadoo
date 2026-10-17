@@ -293,7 +293,7 @@ describe('the filters of the page', () => {
   it('puts in each lane the beads of one epic that match the filter, and leaves out an epic with no match', () => {
     const list: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
     const groups = groupByParent(list)
-    const lanes = lanesOf(epicsOf(list, groups, 'ready'), groups, ['t-1', 't-4'], only({ status: 'ready' }))
+    const lanes = lanesOf(epicsOf(list, groups, 'ready'), groups, ['t-1', 't-4'], only({ status: 'ready' }), list)
     expect(lanes.map((lane) => [lane.epic.id, lane.beads.map((bead) => bead.id)])).toEqual([
       ['e-1', ['t-1']],
       [NO_EPIC, ['t-4']],
@@ -307,8 +307,37 @@ describe('the filters of the page', () => {
       { id: 't-2', title: 'Urgent', status: 'open', parent: 'e-1', priority: 0 },
     ]
     const groups = groupByParent(list)
-    const [lane] = lanesOf(epicsOf(list, groups, 'all'), groups, [], only({}))
+    const [lane] = lanesOf(epicsOf(list, groups, 'all'), groups, [], only({}), list)
     expect(lane.beads.map((bead) => bead.id)).toEqual(['t-2', 't-1'])
+  })
+
+  describe('an epic with no children', () => {
+    const list: Bead[] = [
+      { id: 'e-1', title: 'Checkout', status: 'open', issue_type: 'epic' },
+      { id: 'e-1.1', title: 'Payment', status: 'open', issue_type: 'epic', parent: 'e-1' },
+      { id: 'e-2', title: 'Search', status: 'open', issue_type: 'epic', labels: ['front'] },
+      { id: 'e-3', title: 'Old search', status: 'closed', issue_type: 'epic' },
+    ]
+    const laneIds = (status: StatusFilter, change: Partial<BeadFilter> = {}, readyIds = ['e-1', 'e-1.1', 'e-2']) => {
+      const groups = groupByParent(list)
+      return lanesOf(epicsOf(list, groups, status), groups, readyIds, only({ status, ...change }), list).map((lane) => lane.epic.id)
+    }
+
+    it('shows a lane for an empty epic, at the top level and inside another epic', () => {
+      expect(laneIds('ready')).toEqual(['e-1', 'e-1.1', 'e-2'])
+    })
+
+    it('hides the lane of an empty epic that does not match the filter', () => {
+      expect(laneIds('ready', { text: 'search' })).toEqual(['e-2'])
+      expect(laneIds('ready', { labels: ['front'] })).toEqual(['e-2'])
+      expect(laneIds('ready', { type: 'task' })).toEqual([])
+    })
+
+    it('shows the lane of a closed empty epic only under the all and closed filters', () => {
+      expect(laneIds('ready')).not.toContain('e-3')
+      expect(laneIds('all')).toContain('e-3')
+      expect(laneIds(['closed'])).toEqual(['e-3'])
+    })
   })
 
   it('shows the statuses of the epic counts in the same order as the status columns', () => {

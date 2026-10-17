@@ -241,11 +241,13 @@ export function lanesOf(
   groups: Groups,
   readyIds: string[],
   filter: BeadFilter,
+  beads: Bead[],
 ): Lane[] {
+  const childless = new Set(filterBeads(beads.filter((bead) => !groups.has(bead.id)), readyIds, filter).map((bead) => bead.id))
   return epics
     .map((epic) => ({
       epic,
       beads: filterBeads(childrenOf(groups, epic.id), readyIds, filter).sort(byPriorityThenId),
     }))
-    .filter((lane) => lane.beads.length > 0)
+    .filter((lane) => lane.beads.length > 0 || childless.has(lane.epic.id))
 }

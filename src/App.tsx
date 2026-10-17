@@ -161,7 +161,7 @@ export function App() {
   )
 
   const lanes = useMemo(
-    () => (data ? lanesOf(epics, groups, data.readyIds, filter) : []),
+    () => (data ? lanesOf(epics, groups, data.readyIds, filter, data.beads) : []),
     [data, groups, epics, filter],
   )
 
