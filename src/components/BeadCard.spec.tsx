@@ -20,6 +20,11 @@ describe('the card of a bead', () => {
     expect(card?.querySelector('[data-pattern="stripes"]')).toHaveClass('pattern-stripes', 'tone-tint')
   })
 
+  it('shows the id without the project prefix and gives the full id on hover', () => {
+    show({ id: 'claude-258.1' })
+    expect(screen.getByText('258.1')).toHaveAttribute('title', 'claude-258.1')
+  })
+
   it('shows the type of the bead with its emoji', () => {
     show({ issue_type: 'bug' })
     expect(screen.getByText('bug')).toHaveTextContent('🐛bug')

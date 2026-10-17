@@ -16,6 +16,10 @@ const show = async (bead: Partial<Bead>) => {
 
 const toneOf = (element: Element | null) => (element as HTMLElement | null)?.style.getPropertyValue('--tone')
 
+beforeAll(async () => {
+  await import('./Markdown')
+})
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -55,5 +59,12 @@ describe('the detail of a bead', () => {
     expect(toneOf(within(dialog).getByText('P0'))).toBe('var(--ctp-red)')
     expect(within(dialog).getByText('bug')).toHaveTextContent('🐛bug')
     expect(toneOf(within(dialog).getByText('bug'))).toBe('var(--ctp-red)')
+  })
+
+  it('shows the id without the project prefix and gives the full id on hover', async () => {
+    const dialog = await show({ id: 'claude-258.1', parent: 'claude-dp9' })
+    const header = within(dialog).getByTitle('claude-258.1')
+    expect(header).toHaveTextContent(/^258\.1$/)
+    expect(within(dialog).getByRole('button', { name: 'dp9' }).firstElementChild).toHaveAttribute('title', 'claude-dp9')
   })
 })

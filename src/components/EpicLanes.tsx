@@ -1,4 +1,5 @@
 import { BeadCard, LabelTags } from '@/components/BeadCard'
+import { BeadId } from '@/components/BeadId'
 import { NoMatch } from '@/components/NoMatch'
 import { Emoji } from '@/components/Emoji'
 import { ToneDot } from '@/components/ToneDot'
@@ -43,7 +44,7 @@ export function EpicLanes({
           <section key={lane.epic.id} aria-label={lane.epic.title} className="grid border-b" style={template}>
             <div className="flex flex-col gap-1 px-2 py-3">
               {lane.epic.id !== NO_EPIC && (
-                <span className="font-mono text-xs text-muted-foreground">{lane.epic.id}</span>
+                <BeadId id={lane.epic.id} className="font-mono text-xs text-muted-foreground" />
               )}
               <span className="text-sm font-medium">{lane.epic.title}</span>
               <span className="text-xs text-muted-foreground">

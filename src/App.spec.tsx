@@ -200,8 +200,8 @@ describe('the beadoo page', () => {
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByText('Show the total of the cart.')).toBeInTheDocument()
     expect(within(dialog).getByText('2026-10-14 started')).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: 'e-1' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: 't-2' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: '1' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: '2' })).toBeInTheDocument()
     expect(window.location.search).toContain('bead=t-1')
   })
 

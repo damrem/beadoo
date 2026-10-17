@@ -1,4 +1,5 @@
 import { LabelTags, Tag } from '@/components/BeadCard'
+import { BeadId } from '@/components/BeadId'
 import { NoMatch } from '@/components/NoMatch'
 import { StatusBar } from '@/components/StatusBar'
 import { Emoji } from '@/components/Emoji'
@@ -30,7 +31,7 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
               <th colSpan={HEADINGS.length} scope="rowgroup" className="px-3 py-2 text-left font-normal">
                 <div className="flex flex-wrap items-center gap-3">
                   {lane.epic.id !== NO_EPIC && (
-                    <span className="font-mono text-xs text-muted-foreground">{lane.epic.id}</span>
+                    <BeadId id={lane.epic.id} className="font-mono text-xs text-muted-foreground" />
                   )}
                   <span className="font-semibold">{lane.epic.title}</span>
                   <LabelTags labels={lane.epic.labels} />
@@ -43,7 +44,9 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
             </tr>
             {lane.beads.map((bead) => (
               <tr key={bead.id} className="border-t hover:bg-accent">
-                <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{bead.id}</td>
+                <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                  <BeadId id={bead.id} />
+                </td>
                 <td className="px-3 py-2">
                   <button
                     type="button"

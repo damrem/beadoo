@@ -30,7 +30,7 @@ describe('the table of the beads', () => {
   it('shows the labels of the epic and of its children in the epic row, each one time', () => {
     render(<EpicTable lanes={lanes} onOpen={() => {}} />)
     const epicRow = screen.getByRole('rowheader', { name: /Checkout/ })
-    expect(within(epicRow).getAllByTitle(/./).map((chip) => chip.title)).toEqual(['repo:shop', 'front'])
+    expect(Array.from(epicRow.querySelectorAll<HTMLElement>('.tone-chip[title]'), (chip) => chip.title)).toEqual(['repo:shop', 'front'])
     expect(within(epicRow).getByText('shop')).toHaveClass('font-semibold')
   })
 })

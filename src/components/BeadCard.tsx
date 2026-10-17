@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { BeadId } from '@/components/BeadId'
 import { Emoji } from '@/components/Emoji'
 import { ToneDot } from '@/components/ToneDot'
 import type { Bead } from '../../shared/contract'
@@ -105,7 +106,7 @@ export function BeadCard({ bead, onOpen }: { bead: Bead; onOpen: (id: string) =>
         >
           <div className="flex items-center gap-1.5 font-mono text-xs">
             <ToneDot tone={statusTone(bead.status)} title={statusTitle(bead.status)} />
-            <span>{bead.id}</span>
+            <BeadId id={bead.id} />
             {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}
             {bead.issue_type && <TypeTag type={bead.issue_type} />}
           </div>

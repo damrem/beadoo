@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LabelTags, StatusTag, Tag, TypeTag } from '@/components/BeadCard'
+import { BeadId } from '@/components/BeadId'
 import { BeadEditor } from '@/components/BeadEditor'
 import { claimActions, ClaimControls } from '@/components/ClaimControls'
 import { SessionStarted, SpawnControls } from '@/components/SpawnControls'
@@ -123,7 +124,7 @@ export function BeadDetail({
     <Sheet open={id !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-xl data-[side=right]:sm:max-w-xl">
         <SheetHeader>
-          <SheetDescription className="font-mono">{id}</SheetDescription>
+          <SheetDescription className="font-mono">{id && <BeadId id={id} />}</SheetDescription>
           <SheetTitle>{bead?.title ?? (error ? 'Bead' : 'Loading the bead')}</SheetTitle>
         </SheetHeader>
         <div className="flex flex-col gap-4 px-4 pb-6">
@@ -198,7 +199,7 @@ export function BeadDetail({
                 <Field label="Parent">
                   {bead.parent ? (
                     <button type="button" className="font-mono underline" onClick={() => onOpen(bead.parent!)}>
-                      {bead.parent}
+                      <BeadId id={bead.parent} />
                     </button>
                   ) : (
                     'none'
@@ -217,7 +218,7 @@ export function BeadDetail({
                           className="mr-2 font-mono underline"
                           onClick={() => onOpen(dep.id)}
                         >
-                          {dep.id}
+                          <BeadId id={dep.id} />
                         </button>
                       ))}
                 </Field>

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { BeadId } from '@/components/BeadId'
 import { countByStatus, countLabel, NO_EPIC } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
 
@@ -28,7 +29,11 @@ export function EpicSidebar({
         >
           <span className="line-clamp-2">{epic.title}</span>
           <span className="font-mono text-[0.7rem] text-muted-foreground">
-            {epic.id === NO_EPIC ? '' : `${epic.id} · `}
+            {epic.id !== NO_EPIC && (
+              <>
+                <BeadId id={epic.id} /> ·{' '}
+              </>
+            )}
             {countLabel(countByStatus(beads))}
           </span>
         </button>
