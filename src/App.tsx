@@ -8,6 +8,7 @@ import { EpicSidebar } from '@/components/EpicSidebar'
 import { EpicTable } from '@/components/EpicTable'
 import { FilterBar } from '@/components/FilterBar'
 import { RefreshButton } from '@/components/RefreshButton'
+import { ThemeSwitch } from '@/components/ThemeSwitch'
 import { UnreachableAlert } from '@/components/UnreachableAlert'
 import { ViewSwitch } from '@/components/ViewSwitch'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -194,7 +195,8 @@ export function App() {
           onType={(type) => update({ type })}
           onPriority={(priority) => update({ priority })}
         />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          <ThemeSwitch />
           <RefreshButton lastRead={lastRead} loading={loading} onRefresh={refresh} />
         </div>
       </header>
