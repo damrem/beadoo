@@ -1,7 +1,10 @@
+import { Tag } from '@/components/BeadCard'
 import { NoMatch } from '@/components/NoMatch'
 import { StatusBar } from '@/components/StatusBar'
+import { ToneDot } from '@/components/ToneDot'
 import { countLabel, NO_EPIC, statusTitle } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
+import { labelTone, priorityTone, statusTone } from '@/lib/tones'
 
 const HEADINGS = ['Id', 'Title', 'Status', 'Priority', 'Assignee', 'Labels']
 
@@ -48,10 +51,25 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
                     {bead.title}
                   </button>
                 </td>
-                <td className="px-3 py-2">{statusTitle(bead.status)}</td>
-                <td className="px-3 py-2 font-mono text-xs">{bead.priority !== undefined ? `P${bead.priority}` : ''}</td>
+                <td className="px-3 py-2">
+                  <span className="flex items-center gap-1.5">
+                    <ToneDot tone={statusTone(bead.status)} />
+                    {statusTitle(bead.status)}
+                  </span>
+                </td>
+                <td className="px-3 py-2 font-mono text-xs">
+                  {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}
+                </td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">{bead.assignee ?? ''}</td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">{bead.labels?.join(' ') ?? ''}</td>
+                <td className="px-3 py-2 text-xs">
+                  <span className="flex flex-wrap gap-1">
+                    {bead.labels?.map((label) => (
+                      <Tag key={label} tone={labelTone(label)}>
+                        {label}
+                      </Tag>
+                    ))}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>

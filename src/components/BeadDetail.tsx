@@ -12,6 +12,7 @@ import { api } from '@/lib/api'
 import type { Bead, ClaimAction } from '../../shared/contract'
 import type { SpawnedSession } from '../../shared/spawn'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
+import { labelTone } from '@/lib/tones'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -197,7 +198,11 @@ export function BeadDetail({
                 </Field>
                 <Field label="Labels">
                   <span className="flex flex-wrap gap-1">
-                    {bead.labels?.map((label) => <Tag key={label}>{label}</Tag>)}
+                    {bead.labels?.map((label) => (
+                      <Tag key={label} tone={labelTone(label)}>
+                        {label}
+                      </Tag>
+                    ))}
                   </span>
                 </Field>
                 <Field label="Dependencies">
