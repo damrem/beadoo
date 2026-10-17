@@ -1,5 +1,7 @@
 import { BeadCard } from '@/components/BeadCard'
+import { Emoji } from '@/components/Emoji'
 import { ToneDot } from '@/components/ToneDot'
+import { statusEmoji } from '@/lib/emojis'
 import { columnsOf, statusesOf, statusTitle } from '@/lib/filters'
 import { blockedFirst, statusTone, toneStyle } from '@/lib/tones'
 import type { Bead } from '../../shared/contract'
@@ -17,6 +19,7 @@ export function Board({ beads, onOpen }: { beads: Bead[]; onOpen: (id: string) =
           <h2 className="flex items-center justify-between px-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             <span className="flex items-center gap-1.5">
               <ToneDot tone={statusTone(column.status)} />
+              <Emoji emoji={statusEmoji(column.status)} />
               {statusTitle(column.status)}
             </span>
             <span className="tabular-nums">{column.beads.length}</span>

@@ -28,4 +28,10 @@ describe('the lanes view', () => {
     expect(screen.getByText('Blocked').style.getPropertyValue('--tone')).toBe('var(--ctp-red)')
     expect(screen.getByText('Open').style.getPropertyValue('--tone')).toBe('var(--ctp-blue)')
   })
+
+  it('shows the emoji of each status in the heading of its column', () => {
+    render(<EpicLanes lanes={lanes} onOpen={() => {}} />)
+    expect(screen.getByText('Blocked')).toHaveTextContent('⛔Blocked')
+    expect(screen.getByText('Closed')).toHaveTextContent('✅Closed')
+  })
 })

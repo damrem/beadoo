@@ -11,11 +11,12 @@ const lanes = [
 ]
 
 describe('the table of the beads', () => {
-  it('shows the status of each bead with a dot in the colour of the status', () => {
+  it('shows the status of each bead with its emoji and a dot in the colour of the status', () => {
     render(<EpicTable lanes={lanes} onOpen={() => {}} />)
     const row = screen.getByRole('button', { name: 'b-1 Pay button' }).closest('tr')!
     const status = within(row).getByText('Blocked')
     expect(toneOf(status.querySelector('[aria-hidden="true"]'))).toBe('var(--ctp-red)')
+    expect(status).toHaveTextContent('⛔Blocked')
   })
 
   it('shows the priority and each label in a coloured chip, with the full label text as a hint', () => {

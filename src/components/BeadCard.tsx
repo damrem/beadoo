@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Emoji } from '@/components/Emoji'
 import { ToneDot } from '@/components/ToneDot'
 import type { Bead } from '../../shared/contract'
-import { labelEmoji } from '@/lib/emojis'
+import { labelEmoji, typeEmoji } from '@/lib/emojis'
 import { statusTitle } from '@/lib/filters'
 import { labelParts } from '@/lib/labels'
 import { leaseLabel, leaseState } from '@/lib/lease'
@@ -34,11 +35,10 @@ export function Tag({ tone, title, children }: { tone?: Tone; title?: string; ch
 }
 
 export function LabelTag({ label }: { label: string }) {
-  const emoji = labelEmoji(label)
   const property = labelParts(label)
   return (
     <Tag tone={labelTone(label)} title={label}>
-      {emoji && <span aria-hidden="true">{emoji}</span>}
+      <Emoji emoji={labelEmoji(label)} />
       {property ? (
         <>
           <span className="text-muted-foreground">{property.name}</span>
@@ -88,7 +88,12 @@ export function BeadCard({ bead, onOpen }: { bead: Bead; onOpen: (id: string) =>
             <ToneDot tone={statusTone(bead.status)} title={statusTitle(bead.status)} />
             <span>{bead.id}</span>
             {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}
-            {bead.issue_type && <Tag tone={type.tone}>{bead.issue_type}</Tag>}
+            {bead.issue_type && (
+              <Tag tone={type.tone}>
+                <Emoji emoji={typeEmoji(bead.issue_type)} />
+                {bead.issue_type}
+              </Tag>
+            )}
           </div>
           <CardTitle className="text-sm">{bead.title}</CardTitle>
         </CardHeader>

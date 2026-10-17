@@ -1,6 +1,8 @@
 import { BeadCard } from '@/components/BeadCard'
 import { NoMatch } from '@/components/NoMatch'
+import { Emoji } from '@/components/Emoji'
 import { ToneDot } from '@/components/ToneDot'
+import { statusEmoji } from '@/lib/emojis'
 import { columnsOf, NO_EPIC, statusesOf, statusTitle } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
 import { blockedFirst, statusTone, toneStyle } from '@/lib/tones'
@@ -24,6 +26,7 @@ export function EpicLanes({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
               style={toneStyle(statusTone(status))}
             >
               <ToneDot tone={statusTone(status)} />
+              <Emoji emoji={statusEmoji(status)} />
               {statusTitle(status)}
             </div>
           ))}

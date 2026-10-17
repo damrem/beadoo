@@ -20,6 +20,11 @@ describe('the card of a bead', () => {
     expect(card?.querySelector('[data-pattern="stripes"]')).toHaveClass('pattern-stripes', 'tone-tint')
   })
 
+  it('shows the type of the bead with its emoji', () => {
+    show({ issue_type: 'bug' })
+    expect(screen.getByText('bug')).toHaveTextContent('🐛bug')
+  })
+
   it('shows the priority in its colour', () => {
     show({ priority: 0 })
     expect(toneOf(screen.getByText('P0'))).toBe('var(--ctp-red)')
