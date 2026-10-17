@@ -8,6 +8,8 @@ import { columnsOf, columnStatusesOf, NO_EPIC, statusTitle } from '@/lib/filters
 import type { Lane, StatusFilter } from '@/lib/filters'
 import { blockedFirst, statusTone, toneStyle } from '@/lib/tones'
 
+const COLUMN_REM = 14
+
 export function EpicLanes({
   lanes,
   status = 'all',
@@ -19,10 +21,12 @@ export function EpicLanes({
 }) {
   if (lanes.length === 0) return <NoMatch />
   const statuses = blockedFirst(columnStatusesOf(lanes.flatMap((lane) => lane.beads), status))
-  const template = { gridTemplateColumns: `14rem repeat(${statuses.length}, minmax(14rem, 1fr))` }
+  const template = {
+    gridTemplateColumns: `${COLUMN_REM}rem repeat(${statuses.length}, minmax(${COLUMN_REM}rem, 1fr))`,
+  }
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <div className="grid w-max min-w-full">
+      <div className="grid" style={{ minWidth: `${COLUMN_REM * (statuses.length + 1)}rem` }}>
         <div
           className="sticky top-0 z-10 grid border-b bg-background text-xs font-medium tracking-wide text-muted-foreground uppercase"
           style={template}
@@ -57,7 +61,7 @@ export function EpicLanes({
                 key={cell.status}
                 role="group"
                 aria-label={`${lane.epic.title}: ${statusTitle(cell.status)}`}
-                className="flex min-h-16 flex-col gap-2 p-2"
+                className="flex min-h-16 min-w-0 flex-col gap-2 p-2"
               >
                 {cell.beads.map((bead) => (
                   <BeadCard key={bead.id} bead={bead} onOpen={onOpen} />

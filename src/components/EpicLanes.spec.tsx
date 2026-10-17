@@ -38,6 +38,22 @@ describe('the lanes view', () => {
     ])
   })
 
+  it.each([
+    [1, ['blocked'], '14rem repeat(1, minmax(14rem, 1fr))', '28rem'],
+    [2, ['in_progress', 'blocked'], '14rem repeat(2, minmax(14rem, 1fr))', '42rem'],
+    [4, 'all', '14rem repeat(4, minmax(14rem, 1fr))', '70rem'],
+  ] as const)(
+    'shares the free width between %i status columns, and keeps a minimum width for each column',
+    (_count, status, columns, minWidth) => {
+      const shown = status === 'all' ? lanes : [{ ...lanes[0], beads: lanes[0].beads.filter((bead) => bead.status === 'blocked') }]
+      render(<EpicLanes lanes={shown} status={status === 'all' ? status : [...status]} onOpen={() => {}} />)
+      const lane = screen.getByRole('region', { name: 'Checkout' })
+      expect(lane.style.gridTemplateColumns).toBe(columns)
+      expect(lane.parentElement?.style.minWidth).toBe(minWidth)
+      expect(lane.parentElement).not.toHaveClass('w-max')
+    },
+  )
+
   it('shows the heading of each status column in the colour of the status', () => {
     render(<EpicLanes lanes={lanes} onOpen={() => {}} />)
     expect(screen.getByText('Blocked').style.getPropertyValue('--tone')).toBe('var(--ctp-red)')
