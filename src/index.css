@@ -186,6 +186,10 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+  option,
+  optgroup {
+    @apply bg-popover text-popover-foreground;
+  }
 }
 
 @utility tone-dot {
