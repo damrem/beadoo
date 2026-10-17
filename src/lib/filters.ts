@@ -95,7 +95,8 @@ const readLabels = (value: unknown): string[] => (Array.isArray(value) ? [...new
 
 export function readViewState(search: string, lastVisit: StoredFilters): ViewState {
   const params = new URLSearchParams(search)
-  const stored: StoredFilters = params.size > 0 ? {} : lastVisit
+  const namesSettings = [...params.keys()].some((key) => key !== 'db')
+  const stored: StoredFilters = namesSettings ? {} : lastVisit
   const status = readStatus(params.getAll('status')) ?? readStatus(stored.status) ?? 'ready'
   const urlMode = params.get('view')
   const mode = isViewMode(urlMode) ? urlMode : isViewMode(stored.view) ? stored.view : 'epic'

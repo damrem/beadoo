@@ -61,7 +61,19 @@ describe('the filters of the page', () => {
       type: null,
       priority: null,
     })
-    expect(readViewState('?db=.claude', lastVisit)).toMatchObject({ mode: 'epic', status: 'ready', text: '' })
+  })
+
+  it('shows the last view and filters of the user when the address names only the database', () => {
+    const lastVisit = { status: 'closed', text: 'cart', view: 'table', labels: ['front'], type: 'bug', priority: 2 }
+    expect(readViewState('?db=.claude', lastVisit)).toMatchObject({
+      mode: 'table',
+      db: '.claude',
+      status: ['closed'],
+      text: 'cart',
+      labels: ['front'],
+      type: 'bug',
+      priority: 2,
+    })
   })
 
   it('follows the view of the link before the last view of the user', () => {
