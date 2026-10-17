@@ -199,6 +199,18 @@ describe('the beadoo page', () => {
     await waitFor(() => expect(calls.filter((call) => call.startsWith('/api/beads?')).length).toBe(before + 1))
   })
 
+  it('shows the filters of the link and not the last filters of the user when the user opens a link', async () => {
+    window.localStorage.setItem('beadoo:filters', JSON.stringify({ status: 'all', text: 'zzzqqq', labels: ['front'], type: 'bug', priority: 2 }))
+    window.history.replaceState(null, '', '/?view=lanes&db=.claude&status=ready')
+    render(<App />)
+    expect(await screen.findByText('Cart total')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Find in the titles' })).toHaveValue('')
+    expect(screen.queryByRole('button', { name: 'Remove the label filter front' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Type filter' })).toHaveValue('')
+    expect(screen.getByRole('combobox', { name: 'Priority filter' })).toHaveValue('')
+    expect(window.location.search).not.toContain('zzzqqq')
+  })
+
   it('keeps the last filter of the user for the next visit', async () => {
     render(<App />)
     await screen.findByText('Cart total')

@@ -69,8 +69,9 @@ const isLabel = (value: unknown): value is string => typeof value === 'string' &
 
 const readLabels = (value: unknown): string[] => (Array.isArray(value) ? [...new Set(value.filter(isLabel))] : [])
 
-export function readViewState(search: string, stored: StoredFilters): ViewState {
+export function readViewState(search: string, lastVisit: StoredFilters): ViewState {
   const params = new URLSearchParams(search)
+  const stored: StoredFilters = params.size > 0 ? {} : lastVisit
   const urlStatus = params.get('status')
   const status = isStatusFilter(urlStatus) ? urlStatus : isStatusFilter(stored.status) ? stored.status : 'ready'
   const urlMode = params.get('view')

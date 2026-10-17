@@ -28,9 +28,8 @@ describe('the filters of the page', () => {
     expect(readViewState('', {}).status).toBe('ready')
   })
 
-  it('keeps the last filter of the user when the link holds none', () => {
-    expect(readViewState('?db=shop', { status: 'closed', text: 'cart' })).toMatchObject({
-      db: 'shop',
+  it('keeps the last filter of the user when the page opens with no link', () => {
+    expect(readViewState('', { status: 'closed', text: 'cart' })).toMatchObject({
       status: 'closed',
       text: 'cart',
     })
@@ -47,8 +46,22 @@ describe('the filters of the page', () => {
     expect(readViewState('', {}).mode).toBe('epic')
   })
 
-  it('keeps the last view of the user when the link holds none', () => {
-    expect(readViewState('?db=shop', { view: 'lanes' }).mode).toBe('lanes')
+  it('keeps the last view of the user when the page opens with no link', () => {
+    expect(readViewState('', { view: 'lanes' }).mode).toBe('lanes')
+  })
+
+  it('shows the default view and filters for each value that a link does not name, and not the last values of the user', () => {
+    const lastVisit = { status: 'closed', text: 'zzzqqq', view: 'table', labels: ['front'], type: 'bug', priority: 2 }
+    expect(readViewState('?view=lanes&db=.claude&status=ready', lastVisit)).toMatchObject({
+      mode: 'lanes',
+      db: '.claude',
+      status: 'ready',
+      text: '',
+      labels: [],
+      type: null,
+      priority: null,
+    })
+    expect(readViewState('?db=.claude', lastVisit)).toMatchObject({ mode: 'epic', status: 'ready', text: '' })
   })
 
   it('follows the view of the link before the last view of the user', () => {
@@ -82,8 +95,8 @@ describe('the filters of the page', () => {
     expect(readViewState('', {})).toMatchObject({ labels: [], type: null, priority: null })
   })
 
-  it('keeps the last label, type and priority filters of the user when the link holds none', () => {
-    expect(readViewState('?db=shop', { labels: ['front'], type: 'bug', priority: 2 })).toMatchObject({
+  it('keeps the last label, type and priority filters of the user when the page opens with no link', () => {
+    expect(readViewState('', { labels: ['front'], type: 'bug', priority: 2 })).toMatchObject({
       labels: ['front'],
       type: 'bug',
       priority: 2,
