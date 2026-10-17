@@ -1,6 +1,15 @@
-import { BOARD_COLUMNS, childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, lanesOf, NO_EPIC, orderedCounts, readViewState, statusesOf, statusTitle, writeViewState } from './filters'
+import { BOARD_COLUMNS, childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, readViewState, statusesOf, statusTitle, typesOf, writeViewState } from './filters'
 import type { Bead } from '../../shared/contract'
-import type { StatusFilter } from './filters'
+import type { BeadFilter, StatusFilter } from './filters'
+
+const only = (change: Partial<BeadFilter>): BeadFilter => ({
+  status: 'all',
+  text: '',
+  labels: [],
+  type: null,
+  priority: null,
+  ...change,
+})
 
 const epicsIn = (list: Bead[], status: StatusFilter) => epicsOf(list, groupByParent(list), status)
 const childrenIn = (list: Bead[], epic: string) => childrenOf(groupByParent(list), epic)
@@ -55,20 +64,88 @@ describe('the filters of the page', () => {
   })
 
   it('puts the view, the database, the epic, the open bead and the filters in the link', () => {
-    const state = { mode: 'table' as const, db: 'shop', epic: 'e-1', bead: 't-1', status: 'open' as const, text: 'cart' }
+    const state = {
+      mode: 'table' as const,
+      db: 'shop',
+      epic: 'e-1',
+      bead: 't-1',
+      status: 'open' as const,
+      text: 'cart',
+      labels: ['front', 'urgent'],
+      type: 'bug',
+      priority: 0,
+    }
     expect(readViewState(writeViewState(state), {})).toEqual(state)
   })
 
+  it('shows all the labels, all the types and all the priorities when the user chose none', () => {
+    expect(readViewState('', {})).toMatchObject({ labels: [], type: null, priority: null })
+  })
+
+  it('keeps the last label, type and priority filters of the user when the link holds none', () => {
+    expect(readViewState('?db=shop', { labels: ['front'], type: 'bug', priority: 2 })).toMatchObject({
+      labels: ['front'],
+      type: 'bug',
+      priority: 2,
+    })
+  })
+
+  it('follows the label, type and priority filters of the link before the last filters of the user', () => {
+    expect(
+      readViewState('?label=back&type=feature&priority=1', { labels: ['front'], type: 'bug', priority: 2 }),
+    ).toMatchObject({ labels: ['back'], type: 'feature', priority: 1 })
+  })
+
+  it('ignores a priority that is not a number', () => {
+    expect(readViewState('?priority=high', { priority: 'low' }).priority).toBeNull()
+  })
+
   it('shows only the beads with no blocker under the ready filter', () => {
-    expect(filterBeads(beads, ['t-1'], 'ready', '').map((bead) => bead.id)).toEqual(['t-1'])
+    expect(filterBeads(beads, ['t-1'], only({ status: 'ready' })).map((bead) => bead.id)).toEqual(['t-1'])
   })
 
   it('shows the beads of one status', () => {
-    expect(filterBeads(beads, [], 'in_progress', '').map((bead) => bead.id)).toEqual(['t-2'])
+    expect(filterBeads(beads, [], only({ status: 'in_progress' })).map((bead) => bead.id)).toEqual(['t-2'])
   })
 
   it('finds the beads whose title holds the text that the user types, in any case', () => {
-    expect(filterBeads(beads, [], 'all', 'PAY').map((bead) => bead.id)).toEqual(['t-2'])
+    expect(filterBeads(beads, [], only({ text: 'PAY' })).map((bead) => bead.id)).toEqual(['t-2'])
+  })
+
+  describe('the label, type and priority filters', () => {
+    const tagged: Bead[] = [
+      { id: 'b-1', title: 'Front bug', status: 'open', issue_type: 'bug', priority: 1, labels: ['front', 'urgent'] },
+      { id: 'b-2', title: 'Front task', status: 'open', priority: 2, labels: ['front'] },
+      { id: 'b-3', title: 'Back feature', status: 'open', issue_type: 'feature', priority: 1, labels: ['back', 'urgent'] },
+      { id: 'b-4', title: 'No label', status: 'open', issue_type: 'bug' },
+    ]
+    const ids = (filter: Partial<BeadFilter>) => filterBeads(tagged, [], only(filter)).map((bead) => bead.id)
+
+    it('shows only the beads that hold all the selected labels', () => {
+      expect(ids({ labels: ['front'] })).toEqual(['b-1', 'b-2'])
+      expect(ids({ labels: ['front', 'urgent'] })).toEqual(['b-1'])
+      expect(ids({ labels: ['front', 'back'] })).toEqual([])
+    })
+
+    it('shows only the beads of the selected type, and counts a bead with no type as a task', () => {
+      expect(ids({ type: 'bug' })).toEqual(['b-1', 'b-4'])
+      expect(ids({ type: 'task' })).toEqual(['b-2'])
+    })
+
+    it('shows only the beads of the selected priority', () => {
+      expect(ids({ priority: 1 })).toEqual(['b-1', 'b-3'])
+    })
+
+    it('shows only the beads that match the labels, the type, the priority, the status and the text together', () => {
+      expect(ids({ labels: ['urgent'], type: 'bug', priority: 1, text: 'front' })).toEqual(['b-1'])
+      expect(ids({ labels: ['urgent'], type: 'bug', priority: 1, status: 'closed' })).toEqual([])
+    })
+
+    it('offers the labels, the types and the priorities that the loaded beads hold, each one time and in order', () => {
+      expect(labelsOf(tagged)).toEqual(['back', 'front', 'urgent'])
+      expect(typesOf(tagged)).toEqual(['bug', 'feature', 'task'])
+      expect(prioritiesOf(tagged)).toEqual([1, 2])
+    })
   })
 
   it('groups the beads that have no parent under "No epic"', () => {
@@ -129,7 +206,7 @@ describe('the filters of the page', () => {
   it('puts in each lane the beads of one epic that match the filter, and leaves out an epic with no match', () => {
     const list: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
     const groups = groupByParent(list)
-    const lanes = lanesOf(epicsOf(list, groups, 'ready'), groups, ['t-1', 't-4'], 'ready', '')
+    const lanes = lanesOf(epicsOf(list, groups, 'ready'), groups, ['t-1', 't-4'], only({ status: 'ready' }))
     expect(lanes.map((lane) => [lane.epic.id, lane.beads.map((bead) => bead.id)])).toEqual([
       ['e-1', ['t-1']],
       [NO_EPIC, ['t-4']],
@@ -143,7 +220,7 @@ describe('the filters of the page', () => {
       { id: 't-2', title: 'Urgent', status: 'open', parent: 'e-1', priority: 0 },
     ]
     const groups = groupByParent(list)
-    const [lane] = lanesOf(epicsOf(list, groups, 'all'), groups, [], 'all', '')
+    const [lane] = lanesOf(epicsOf(list, groups, 'all'), groups, [], only({}))
     expect(lane.beads.map((bead) => bead.id)).toEqual(['t-2', 't-1'])
   })
 

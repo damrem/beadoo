@@ -15,7 +15,7 @@ import { api, ApiError } from '@/lib/api'
 import { UNREACHABLE } from '../shared/contract'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
 import { childrenOf, epicsOf, filterBeads, groupByParent, lanesOf, readViewState, writeViewState } from '@/lib/filters'
-import type { StoredFilters, ViewState } from '@/lib/filters'
+import type { BeadFilter, StoredFilters, ViewState } from '@/lib/filters'
 
 export const POLL_MS = 60_000
 
@@ -52,7 +52,14 @@ export function App() {
 
   useEffect(() => {
     window.history.replaceState(null, '', writeViewState(view))
-    writeStored({ status: view.status, text: view.text, view: view.mode })
+    writeStored({
+      status: view.status,
+      text: view.text,
+      view: view.mode,
+      labels: view.labels,
+      type: view.type,
+      priority: view.priority,
+    })
   }, [view])
 
   useEffect(() => {
@@ -120,9 +127,14 @@ export function App() {
 
   const epics = useMemo(() => (data ? epicsOf(data.beads, groups, view.status) : []), [data, groups, view.status])
 
+  const filter = useMemo<BeadFilter>(
+    () => ({ status: view.status, text: view.text, labels: view.labels, type: view.type, priority: view.priority }),
+    [view.status, view.text, view.labels, view.type, view.priority],
+  )
+
   const lanes = useMemo(
-    () => (data ? lanesOf(epics, groups, data.readyIds, view.status, view.text) : []),
-    [data, groups, epics, view.status, view.text],
+    () => (data ? lanesOf(epics, groups, data.readyIds, filter) : []),
+    [data, groups, epics, filter],
   )
 
   const epic = useMemo(() => {
@@ -132,8 +144,8 @@ export function App() {
   }, [data, epics, lanes, view.epic])
 
   const boardBeads = useMemo(
-    () => (data && epic ? filterBeads(childrenOf(groups, epic), data.readyIds, view.status, view.text) : []),
-    [data, groups, epic, view.status, view.text],
+    () => (data && epic ? filterBeads(childrenOf(groups, epic), data.readyIds, filter) : []),
+    [data, groups, epic, filter],
   )
 
   const open = (id: string) => update({ bead: id })
