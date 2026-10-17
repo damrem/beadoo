@@ -24,4 +24,22 @@ describe('the labels of the beads', () => {
       'ux',
     ])
   })
+
+  it('shows only the complexity of the epic when the children have other complexities', () => {
+    expect(
+      mergedLabels(['complexity:4'], ['complexity:0', 'front'], ['complexity:2'], ['complexity:4', 'complexity:3']),
+    ).toEqual(['complexity:4', 'front'])
+  })
+
+  it('keeps the repo of a child when the epic has no repo', () => {
+    expect(mergedLabels(['complexity:4'], ['repo:.claude', 'complexity:1'])).toEqual(['complexity:4', 'repo:.claude'])
+  })
+
+  it('keeps each different value of a property that only the children have', () => {
+    expect(mergedLabels(['front'], ['repo:a'], ['repo:b'], ['repo:a'])).toEqual(['front', 'repo:a', 'repo:b'])
+  })
+
+  it('keeps a plain label of a child that has the name of a property of the epic', () => {
+    expect(mergedLabels(['scan:weekly'], ['scan', 'scan:daily'])).toEqual(['scan:weekly', 'scan'])
+  })
 })
