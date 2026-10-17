@@ -1,11 +1,13 @@
 import { BeadCard } from '@/components/BeadCard'
 import { NoMatch } from '@/components/NoMatch'
+import { ToneDot } from '@/components/ToneDot'
 import { columnsOf, NO_EPIC, statusesOf, statusTitle } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
+import { blockedFirst, statusTone, toneStyle } from '@/lib/tones'
 
 export function EpicLanes({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: string) => void }) {
   if (lanes.length === 0) return <NoMatch />
-  const statuses = statusesOf(lanes.flatMap((lane) => lane.beads))
+  const statuses = blockedFirst(statusesOf(lanes.flatMap((lane) => lane.beads)))
   const template = { gridTemplateColumns: `14rem repeat(${statuses.length}, minmax(14rem, 1fr))` }
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -16,7 +18,12 @@ export function EpicLanes({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
         >
           <div className="px-2 py-2">Epic</div>
           {statuses.map((status) => (
-            <div key={status} className="px-2 py-2">
+            <div
+              key={status}
+              className="flex items-center gap-1.5 border-b-2 px-2 py-2 tone-edge"
+              style={toneStyle(statusTone(status))}
+            >
+              <ToneDot tone={statusTone(status)} />
               {statusTitle(status)}
             </div>
           ))}
