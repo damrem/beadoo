@@ -28,7 +28,7 @@ export function AttributeFilters({
 }) {
   const freeLabels = labelOptions.filter((label) => !labels.includes(label))
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1.5">
       <NativeSelect
         aria-label="Type filter"
         className="h-7 w-auto"

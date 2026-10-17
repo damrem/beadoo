@@ -179,7 +179,7 @@ export function App() {
 
   return (
     <div className="flex h-dvh flex-col">
-      <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+      <header className="flex flex-wrap items-center gap-1.5 border-b px-4 py-2">
         <h1 className="font-heading text-base font-semibold">beadoo</h1>
         <ViewSwitch mode={view.mode} onMode={(mode) => update({ mode })} />
         <DatabaseSelector
