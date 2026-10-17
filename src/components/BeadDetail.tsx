@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LabelTags } from '@/components/BeadCard'
+import { LabelTags, StatusTag, Tag, TypeTag } from '@/components/BeadCard'
 import { BeadEditor } from '@/components/BeadEditor'
-import { Emoji } from '@/components/Emoji'
 import { claimActions, ClaimControls } from '@/components/ClaimControls'
 import { SessionStarted, SpawnControls } from '@/components/SpawnControls'
 import { Button } from '@/components/ui/button'
@@ -12,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import type { Bead, ClaimAction } from '../../shared/contract'
 import type { SpawnedSession } from '../../shared/spawn'
-import { statusEmoji, typeEmoji } from '@/lib/emojis'
+import { priorityTone } from '@/lib/tones'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
 
 const Markdown = lazy(() => import('@/components/Markdown').then((module) => ({ default: module.Markdown })))
@@ -184,13 +183,13 @@ export function BeadDetail({
               </div>
               <dl className="flex flex-col gap-1.5">
                 <Field label="Status">
-                  <Emoji emoji={statusEmoji(bead.status)} /> {bead.status}
+                  <StatusTag status={bead.status} />
                 </Field>
                 {bead.status === 'closed' && bead.close_reason && <Field label="Close reason">{bead.close_reason}</Field>}
-                <Field label="Priority">P{bead.priority}</Field>
-                <Field label="Type">
-                  <Emoji emoji={typeEmoji(bead.issue_type)} /> {bead.issue_type}
+                <Field label="Priority">
+                  {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}
                 </Field>
+                <Field label="Type">{bead.issue_type && <TypeTag type={bead.issue_type} />}</Field>
                 <Field label="Assignee">{bead.assignee ?? 'nobody'}</Field>
                 {leaseText && <Field label="Lease">{leaseText}</Field>}
                 {leaseText && heartbeat && !Number.isNaN(heartbeat.getTime()) && (

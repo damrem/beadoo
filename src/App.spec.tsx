@@ -607,7 +607,7 @@ describe('the beadoo page', () => {
       expect(within(dialog).getByText('/home/me/wt/t-1')).toBeInTheDocument()
       expect(within(dialog).getByText('feat/t-1-cart-total')).toBeInTheDocument()
       expect(within(dialog).getByText('term_7')).toBeInTheDocument()
-      expect(within(dialog).getByText('in_progress')).toBeInTheDocument()
+      expect(within(dialog).getByText('In progress')).toBeInTheDocument()
       expect(writes).toEqual([{ path: '/api/beads/t-1/spawn?db=.claude', token: 'page-token' }])
       expect(spawnBody()).toEqual({ branch: 'feat/t-1-cart-total' })
     })
@@ -653,7 +653,7 @@ describe('the beadoo page', () => {
       answers['/api/beads/t-1?db=.claude'] = json({ ...beads[1], status: 'in_progress', assignee: 'Ann' })
       await userEvent.click(spawn)
       expect(await within(dialog).findByText('The page could not start a session')).toBeInTheDocument()
-      expect(await within(dialog).findByText('in_progress')).toBeInTheDocument()
+      expect(await within(dialog).findByText('In progress')).toBeInTheDocument()
     })
 
     it('shows the warning when the session runs but the page could not note its start', async () => {
@@ -700,7 +700,7 @@ describe('the beadoo page', () => {
       const reads = () => calls.filter((call) => call.startsWith('/api/beads?')).length
       await waitFor(() => expect(reads()).toBe(1))
       await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim' }))
-      expect(await within(dialog).findByText('in_progress')).toBeInTheDocument()
+      expect(await within(dialog).findByText('In progress')).toBeInTheDocument()
       expect(within(dialog).getByText('Ann')).toBeInTheDocument()
       expect(within(dialog).getByText('lease until 10:05')).toBeInTheDocument()
       expect(writes).toEqual([{ path: '/api/beads/t-1/claim?db=.claude', token: 'page-token' }])
@@ -748,7 +748,7 @@ describe('the beadoo page', () => {
     it('does not offer to claim a closed bead', async () => {
       answers['/api/beads/t-3?db=.claude'] = json(beads[3])
       const dialog = await openDetail('/?db=.claude&status=all&bead=t-3')
-      await within(dialog).findByText('closed')
+      await within(dialog).findByText('Closed')
       expect(within(dialog).queryByRole('button', { name: 'Claim' })).not.toBeInTheDocument()
     })
 

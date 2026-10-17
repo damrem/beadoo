@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Emoji } from '@/components/Emoji'
 import { ToneDot } from '@/components/ToneDot'
 import type { Bead } from '../../shared/contract'
-import { labelEmoji, typeEmoji } from '@/lib/emojis'
+import { labelEmoji, statusEmoji, typeEmoji } from '@/lib/emojis'
 import { statusTitle } from '@/lib/filters'
 import { labelParts } from '@/lib/labels'
 import { leaseLabel, leaseState } from '@/lib/lease'
@@ -30,6 +30,25 @@ export function Tag({ tone, title, children }: { tone?: Tone; title?: string; ch
       style={tone ? toneStyle(tone) : undefined}
     >
       {children}
+    </span>
+  )
+}
+
+export function TypeTag({ type }: { type: string }) {
+  return (
+    <Tag tone={typeStyle(type).tone}>
+      <Emoji emoji={typeEmoji(type)} />
+      {type}
+    </Tag>
+  )
+}
+
+export function StatusTag({ status }: { status: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <ToneDot tone={statusTone(status)} />
+      <Emoji emoji={statusEmoji(status)} />
+      {statusTitle(status)}
     </span>
   )
 }
@@ -88,12 +107,7 @@ export function BeadCard({ bead, onOpen }: { bead: Bead; onOpen: (id: string) =>
             <ToneDot tone={statusTone(bead.status)} title={statusTitle(bead.status)} />
             <span>{bead.id}</span>
             {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}
-            {bead.issue_type && (
-              <Tag tone={type.tone}>
-                <Emoji emoji={typeEmoji(bead.issue_type)} />
-                {bead.issue_type}
-              </Tag>
-            )}
+            {bead.issue_type && <TypeTag type={bead.issue_type} />}
           </div>
           <CardTitle className="text-sm">{bead.title}</CardTitle>
         </CardHeader>

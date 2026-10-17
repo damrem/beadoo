@@ -14,6 +14,8 @@ const show = async (bead: Partial<Bead>) => {
   return dialog
 }
 
+const toneOf = (element: Element | null) => (element as HTMLElement | null)?.style.getPropertyValue('--tone')
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -43,5 +45,15 @@ describe('the detail of a bead', () => {
     await within(dialog).findByText('after', { selector: 'strong' })
     expect(within(dialog).queryByRole('img')).not.toBeInTheDocument()
     expect(dialog.querySelector('img')).toBeNull()
+  })
+
+  it('shows the status, the priority and the type in the same colours as the card', async () => {
+    const dialog = await show({ status: 'blocked', priority: 0, issue_type: 'bug' })
+    const status = within(dialog).getByText('Blocked')
+    expect(status).toHaveTextContent('⛔Blocked')
+    expect(toneOf(status.querySelector('.tone-dot'))).toBe('var(--ctp-red)')
+    expect(toneOf(within(dialog).getByText('P0'))).toBe('var(--ctp-red)')
+    expect(within(dialog).getByText('bug')).toHaveTextContent('🐛bug')
+    expect(toneOf(within(dialog).getByText('bug'))).toBe('var(--ctp-red)')
   })
 })
