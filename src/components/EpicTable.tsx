@@ -33,6 +33,7 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
                     <span className="font-mono text-xs text-muted-foreground">{lane.epic.id}</span>
                   )}
                   <span className="font-semibold">{lane.epic.title}</span>
+                  <LabelTags labels={lane.epic.labels} />
                   <span className="ml-auto flex items-center gap-3">
                     <StatusBar title={lane.epic.title} counts={lane.epic.counts} />
                     <span className="text-xs text-muted-foreground">{countLabel(lane.epic.counts)}</span>

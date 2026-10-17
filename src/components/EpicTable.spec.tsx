@@ -5,7 +5,7 @@ const toneOf = (element: Element | null) => (element as HTMLElement | null)?.sty
 
 const lanes = [
   {
-    epic: { id: 'e-1', title: 'Checkout', status: 'open', counts: { blocked: 1 } },
+    epic: { id: 'e-1', title: 'Checkout', status: 'open', counts: { blocked: 1 }, labels: ['repo:shop', 'front'] },
     beads: [{ id: 'b-1', title: 'Pay button', status: 'blocked', priority: 1, labels: ['front', 'complexity:0'] }],
   },
 ]
@@ -21,8 +21,16 @@ describe('the table of the beads', () => {
 
   it('shows the priority and each label in a coloured chip, with the full label text as a hint', () => {
     render(<EpicTable lanes={lanes} onOpen={() => {}} />)
-    expect(toneOf(screen.getByText('P1'))).toBe('var(--ctp-peach)')
-    expect(toneOf(screen.getByTitle('complexity:0'))).toBe('var(--ctp-teal)')
-    expect(toneOf(screen.getByTitle('front'))).toMatch(/^var\(--ctp-/)
+    const row = screen.getByRole('button', { name: 'b-1 Pay button' }).closest('tr')!
+    expect(toneOf(within(row).getByText('P1'))).toBe('var(--ctp-peach)')
+    expect(toneOf(within(row).getByTitle('complexity:0'))).toBe('var(--ctp-teal)')
+    expect(toneOf(within(row).getByTitle('front'))).toMatch(/^var\(--ctp-/)
+  })
+
+  it('shows the labels of the epic and of its children in the epic row, each one time', () => {
+    render(<EpicTable lanes={lanes} onOpen={() => {}} />)
+    const epicRow = screen.getByRole('rowheader', { name: /Checkout/ })
+    expect(within(epicRow).getAllByTitle(/./).map((chip) => chip.title)).toEqual(['repo:shop', 'front'])
+    expect(within(epicRow).getByText('shop')).toHaveClass('font-semibold')
   })
 })

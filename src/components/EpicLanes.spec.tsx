@@ -3,7 +3,7 @@ import { EpicLanes } from './EpicLanes'
 
 const lanes = [
   {
-    epic: { id: 'e-1', title: 'Checkout', status: 'open', counts: { open: 1, blocked: 1 } },
+    epic: { id: 'e-1', title: 'Checkout', status: 'open', counts: { open: 1, blocked: 1 }, labels: ['repo:shop', 'handoff'] },
     beads: [
       { id: 'b-1', title: 'Cart total', status: 'open' },
       { id: 'b-2', title: 'Pay button', status: 'blocked' },
@@ -33,5 +33,12 @@ describe('the lanes view', () => {
     render(<EpicLanes lanes={lanes} onOpen={() => {}} />)
     expect(screen.getByText('Blocked')).toHaveTextContent('⛔Blocked')
     expect(screen.getByText('Closed')).toHaveTextContent('✅Closed')
+  })
+
+  it('shows the labels of the epic and of its children in the epic column', () => {
+    render(<EpicLanes lanes={lanes} onOpen={() => {}} />)
+    const lane = screen.getByRole('region', { name: 'Checkout' })
+    expect(within(lane).getByTitle('repo:shop')).toBeInTheDocument()
+    expect(within(lane).getByTitle('handoff')).toHaveTextContent('👋handoff')
   })
 })

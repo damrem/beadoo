@@ -1,4 +1,4 @@
-import { BeadCard } from '@/components/BeadCard'
+import { BeadCard, LabelTags } from '@/components/BeadCard'
 import { NoMatch } from '@/components/NoMatch'
 import { Emoji } from '@/components/Emoji'
 import { ToneDot } from '@/components/ToneDot'
@@ -41,6 +41,7 @@ export function EpicLanes({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
               <span className="text-xs text-muted-foreground">
                 {lane.beads.length === 1 ? '1 bead' : `${lane.beads.length} beads`}
               </span>
+              <LabelTags labels={lane.epic.labels} />
             </div>
             {columnsOf(lane.beads, statuses).map((cell) => (
               <div

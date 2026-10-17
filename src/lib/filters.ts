@@ -1,4 +1,5 @@
 import type { Bead } from '../../shared/contract'
+import { mergedLabels } from '@/lib/labels'
 
 export const STATUS_FILTERS = ['ready', 'all', 'open', 'in_progress', 'closed'] as const
 
@@ -148,7 +149,7 @@ export const childrenOf = (groups: Groups, epic: string): Bead[] => groups.get(e
 const byPriorityThenId = (a: Bead, b: Bead): number =>
   (a.priority ?? 9) - (b.priority ?? 9) || a.id.localeCompare(b.id)
 
-export type EpicEntry = { id: string; title: string; status: string; counts: Record<string, number> }
+export type EpicEntry = { id: string; title: string; status: string; counts: Record<string, number>; labels: string[] }
 
 const inStatusOrder = (statuses: string[]): string[] => [...new Set([...BOARD_COLUMNS, ...statuses])]
 
@@ -180,8 +181,12 @@ export function epicsOf(beads: Bead[], groups: Groups, status: StatusFilter): Ep
       title: epic.title,
       status: epic.status,
       counts: countByStatus(childrenOf(groups, epic.id)),
+      labels: mergedLabels(epic.labels, ...childrenOf(groups, epic.id).map((child) => child.labels)),
     }))
-  return [...epics, { id: NO_EPIC, title: 'No epic', status: 'open', counts: countByStatus(childrenOf(groups, NO_EPIC)) }]
+  return [
+    ...epics,
+    { id: NO_EPIC, title: 'No epic', status: 'open', counts: countByStatus(childrenOf(groups, NO_EPIC)), labels: [] },
+  ]
 }
 
 export const statusesOf = (beads: Bead[]): string[] => inStatusOrder(beads.map((bead) => bead.status))

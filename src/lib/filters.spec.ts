@@ -154,9 +154,21 @@ describe('the filters of the page', () => {
 
   it('counts the children of each epic by status', () => {
     expect(epicsIn(beads, 'ready')).toEqual([
-      { id: 'e-1', title: 'Checkout', status: 'open', counts: { open: 1, in_progress: 1, closed: 1 } },
-      { id: NO_EPIC, title: 'No epic', status: 'open', counts: { open: 1 } },
+      { id: 'e-1', title: 'Checkout', status: 'open', counts: { open: 1, in_progress: 1, closed: 1 }, labels: [] },
+      { id: NO_EPIC, title: 'No epic', status: 'open', counts: { open: 1 }, labels: [] },
     ])
+  })
+
+  it('gives an epic its own labels and the labels of its children, each one time', () => {
+    const tagged: Bead[] = [
+      { id: 'e-1', title: 'Checkout', status: 'open', issue_type: 'epic', labels: ['repo:shop', 'front'] },
+      { id: 't-1', title: 'Cart total', status: 'open', parent: 'e-1', labels: ['front', 'handoff'] },
+      { id: 't-2', title: 'Pay button', status: 'closed', parent: 'e-1', labels: ['repo:shop', 'complexity:2'] },
+      { id: 't-3', title: 'Fix the logo', status: 'open', labels: ['docs'] },
+    ]
+    const [epic, noEpic] = epicsIn(tagged, 'all')
+    expect(epic.labels).toEqual(['repo:shop', 'front', 'handoff', 'complexity:2'])
+    expect(noEpic.labels).toEqual([])
   })
 
   it('shows the closed epics only under the all and closed filters', () => {
