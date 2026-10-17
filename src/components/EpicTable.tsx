@@ -1,10 +1,10 @@
-import { Tag } from '@/components/BeadCard'
+import { LabelTags, Tag } from '@/components/BeadCard'
 import { NoMatch } from '@/components/NoMatch'
 import { StatusBar } from '@/components/StatusBar'
 import { ToneDot } from '@/components/ToneDot'
 import { countLabel, NO_EPIC, statusTitle } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
-import { labelTone, priorityTone, statusTone } from '@/lib/tones'
+import { priorityTone, statusTone } from '@/lib/tones'
 
 const HEADINGS = ['Id', 'Title', 'Status', 'Priority', 'Assignee', 'Labels']
 
@@ -62,13 +62,7 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
                 </td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">{bead.assignee ?? ''}</td>
                 <td className="px-3 py-2 text-xs">
-                  <span className="flex flex-wrap gap-1">
-                    {bead.labels?.map((label) => (
-                      <Tag key={label} tone={labelTone(label)}>
-                        {label}
-                      </Tag>
-                    ))}
-                  </span>
+                  <LabelTags labels={bead.labels} />
                 </td>
               </tr>
             ))}

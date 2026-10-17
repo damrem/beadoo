@@ -18,10 +18,10 @@ describe('the table of the beads', () => {
     expect(toneOf(status.querySelector('[aria-hidden="true"]'))).toBe('var(--ctp-red)')
   })
 
-  it('shows the priority and each label in a coloured chip, with the label text unchanged', () => {
+  it('shows the priority and each label in a coloured chip, with the full label text as a hint', () => {
     render(<EpicTable lanes={lanes} onOpen={() => {}} />)
     expect(toneOf(screen.getByText('P1'))).toBe('var(--ctp-peach)')
-    expect(toneOf(screen.getByText('complexity:0'))).toBe('var(--ctp-teal)')
-    expect(toneOf(screen.getByText('front'))).toMatch(/^var\(--ctp-/)
+    expect(toneOf(screen.getByTitle('complexity:0'))).toBe('var(--ctp-teal)')
+    expect(toneOf(screen.getByTitle('front'))).toMatch(/^var\(--ctp-/)
   })
 })

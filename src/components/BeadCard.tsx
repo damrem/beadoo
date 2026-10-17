@@ -2,7 +2,9 @@ import type { ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ToneDot } from '@/components/ToneDot'
 import type { Bead } from '../../shared/contract'
+import { labelEmoji } from '@/lib/emojis'
 import { statusTitle } from '@/lib/filters'
+import { labelParts } from '@/lib/labels'
 import { leaseLabel, leaseState } from '@/lib/lease'
 import type { Tone } from '@/lib/palette'
 import { labelTone, priorityTone, statusTone, toneStyle, typeStyle } from '@/lib/tones'
@@ -16,16 +18,46 @@ const PATTERN_CLASSES = {
   lines: 'pattern-lines',
 }
 
-export function Tag({ tone, children }: { tone?: Tone; children: ReactNode }) {
+export function Tag({ tone, title, children }: { tone?: Tone; title?: string; children: ReactNode }) {
   return (
     <span
+      title={title}
       className={cn(
-        'inline-flex items-center rounded-md border px-1.5 py-0.5 text-[0.7rem] leading-none',
+        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.7rem] leading-none',
         tone ? 'tone-chip' : 'text-muted-foreground',
       )}
       style={tone ? toneStyle(tone) : undefined}
     >
       {children}
+    </span>
+  )
+}
+
+export function LabelTag({ label }: { label: string }) {
+  const emoji = labelEmoji(label)
+  const property = labelParts(label)
+  return (
+    <Tag tone={labelTone(label)} title={label}>
+      {emoji && <span aria-hidden="true">{emoji}</span>}
+      {property ? (
+        <>
+          <span className="text-muted-foreground">{property.name}</span>
+          <span className="border-l border-(color:--tone)/50 pl-1 font-semibold">{property.value}</span>
+        </>
+      ) : (
+        label
+      )}
+    </Tag>
+  )
+}
+
+export function LabelTags({ labels }: { labels?: string[] }) {
+  if (!labels?.length) return null
+  return (
+    <span className="flex flex-wrap gap-1">
+      {labels.map((label) => (
+        <LabelTag key={label} label={label} />
+      ))}
     </span>
   )
 }
@@ -68,11 +100,7 @@ export function BeadCard({ bead, onOpen }: { bead: Bead; onOpen: (id: string) =>
                 {leaseText}
               </span>
             )}
-            {bead.labels?.map((label) => (
-              <Tag key={label} tone={labelTone(label)}>
-                {label}
-              </Tag>
-            ))}
+            {bead.labels?.map((label) => <LabelTag key={label} label={label} />)}
           </CardContent>
         )}
       </Card>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Tag } from '@/components/BeadCard'
+import { LabelTags } from '@/components/BeadCard'
 import { BeadEditor } from '@/components/BeadEditor'
 import { claimActions, ClaimControls } from '@/components/ClaimControls'
 import { SessionStarted, SpawnControls } from '@/components/SpawnControls'
@@ -12,7 +12,6 @@ import { api } from '@/lib/api'
 import type { Bead, ClaimAction } from '../../shared/contract'
 import type { SpawnedSession } from '../../shared/spawn'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
-import { labelTone } from '@/lib/tones'
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -197,13 +196,7 @@ export function BeadDetail({
                   )}
                 </Field>
                 <Field label="Labels">
-                  <span className="flex flex-wrap gap-1">
-                    {bead.labels?.map((label) => (
-                      <Tag key={label} tone={labelTone(label)}>
-                        {label}
-                      </Tag>
-                    ))}
-                  </span>
+                  <LabelTags labels={bead.labels} />
                 </Field>
                 <Field label="Dependencies">
                   {blockers.length === 0
