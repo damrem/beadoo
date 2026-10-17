@@ -1,4 +1,4 @@
-import { BOARD_COLUMNS, childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, readViewState, statusesOf, statusTitle, typesOf, writeViewState } from './filters'
+import { BOARD_COLUMNS, childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, readViewState, statusesOf, statusTitle, statusTogglesOf, toggleStatus, typesOf, writeViewState } from './filters'
 import type { Bead } from '../../shared/contract'
 import type { BeadFilter, StatusFilter } from './filters'
 
@@ -30,7 +30,7 @@ describe('the filters of the page', () => {
 
   it('keeps the last filter of the user when the page opens with no link', () => {
     expect(readViewState('', { status: 'closed', text: 'cart' })).toMatchObject({
-      status: 'closed',
+      status: ['closed'],
       text: 'cart',
     })
   })
@@ -82,7 +82,7 @@ describe('the filters of the page', () => {
       db: 'shop',
       epic: 'e-1',
       bead: 't-1',
-      status: 'open' as const,
+      status: ['open', 'in_progress'],
       text: 'cart',
       labels: ['front', 'urgent'],
       type: 'bug',
@@ -118,7 +118,44 @@ describe('the filters of the page', () => {
   })
 
   it('shows the beads of one status', () => {
-    expect(filterBeads(beads, [], only({ status: 'in_progress' })).map((bead) => bead.id)).toEqual(['t-2'])
+    expect(filterBeads(beads, [], only({ status: ['in_progress'] })).map((bead) => bead.id)).toEqual(['t-2'])
+  })
+
+  it('shows the open and the in progress beads together when the user selects both', () => {
+    expect(filterBeads(beads, [], only({ status: ['open', 'in_progress'] })).map((bead) => bead.id)).toEqual(['e-1', 't-1', 't-2', 't-4'])
+  })
+
+  it('opens an old link that holds one status', () => {
+    expect(readViewState('?status=open', {}).status).toEqual(['open'])
+    expect(readViewState('?status=all', {}).status).toBe('all')
+  })
+
+  it('opens a link that holds more than one status, and puts the statuses in the link again', () => {
+    const state = readViewState('?status=in_progress&status=blocked', {})
+    expect(state.status).toEqual(['in_progress', 'blocked'])
+    expect(new URLSearchParams(writeViewState(state)).getAll('status')).toEqual(['in_progress', 'blocked'])
+  })
+
+  it('keeps the one status that the user stored before the page could select more than one', () => {
+    expect(readViewState('', { status: 'closed' }).status).toEqual(['closed'])
+    expect(readViewState('', { status: ['open', 'blocked'] }).status).toEqual(['open', 'blocked'])
+  })
+
+  it('adds a status to the selection, removes it on a second click, and shows all the beads when no status stays', () => {
+    expect(toggleStatus('ready', 'blocked')).toEqual(['blocked'])
+    expect(toggleStatus(['blocked'], 'in_progress')).toEqual(['in_progress', 'blocked'])
+    expect(toggleStatus(['in_progress', 'blocked'], 'blocked')).toEqual(['in_progress'])
+    expect(toggleStatus(['in_progress'], 'in_progress')).toBe('all')
+  })
+
+  it('clears the selected statuses when the user selects the ready or the all filter', () => {
+    expect(toggleStatus(['open', 'closed'], 'ready')).toBe('ready')
+    expect(toggleStatus(['open', 'closed'], 'all')).toBe('all')
+  })
+
+  it('offers the deferred status only when a loaded bead is deferred', () => {
+    expect(statusTogglesOf(beads)).toEqual(['open', 'in_progress', 'blocked', 'closed'])
+    expect(statusTogglesOf([...beads, { id: 't-9', title: 'Later', status: 'deferred' }])).toEqual(['open', 'in_progress', 'blocked', 'deferred', 'closed'])
   })
 
   it('finds the beads whose title holds the text that the user types, in any case', () => {
@@ -151,7 +188,7 @@ describe('the filters of the page', () => {
 
     it('shows only the beads that match the labels, the type, the priority, the status and the text together', () => {
       expect(ids({ labels: ['urgent'], type: 'bug', priority: 1, text: 'front' })).toEqual(['b-1'])
-      expect(ids({ labels: ['urgent'], type: 'bug', priority: 1, status: 'closed' })).toEqual([])
+      expect(ids({ labels: ['urgent'], type: 'bug', priority: 1, status: ['closed'] })).toEqual([])
     })
 
     it('offers the labels, the types and the priorities that the loaded beads hold, each one time and in order', () => {

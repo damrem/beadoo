@@ -215,7 +215,37 @@ describe('the beadoo page', () => {
     render(<App />)
     await screen.findByText('Cart total')
     await userEvent.click(screen.getByRole('button', { name: 'Closed' }))
-    expect(JSON.parse(window.localStorage.getItem('beadoo:filters') ?? '{}')).toMatchObject({ status: 'closed' })
+    expect(JSON.parse(window.localStorage.getItem('beadoo:filters') ?? '{}')).toMatchObject({ status: ['closed'] })
+  })
+
+  it('shows the open and the in progress beads together when the user selects both', async () => {
+    answers['/api/beads?db=.claude'] = json({
+      beads: [...beads, { id: 't-5', title: 'Ship it', status: 'in_progress', parent: 'e-1' }],
+      readyIds: ['t-1', 't-4'],
+    })
+    window.history.replaceState(null, '', '/?db=.claude&view=lanes')
+    render(<App />)
+    await screen.findByText('Cart total')
+    await userEvent.click(screen.getByRole('button', { name: 'Open' }))
+    await userEvent.click(screen.getByRole('button', { name: 'In progress' }))
+    expect(screen.getByText('Pay button')).toBeInTheDocument()
+    expect(screen.getByText('Ship it')).toBeInTheDocument()
+    expect(screen.queryByText('Receipt mail')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'In progress' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Ready' })).toHaveAttribute('aria-pressed', 'false')
+    expect(new URLSearchParams(window.location.search).getAll('status')).toEqual(['open', 'in_progress'])
+    await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+    expect(screen.getByRole('button', { name: 'Open' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByText('Ship it')).not.toBeInTheDocument()
+  })
+
+  it('opens an old link that holds one status', async () => {
+    window.history.replaceState(null, '', '/?db=.claude&view=lanes&status=closed')
+    render(<App />)
+    expect(await screen.findByText('Receipt mail')).toBeInTheDocument()
+    expect(screen.queryByText('Cart total')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Closed' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   describe('the views of the beads', () => {

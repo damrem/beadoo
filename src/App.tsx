@@ -25,6 +25,7 @@ import {
   lanesOf,
   prioritiesOf,
   readViewState,
+  statusTogglesOf,
   typesOf,
   writeViewState,
 } from '@/lib/filters'
@@ -144,7 +145,12 @@ export function App() {
 
   const options = useMemo(() => {
     const loaded = data?.beads ?? []
-    return { labels: labelsOf(loaded), types: typesOf(loaded), priorities: prioritiesOf(loaded) }
+    return {
+      labels: labelsOf(loaded),
+      types: typesOf(loaded),
+      priorities: prioritiesOf(loaded),
+      statuses: statusTogglesOf(loaded),
+    }
   }, [data])
 
   const filter = useMemo<BeadFilter>(
@@ -182,6 +188,7 @@ export function App() {
         />
         <FilterBar
           status={view.status}
+          statuses={options.statuses}
           text={view.text}
           onStatus={(status) => update({ status })}
           onText={(text) => update({ text })}

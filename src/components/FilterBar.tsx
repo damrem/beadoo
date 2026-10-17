@@ -1,27 +1,28 @@
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { STATUS_FILTERS } from '@/lib/filters'
+import { STATUS_CHOICES, STATUS_TOGGLES, statusTitle, statusValues, toggleStatus } from '@/lib/filters'
 import type { StatusFilter } from '@/lib/filters'
 
-const FILTER_TITLES: Record<StatusFilter, string> = {
+const CHOICE_TITLES: Record<string, string> = {
   ready: 'Ready',
   all: 'All',
-  open: 'Open',
-  in_progress: 'In progress',
-  closed: 'Closed',
 }
 
 export function FilterBar({
   status,
+  statuses,
   text,
   onStatus,
   onText,
 }: {
   status: StatusFilter
+  statuses: string[]
   text: string
   onStatus: (status: StatusFilter) => void
   onText: (text: string) => void
 }) {
+  const pressed = statusValues(status)
+  const toggles = STATUS_TOGGLES.filter((value) => statuses.includes(value) || pressed.includes(value))
   return (
     <div className="flex flex-wrap items-center gap-2">
       <ToggleGroup
@@ -29,15 +30,18 @@ export function FilterBar({
         variant="outline"
         size="sm"
         spacing={0}
-        value={[status]}
+        multiple
+        value={pressed}
         onValueChange={(values: unknown[]) => {
-          const next = values[0]
-          if (STATUS_FILTERS.includes(next as StatusFilter)) onStatus(next as StatusFilter)
+          const clicked =
+            values.find((value) => !pressed.includes(value as string)) ??
+            pressed.find((value) => !values.includes(value))
+          if (typeof clicked === 'string') onStatus(toggleStatus(status, clicked))
         }}
       >
-        {STATUS_FILTERS.map((filter) => (
-          <ToggleGroupItem key={filter} value={filter}>
-            {FILTER_TITLES[filter]}
+        {[...STATUS_CHOICES, ...toggles].map((value) => (
+          <ToggleGroupItem key={value} value={value}>
+            {CHOICE_TITLES[value] ?? statusTitle(value)}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>

@@ -1,9 +1,13 @@
 import type { Bead } from '../../shared/contract'
 import { mergedLabels } from '@/lib/labels'
 
-export const STATUS_FILTERS = ['ready', 'all', 'open', 'in_progress', 'closed'] as const
+export const STATUS_CHOICES = ['ready', 'all'] as const
 
-export type StatusFilter = (typeof STATUS_FILTERS)[number]
+export type StatusChoice = (typeof STATUS_CHOICES)[number]
+
+export const STATUS_TOGGLES = ['open', 'in_progress', 'blocked', 'deferred', 'closed']
+
+export type StatusFilter = StatusChoice | string[]
 
 export const BOARD_COLUMNS = ['open', 'in_progress', 'blocked', 'closed']
 
@@ -40,7 +44,7 @@ export type ViewState = {
 export type BeadFilter = Pick<ViewState, 'status' | 'text' | 'labels' | 'type' | 'priority'>
 
 export type StoredFilters = {
-  status?: string
+  status?: unknown
   text?: string
   view?: string
   labels?: unknown
@@ -48,8 +52,28 @@ export type StoredFilters = {
   priority?: unknown
 }
 
-const isStatusFilter = (value: string | null | undefined): value is StatusFilter =>
-  STATUS_FILTERS.includes(value as StatusFilter)
+const isStatusChoice = (value: unknown): value is StatusChoice => STATUS_CHOICES.includes(value as StatusChoice)
+
+const readStatus = (value: unknown): StatusFilter | null => {
+  const values = Array.isArray(value) ? value : [value]
+  const toggles = STATUS_TOGGLES.filter((status) => values.includes(status))
+  if (toggles.length > 0) return toggles
+  return STATUS_CHOICES.find((choice) => values.includes(choice)) ?? null
+}
+
+export const statusValues = (status: StatusFilter): string[] => (isStatusChoice(status) ? [status] : status)
+
+export function toggleStatus(current: StatusFilter, clicked: string): StatusFilter {
+  if (isStatusChoice(clicked)) return clicked
+  const selected = isStatusChoice(current) ? [] : current
+  const next = selected.includes(clicked)
+    ? selected.filter((status) => status !== clicked)
+    : STATUS_TOGGLES.filter((status) => status === clicked || selected.includes(status))
+  return next.length > 0 ? next : 'all'
+}
+
+export const statusTogglesOf = (beads: Bead[]): string[] =>
+  STATUS_TOGGLES.filter((status) => BOARD_COLUMNS.includes(status) || beads.some((bead) => bead.status === status))
 
 const isViewMode = (value: string | null | undefined): value is ViewMode => VIEW_MODES.includes(value as ViewMode)
 
@@ -72,8 +96,7 @@ const readLabels = (value: unknown): string[] => (Array.isArray(value) ? [...new
 export function readViewState(search: string, lastVisit: StoredFilters): ViewState {
   const params = new URLSearchParams(search)
   const stored: StoredFilters = params.size > 0 ? {} : lastVisit
-  const urlStatus = params.get('status')
-  const status = isStatusFilter(urlStatus) ? urlStatus : isStatusFilter(stored.status) ? stored.status : 'ready'
+  const status = readStatus(params.getAll('status')) ?? readStatus(stored.status) ?? 'ready'
   const urlMode = params.get('view')
   const mode = isViewMode(urlMode) ? urlMode : isViewMode(stored.view) ? stored.view : 'epic'
   return {
@@ -95,7 +118,7 @@ export function writeViewState(state: ViewState): string {
   if (state.db) params.set('db', state.db)
   if (state.epic) params.set('epic', state.epic)
   if (state.bead) params.set('bead', state.bead)
-  params.set('status', state.status)
+  for (const status of statusValues(state.status)) params.append('status', status)
   if (state.text) params.set('q', state.text)
   for (const label of state.labels) params.append('label', label)
   if (state.type) params.set('type', state.type)
@@ -109,7 +132,7 @@ export function filterBeads(beads: Bead[], readyIds: string[], filter: BeadFilte
   const needle = filter.text.trim().toLowerCase()
   return beads.filter((bead) => {
     if (status === 'ready' && !ready.has(bead.id)) return false
-    if (status !== 'ready' && status !== 'all' && bead.status !== status) return false
+    if (!isStatusChoice(status) && !status.includes(bead.status)) return false
     if (type !== null && typeOf(bead) !== type) return false
     if (priority !== null && bead.priority !== priority) return false
     if (!labels.every((label) => bead.labels?.includes(label))) return false
@@ -171,7 +194,7 @@ const countByStatus = (beads: Bead[]): Record<string, number> => {
 }
 
 export function epicsOf(beads: Bead[], groups: Groups, status: StatusFilter): EpicEntry[] {
-  const showClosed = status === 'all' || status === 'closed'
+  const showClosed = status === 'all' || statusValues(status).includes('closed')
   const isOpen = (bead: Bead) => bead.status !== 'closed'
   const epics = beads
     .filter((bead) => isEpic(bead) || groups.has(bead.id))
