@@ -22,7 +22,7 @@ export function EpicSidebar({
           onClick={() => onSelect(epic.id)}
           className={cn(
             'flex flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-sidebar-accent',
-            epic.id === selected && 'bg-sidebar-accent font-medium',
+            epic.id === selected && 'bg-card font-medium ring-2 ring-primary ring-inset hover:bg-card',
             epic.status === 'closed' && 'opacity-60',
           )}
         >
