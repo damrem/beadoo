@@ -3,11 +3,10 @@ import { BeadId } from '@/components/BeadId'
 import { NoMatch } from '@/components/NoMatch'
 import { StatusBar } from '@/components/StatusBar'
 import { Emoji } from '@/components/Emoji'
-import { ToneDot } from '@/components/ToneDot'
 import { statusEmoji } from '@/lib/emojis'
 import { countLabel, NO_EPIC, statusTitle } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
-import { priorityTone, statusTone } from '@/lib/tones'
+import { priorityTone } from '@/lib/tones'
 
 const HEADINGS = ['Id', 'Title', 'Status', 'Priority', 'Assignee', 'Labels']
 
@@ -59,7 +58,6 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
                 </td>
                 <td className="px-3 py-2">
                   <span className="flex items-center gap-1.5">
-                    <ToneDot tone={statusTone(bead.status)} />
                     <Emoji emoji={statusEmoji(bead.status)} />
                     {statusTitle(bead.status)}
                   </span>

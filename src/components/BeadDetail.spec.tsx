@@ -55,7 +55,7 @@ describe('the detail of a bead', () => {
     const dialog = await show({ status: 'blocked', priority: 0, issue_type: 'bug' })
     const status = within(dialog).getByText('Blocked')
     expect(status).toHaveTextContent('⛔Blocked')
-    expect(toneOf(status.querySelector('.tone-dot'))).toBe('var(--ctp-red)')
+    expect(status.querySelector('.tone-dot')).toBeNull()
     expect(toneOf(within(dialog).getByText('P0'))).toBe('var(--ctp-red)')
     expect(within(dialog).getByText('bug')).toHaveTextContent('🐛bug')
     expect(toneOf(within(dialog).getByText('bug'))).toBe('var(--ctp-red)')

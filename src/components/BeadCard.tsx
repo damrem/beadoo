@@ -2,14 +2,13 @@ import type { ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BeadId } from '@/components/BeadId'
 import { Emoji } from '@/components/Emoji'
-import { ToneDot } from '@/components/ToneDot'
 import type { Bead } from '../../shared/contract'
 import { labelEmoji, statusEmoji, typeEmoji } from '@/lib/emojis'
 import { statusTitle } from '@/lib/filters'
 import { labelParts } from '@/lib/labels'
 import { leaseLabel, leaseState } from '@/lib/lease'
 import type { Tone } from '@/lib/palette'
-import { labelTone, priorityTone, statusTone, toneStyle, typeStyle } from '@/lib/tones'
+import { labelTone, priorityTone, toneStyle, typeStyle } from '@/lib/tones'
 import { cn } from '@/lib/utils'
 
 const PATTERN_CLASSES = {
@@ -47,7 +46,6 @@ export function TypeTag({ type }: { type: string }) {
 export function StatusTag({ status }: { status: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <ToneDot tone={statusTone(status)} />
       <Emoji emoji={statusEmoji(status)} />
       {statusTitle(status)}
     </span>
@@ -105,7 +103,9 @@ export function BeadCard({ bead, onOpen }: { bead: Bead; onOpen: (id: string) =>
           className={cn('tone-tint pt-(--card-spacing) pb-2', PATTERN_CLASSES[type.pattern])}
         >
           <div className="flex items-center gap-1.5 font-mono text-xs">
-            <ToneDot tone={statusTone(bead.status)} title={statusTitle(bead.status)} />
+            <span title={statusTitle(bead.status)}>
+              <Emoji emoji={statusEmoji(bead.status)} />
+            </span>
             <BeadId id={bead.id} />
             {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}
             {bead.issue_type && <TypeTag type={bead.issue_type} />}

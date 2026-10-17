@@ -8,9 +8,10 @@ const show = (bead: Partial<Bead>) =>
   render(<BeadCard bead={{ id: 'b-1', title: 'Fix the cart', status: 'blocked', ...bead }} onOpen={() => {}} />)
 
 describe('the card of a bead', () => {
-  it('shows the status of the bead as a coloured dot', () => {
-    show({})
-    expect(toneOf(screen.getByTitle('Blocked'))).toBe('var(--ctp-red)')
+  it('shows the status of the bead as its emoji, with the status name on hover', () => {
+    const { container } = show({})
+    expect(screen.getByTitle('Blocked')).toHaveTextContent('⛔')
+    expect(container.querySelector('.tone-dot')).toBeNull()
   })
 
   it('gives the card the border colour and the header pattern of its type', () => {

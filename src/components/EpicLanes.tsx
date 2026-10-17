@@ -2,7 +2,6 @@ import { BeadCard, LabelTags } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { NoMatch } from '@/components/NoMatch'
 import { Emoji } from '@/components/Emoji'
-import { ToneDot } from '@/components/ToneDot'
 import { statusEmoji } from '@/lib/emojis'
 import { columnsOf, columnStatusesOf, NO_EPIC, statusTitle } from '@/lib/filters'
 import type { Lane, StatusFilter } from '@/lib/filters'
@@ -38,7 +37,6 @@ export function EpicLanes({
               className="flex items-center gap-1.5 border-b-2 px-2 py-2 tone-edge"
               style={toneStyle(statusTone(status))}
             >
-              <ToneDot tone={statusTone(status)} />
               <Emoji emoji={statusEmoji(status)} />
               {statusTitle(status)}
             </div>
