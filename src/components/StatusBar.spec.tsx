@@ -22,9 +22,15 @@ describe('the status bar of an epic', () => {
     render(<StatusBar title="Checkout" counts={{ open: 1, review: 1 }} />)
     const bar = screen.getByRole('img', { name: /Checkout/ })
     for (const segment of bar.querySelectorAll<HTMLElement>('[data-status]')) {
-      expect(segment.className).toMatch(/\bbg-/)
+      expect(segment.style.getPropertyValue('--tone')).toMatch(/^var\(--ctp-/)
     }
     expect(segmentsOf(bar)).toHaveLength(2)
+  })
+
+  it('shows the blocked part in the colour of the blocked status', () => {
+    render(<StatusBar title="Checkout" counts={{ open: 1, blocked: 1 }} />)
+    const blocked = screen.getByRole('img', { name: /Checkout/ }).querySelector<HTMLElement>('[data-status="blocked"]')
+    expect(blocked?.style.getPropertyValue('--tone')).toBe('var(--ctp-red)')
   })
 
   it('shows an empty bar when the epic has no child', () => {

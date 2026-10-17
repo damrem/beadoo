@@ -1,13 +1,5 @@
-import { cn } from '@/lib/utils'
 import { countLabel, orderedCounts } from '@/lib/filters'
-
-const SEGMENT_COLORS: Record<string, string> = {
-  open: 'bg-slate-500',
-  in_progress: 'bg-orange-600',
-  blocked: 'bg-red-600',
-  closed: 'bg-slate-300',
-  deferred: 'bg-violet-500',
-}
+import { statusTone, toneStyle } from '@/lib/tones'
 
 export function StatusBar({ title, counts }: { title: string; counts: Record<string, number> }) {
   const parts = orderedCounts(counts)
@@ -22,8 +14,8 @@ export function StatusBar({ title, counts }: { title: string; counts: Record<str
         <span
           key={part.status}
           data-status={part.status}
-          className={cn('block h-full', SEGMENT_COLORS[part.status] ?? 'bg-muted-foreground')}
-          style={{ width: `${(100 * part.count) / total}%` }}
+          className="block h-full tone-dot"
+          style={{ ...toneStyle(statusTone(part.status)), width: `${(100 * part.count) / total}%` }}
         />
       ))}
     </div>
