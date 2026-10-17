@@ -41,5 +41,5 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 })
 
 server.listen(PORT, HOST, () => {
-  console.log(`beads page: http://${HOST}:${PORT}/?db=.claude`)
+  console.log(`beadoo: http://${HOST}:${PORT}/?db=.claude`)
 })
