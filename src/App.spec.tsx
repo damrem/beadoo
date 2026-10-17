@@ -86,10 +86,58 @@ describe('the beadoo page', () => {
   })
 
   it('lists the epics with the count of their children for each status', async () => {
+    window.history.replaceState(null, '', '/?db=.claude&status=all')
     render(<App />)
     const epics = await screen.findByRole('navigation', { name: 'Epics' })
     expect(within(epics).getByRole('button', { name: /Checkout.*2 Open · 1 Closed/ })).toBeInTheDocument()
     expect(within(epics).getByRole('button', { name: /No epic.*1 Open/ })).toBeInTheDocument()
+  })
+
+  describe('the epic board and the filters', () => {
+    beforeEach(() => {
+      answers['/api/beads?db=.claude'] = json({
+        beads: [
+          { id: 'e-0', title: 'Old search', status: 'open', issue_type: 'epic', priority: 0 },
+          { id: 't-0', title: 'Search index', status: 'closed', parent: 'e-0' },
+          ...beads,
+        ],
+        readyIds: ['t-1', 't-4'],
+      })
+    })
+
+    it('lists only the epics with a child that matches the filters, and counts only the matching children', async () => {
+      render(<App />)
+      const epics = await screen.findByRole('navigation', { name: 'Epics' })
+      expect(within(epics).queryByRole('button', { name: /Old search/ })).not.toBeInTheDocument()
+      expect(within(epics).getByRole('button', { name: /Checkout/ })).toHaveTextContent(/1 Open$/)
+      expect(within(epics).getByRole('button', { current: true })).toHaveTextContent('Checkout')
+      expect(within(column('Open')).getByText('Cart total')).toBeInTheDocument()
+    })
+
+    it('lists only the epics with a child whose title holds the text that the user typed', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&status=all&q=logo')
+      render(<App />)
+      const epics = await screen.findByRole('navigation', { name: 'Epics' })
+      expect(within(epics).getAllByRole('button').map((button) => button.textContent)).toEqual(['No epic1 Open'])
+      expect(within(column('Open')).getByText('Fix the logo')).toBeInTheDocument()
+    })
+
+    it('selects the first listed epic when the filters remove the selected epic', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&status=closed&epic=e-0')
+      render(<App />)
+      expect(await screen.findByText('Search index')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+      const epics = screen.getByRole('navigation', { name: 'Epics' })
+      expect(within(epics).getByRole('button', { current: true })).toHaveTextContent('Checkout')
+      expect(within(column('Open')).getByText('Cart total')).toBeInTheDocument()
+    })
+
+    it('tells the user when no bead matches the filters, and shows no empty column', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&q=nothing-like-this')
+      render(<App />)
+      expect(await screen.findByText('No bead matches the filters.')).toBeInTheDocument()
+      expect(screen.queryByRole('region')).not.toBeInTheDocument()
+    })
   })
 
   it('shows all the children of the epic when the user selects the all filter', async () => {

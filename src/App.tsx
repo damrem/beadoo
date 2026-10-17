@@ -7,6 +7,7 @@ import { EpicLanes } from '@/components/EpicLanes'
 import { EpicSidebar } from '@/components/EpicSidebar'
 import { EpicTable } from '@/components/EpicTable'
 import { FilterBar } from '@/components/FilterBar'
+import { NoMatch } from '@/components/NoMatch'
 import { RefreshButton } from '@/components/RefreshButton'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
 import { UnreachableAlert } from '@/components/UnreachableAlert'
@@ -164,10 +165,9 @@ export function App() {
   )
 
   const epic = useMemo(() => {
-    if (view.epic && epics.some((entry) => entry.id === view.epic)) return view.epic
-    if (!data) return null
-    return (lanes[0]?.epic ?? epics[0])?.id ?? null
-  }, [data, epics, lanes, view.epic])
+    if (view.epic && lanes.some((lane) => lane.epic.id === view.epic)) return view.epic
+    return lanes[0]?.epic.id ?? null
+  }, [lanes, view.epic])
 
   const boardBeads = useMemo(
     () => (data && epic ? filterBeads(childrenOf(groups, epic), data.readyIds, filter) : []),
@@ -236,9 +236,9 @@ export function App() {
         <div className="flex min-h-0 flex-1">
           {data && view.mode === 'epic' ? (
             <>
-              <EpicSidebar epics={epics} selected={epic} onSelect={(id) => update({ epic: id })} />
+              <EpicSidebar lanes={lanes} selected={epic} onSelect={(id) => update({ epic: id })} />
               <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
-                <Board beads={boardBeads} status={view.status} onOpen={open} />
+                {epic ? <Board beads={boardBeads} status={view.status} onOpen={open} /> : <NoMatch />}
               </main>
             </>
           ) : data ? (

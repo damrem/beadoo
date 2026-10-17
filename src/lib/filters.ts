@@ -187,7 +187,7 @@ export const countLabel = (counts: Record<string, number>): string =>
     .map(({ status, count }) => `${count} ${statusTitle(status)}`)
     .join(' · ') || 'no bead'
 
-const countByStatus = (beads: Bead[]): Record<string, number> => {
+export const countByStatus = (beads: Bead[]): Record<string, number> => {
   const counts: Record<string, number> = {}
   for (const bead of beads) counts[bead.status] = (counts[bead.status] ?? 0) + 1
   return counts
