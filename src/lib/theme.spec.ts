@@ -1,4 +1,4 @@
-import { isDark, readThemeMode, THEME_KEY, writeThemeMode } from '@/lib/theme'
+import { isDark, LEGACY_THEME_KEY, readThemeMode, THEME_KEY, writeThemeMode } from '@/lib/theme'
 
 describe('the colour mode', () => {
   it('follows the system setting in the system mode', () => {
@@ -13,6 +13,11 @@ describe('the colour mode', () => {
 
   it('remembers the mode that the user chose', () => {
     writeThemeMode('dark')
+    expect(readThemeMode()).toBe('dark')
+  })
+
+  it('keeps the mode that the user chose before the rename to beadoo', () => {
+    window.localStorage.setItem(LEGACY_THEME_KEY, 'dark')
     expect(readThemeMode()).toBe('dark')
   })
 

@@ -73,7 +73,7 @@ const withPageToken = () => {
   })
 }
 
-describe('the beads page', () => {
+describe('the beadoo page', () => {
   it('shows the ready beads of the epic when the page opens', async () => {
     render(<App />)
     await screen.findByText('Cart total')
@@ -203,7 +203,7 @@ describe('the beads page', () => {
     render(<App />)
     await screen.findByText('Cart total')
     await userEvent.click(screen.getByRole('button', { name: 'Closed' }))
-    expect(JSON.parse(window.localStorage.getItem('beads-page:filters') ?? '{}')).toMatchObject({ status: 'closed' })
+    expect(JSON.parse(window.localStorage.getItem('beadoo:filters') ?? '{}')).toMatchObject({ status: 'closed' })
   })
 
   describe('the views of the beads', () => {
@@ -314,7 +314,7 @@ describe('the beads page', () => {
         expect(params.getAll('label')).toEqual(['front'])
         expect(params.get('type')).toBe('bug')
         expect(params.get('priority')).toBe('2')
-        expect(JSON.parse(window.localStorage.getItem('beads-page:filters') ?? '{}')).toMatchObject({
+        expect(JSON.parse(window.localStorage.getItem('beadoo:filters') ?? '{}')).toMatchObject({
           labels: ['front'],
           type: 'bug',
           priority: 2,
@@ -413,10 +413,17 @@ describe('the beads page', () => {
       expect(window.location.search).toContain('view=epic')
       await userEvent.click(screen.getByRole('button', { name: 'Table' }))
       expect(window.location.search).toContain('view=table')
-      expect(JSON.parse(window.localStorage.getItem('beads-page:filters') ?? '{}')).toMatchObject({ view: 'table' })
+      expect(JSON.parse(window.localStorage.getItem('beadoo:filters') ?? '{}')).toMatchObject({ view: 'table' })
     })
 
     it('opens the view of the last visit when the link names no view', async () => {
+      window.localStorage.setItem('beadoo:filters', JSON.stringify({ view: 'lanes' }))
+      render(<App />)
+      expect(await screen.findByRole('region', { name: 'Checkout' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Lanes' })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('opens the view that the user stored before the rename to beadoo', async () => {
       window.localStorage.setItem('beads-page:filters', JSON.stringify({ view: 'lanes' }))
       render(<App />)
       expect(await screen.findByRole('region', { name: 'Checkout' })).toBeInTheDocument()

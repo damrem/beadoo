@@ -2,7 +2,9 @@ export const THEME_MODES = ['light', 'dark', 'system'] as const
 
 export type ThemeMode = (typeof THEME_MODES)[number]
 
-export const THEME_KEY = 'beads-page:theme'
+export const THEME_KEY = 'beadoo:theme'
+
+export const LEGACY_THEME_KEY = 'beads-page:theme'
 
 const DARK_QUERY = '(prefers-color-scheme: dark)'
 
@@ -13,7 +15,7 @@ export const isDark = (mode: ThemeMode, systemDark: boolean): boolean =>
 
 export function readThemeMode(): ThemeMode {
   try {
-    const stored = window.localStorage.getItem(THEME_KEY)
+    const stored = window.localStorage.getItem(THEME_KEY) ?? window.localStorage.getItem(LEGACY_THEME_KEY)
     return isThemeMode(stored) ? stored : 'system'
   } catch {
     return 'system'

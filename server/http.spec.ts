@@ -31,7 +31,7 @@ beforeEach(async () => {
   const distDir = join(root, 'dist')
   mkdirSync(distDir)
   mkdirSync(join(distDir, 'assets'))
-  writeFileSync(join(distDir, 'index.html'), '<html><head><title>Beads</title></head><body></body></html>')
+  writeFileSync(join(distDir, 'index.html'), '<html><head><title>beadoo</title></head><body></body></html>')
   writeFileSync(join(distDir, 'assets', 'app.js'), 'console.log(1)')
   listAnswer = ok([{ id: 's-1', title: 'Cart', status: 'open' }])
   listGate = Promise.resolve()
