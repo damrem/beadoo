@@ -1,4 +1,4 @@
-import { BOARD_COLUMNS, childrenOf, columnsOf, countLabel, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, readViewState, statusesOf, statusTitle, statusTogglesOf, toggleStatus, typesOf, writeViewState } from './filters'
+import { BOARD_COLUMNS, childrenOf, columnsOf, columnStatusesOf, countLabel, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, readViewState, statusesOf, statusTitle, statusTogglesOf, toggleStatus, typesOf, writeViewState } from './filters'
 import type { Bead } from '../../shared/contract'
 import type { BeadFilter, StatusFilter } from './filters'
 
@@ -263,6 +263,19 @@ describe('the filters of the page', () => {
       ['closed', ['t-3']],
       ['deferred', ['t-5']],
     ])
+  })
+
+  it('shows only the open column under the ready filter, because a ready bead is always open', () => {
+    expect(columnStatusesOf([beads[2]], 'ready')).toEqual(['open'])
+  })
+
+  it('shows all the status columns under the all filter', () => {
+    expect(columnStatusesOf([beads[2]], 'all')).toEqual(BOARD_COLUMNS)
+  })
+
+  it('shows only the columns of the statuses that the user selected, in the usual order', () => {
+    expect(columnStatusesOf([beads[3]], ['blocked', 'in_progress'])).toEqual(['in_progress', 'blocked'])
+    expect(columnStatusesOf([], ['deferred'])).toEqual(['deferred'])
   })
 
   it('puts in each lane the beads of one epic that match the filter, and leaves out an epic with no match', () => {

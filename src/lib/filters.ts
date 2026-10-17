@@ -215,6 +215,15 @@ export function epicsOf(beads: Bead[], groups: Groups, status: StatusFilter): Ep
 
 export const statusesOf = (beads: Bead[]): string[] => inStatusOrder(beads.map((bead) => bead.status))
 
+export const READY_STATUSES = ['open']
+
+export function columnStatusesOf(beads: Bead[], status: StatusFilter): string[] {
+  if (status === 'all') return statusesOf(beads)
+  const allowed = status === 'ready' ? READY_STATUSES : status
+  const held = beads.map((bead) => bead.status)
+  return inStatusOrder([...allowed, ...held]).filter((value) => allowed.includes(value) || held.includes(value))
+}
+
 export function columnsOf(beads: Bead[], statuses: string[] = statusesOf(beads)): { status: string; beads: Bead[] }[] {
   return statuses.map((status) => ({
     status,

@@ -79,7 +79,8 @@ describe('the beadoo page', () => {
     await screen.findByText('Cart total')
     expect(within(column('Open')).getByText('Cart total')).toBeInTheDocument()
     expect(within(column('Open')).queryByText('Pay button')).not.toBeInTheDocument()
-    expect(within(column('Closed')).queryByText('Receipt mail')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Closed' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'In progress' })).not.toBeInTheDocument()
     expect(window.location.search).toContain('db=.claude')
     expect(window.location.search).toContain('status=ready')
   })
@@ -238,6 +239,16 @@ describe('the beadoo page', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
     expect(screen.getByRole('button', { name: 'Open' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByText('Ship it')).not.toBeInTheDocument()
+  })
+
+  it('shows in the lanes only the columns of the statuses that the user selected', async () => {
+    window.history.replaceState(null, '', '/?db=.claude&view=lanes&status=open&status=closed')
+    render(<App />)
+    const checkout = await screen.findByRole('region', { name: 'Checkout' })
+    expect(within(checkout).getAllByRole('group').map((cell) => cell.getAttribute('aria-label'))).toEqual([
+      'Checkout: Open',
+      'Checkout: Closed',
+    ])
   })
 
   it('opens an old link that holds one status', async () => {

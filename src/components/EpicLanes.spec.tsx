@@ -23,6 +23,21 @@ describe('the lanes view', () => {
     ])
   })
 
+  it('shows only the open column when the user shows the ready beads', () => {
+    render(<EpicLanes lanes={[{ ...lanes[0], beads: lanes[0].beads.slice(0, 1) }]} status="ready" onOpen={() => {}} />)
+    const lane = screen.getByRole('region', { name: 'Checkout' })
+    expect(within(lane).getAllByRole('group').map((cell) => cell.getAttribute('aria-label'))).toEqual(['Checkout: Open'])
+  })
+
+  it('shows only the columns of the statuses that the user selected', () => {
+    render(<EpicLanes lanes={lanes} status={['open', 'blocked']} onOpen={() => {}} />)
+    const lane = screen.getByRole('region', { name: 'Checkout' })
+    expect(within(lane).getAllByRole('group').map((cell) => cell.getAttribute('aria-label'))).toEqual([
+      'Checkout: Blocked',
+      'Checkout: Open',
+    ])
+  })
+
   it('shows the heading of each status column in the colour of the status', () => {
     render(<EpicLanes lanes={lanes} onOpen={() => {}} />)
     expect(screen.getByText('Blocked').style.getPropertyValue('--tone')).toBe('var(--ctp-red)')

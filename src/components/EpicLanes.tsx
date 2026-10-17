@@ -3,13 +3,21 @@ import { NoMatch } from '@/components/NoMatch'
 import { Emoji } from '@/components/Emoji'
 import { ToneDot } from '@/components/ToneDot'
 import { statusEmoji } from '@/lib/emojis'
-import { columnsOf, NO_EPIC, statusesOf, statusTitle } from '@/lib/filters'
-import type { Lane } from '@/lib/filters'
+import { columnsOf, columnStatusesOf, NO_EPIC, statusTitle } from '@/lib/filters'
+import type { Lane, StatusFilter } from '@/lib/filters'
 import { blockedFirst, statusTone, toneStyle } from '@/lib/tones'
 
-export function EpicLanes({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: string) => void }) {
+export function EpicLanes({
+  lanes,
+  status = 'all',
+  onOpen,
+}: {
+  lanes: Lane[]
+  status?: StatusFilter
+  onOpen: (id: string) => void
+}) {
   if (lanes.length === 0) return <NoMatch />
-  const statuses = blockedFirst(statusesOf(lanes.flatMap((lane) => lane.beads)))
+  const statuses = blockedFirst(columnStatusesOf(lanes.flatMap((lane) => lane.beads), status))
   const template = { gridTemplateColumns: `14rem repeat(${statuses.length}, minmax(14rem, 1fr))` }
   return (
     <div className="min-h-0 flex-1 overflow-auto">

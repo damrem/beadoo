@@ -238,13 +238,13 @@ export function App() {
             <>
               <EpicSidebar epics={epics} selected={epic} onSelect={(id) => update({ epic: id })} />
               <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
-                <Board beads={boardBeads} onOpen={open} />
+                <Board beads={boardBeads} status={view.status} onOpen={open} />
               </main>
             </>
           ) : data ? (
             <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
               {view.mode === 'lanes' ? (
-                <EpicLanes lanes={lanes} onOpen={open} />
+                <EpicLanes lanes={lanes} status={view.status} onOpen={open} />
               ) : (
                 <EpicTable lanes={lanes} onOpen={open} />
               )}

@@ -2,14 +2,23 @@ import { BeadCard } from '@/components/BeadCard'
 import { Emoji } from '@/components/Emoji'
 import { ToneDot } from '@/components/ToneDot'
 import { statusEmoji } from '@/lib/emojis'
-import { columnsOf, statusesOf, statusTitle } from '@/lib/filters'
+import { columnsOf, columnStatusesOf, statusTitle } from '@/lib/filters'
+import type { StatusFilter } from '@/lib/filters'
 import { blockedFirst, statusTone, toneStyle } from '@/lib/tones'
 import type { Bead } from '../../shared/contract'
 
-export function Board({ beads, onOpen }: { beads: Bead[]; onOpen: (id: string) => void }) {
+export function Board({
+  beads,
+  status = 'all',
+  onOpen,
+}: {
+  beads: Bead[]
+  status?: StatusFilter
+  onOpen: (id: string) => void
+}) {
   return (
     <div className="grid min-h-0 flex-1 auto-cols-[minmax(15rem,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2">
-      {columnsOf(beads, blockedFirst(statusesOf(beads))).map((column) => (
+      {columnsOf(beads, blockedFirst(columnStatusesOf(beads, status))).map((column) => (
         <section
           key={column.status}
           aria-label={statusTitle(column.status)}

@@ -18,6 +18,16 @@ describe('the board of an epic', () => {
     ])
   })
 
+  it('shows only the open column when the user shows the ready beads', () => {
+    render(<Board beads={beads.slice(0, 1)} status="ready" onOpen={() => {}} />)
+    expect(screen.getAllByRole('region').map((column) => column.getAttribute('aria-label'))).toEqual(['Open'])
+  })
+
+  it('shows only the columns of the statuses that the user selected', () => {
+    render(<Board beads={beads.slice(1)} status={['in_progress', 'blocked']} onOpen={() => {}} />)
+    expect(screen.getAllByRole('region').map((column) => column.getAttribute('aria-label'))).toEqual(['Blocked', 'In progress'])
+  })
+
   it('shows each column in the colour of its status', () => {
     render(<Board beads={beads} onOpen={() => {}} />)
     expect(screen.getByRole('region', { name: 'Blocked' }).style.getPropertyValue('--tone')).toBe('var(--ctp-red)')
