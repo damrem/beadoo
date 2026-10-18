@@ -2,7 +2,8 @@ import { existsSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { realRunAsync } from './process.ts'
+import { realRun, realRunAsync } from './process.ts'
+import { bdVersionProblem } from './bd-version.ts'
 import { createStore } from './beads-store.ts'
 import { configPath, loadConfig, loadDatabases } from './config.ts'
 import type { ConfigPlace } from './config.ts'
@@ -12,6 +13,12 @@ import { onPath } from './orca-rules.ts'
 import { createHandler } from './http.ts'
 import { createSpawner, realSpawnIo } from './spawner.ts'
 import { createTunnels, stopTunnelsOnExit } from './tunnels.ts'
+
+const bdProblem = bdVersionProblem(realRun('bd', ['--version'], { timeoutMs: 15_000 }))
+if (bdProblem) {
+  console.error(bdProblem)
+  process.exit(1)
+}
 
 const HOST = '127.0.0.1'
 const PORT = 4747
