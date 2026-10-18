@@ -67,4 +67,20 @@ describe('the detail of a bead', () => {
     expect(header).toHaveTextContent(/^258\.1$/)
     expect(within(dialog).getByRole('button', { name: 'dp9' }).firstElementChild).toHaveAttribute('title', 'claude-dp9')
   })
+  it('shows how many open beads the bead waits on, and their ids, whatever its own status', async () => {
+    const dialog = await show({
+      status: 'in_progress',
+      dependencies: [
+        { id: 'claude-1', status: 'open', dependency_type: 'blocks' },
+        { id: 'claude-2', status: 'closed', dependency_type: 'blocks' },
+        { id: 'claude-3', status: 'open', dependency_type: 'parent-child' },
+      ],
+    })
+    expect(within(dialog).getByText(/waits on 1/)).toHaveTextContent('waits on 1: 1')
+  })
+
+  it('shows no wait line when all the blockers of the bead are closed', async () => {
+    const dialog = await show({ dependencies: [{ id: 'claude-2', status: 'closed', dependency_type: 'blocks' }] })
+    expect(within(dialog).queryByText(/waits on/)).not.toBeInTheDocument()
+  })
 })

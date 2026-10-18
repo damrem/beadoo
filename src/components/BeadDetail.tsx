@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LabelTags, StatusTag, Tag, TypeTag } from '@/components/BeadCard'
+import { LabelTags, StatusTag, Tag, TypeTag, WaitsOn } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { BeadEditor } from '@/components/BeadEditor'
 import { claimActions, ClaimControls } from '@/components/ClaimControls'
@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
+import { openBlockers } from '@/lib/blockers'
 import type { Bead, ClaimAction } from '../../shared/contract'
 import type { SpawnedSession } from '../../shared/spawn'
 import { priorityTone } from '@/lib/tones'
@@ -116,6 +117,7 @@ export function BeadDetail({
   const writeError = write?.id === id ? write.error : undefined
   const session = write?.id === id ? write.session : undefined
   const blockers = bead?.dependencies?.filter((dep) => dep.dependency_type !== 'parent-child') ?? []
+  const waits = bead ? openBlockers(bead) : []
   const now = new Date()
   const leaseText = bead && leaseLabel(leaseState(bead, now), now)
   const heartbeat = bead?.heartbeat_at ? new Date(bead.heartbeat_at) : undefined
@@ -186,6 +188,11 @@ export function BeadDetail({
                 <Field label="Status">
                   <StatusTag status={bead.status} />
                 </Field>
+                {waits.length > 0 && (
+                  <Field label="Blocked">
+                    <WaitsOn blockers={waits} />
+                  </Field>
+                )}
                 {bead.status === 'closed' && bead.close_reason && <Field label="Close reason">{bead.close_reason}</Field>}
                 <Field label="Priority">
                   {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}

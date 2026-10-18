@@ -148,6 +148,20 @@ describe('the beadoo page', () => {
     expect(window.location.search).toContain('status=all')
   })
 
+  it('shows an open bead that waits on an open bead in the blocked column, with the id of its blocker', async () => {
+    answers['/api/beads?db=.claude'] = json({
+      beads: beads.map((bead) =>
+        bead.id === 't-2' ? { ...bead, dependencies: [{ issue_id: 't-2', depends_on_id: 't-1', type: 'blocks' }] } : bead,
+      ),
+      readyIds: ['t-1', 't-4'],
+    })
+    window.history.replaceState(null, '', '/?db=.claude&status=all')
+    render(<App />)
+    const card = await within(await screen.findByRole('region', { name: 'Blocked' })).findByRole('button', { name: 't-2 Pay button' })
+    expect(card).toHaveTextContent('waits on 1: 1')
+    expect(within(column('Open')).queryByText('Pay button')).not.toBeInTheDocument()
+  })
+
   it('shows the beads that have no epic when the user selects "No epic"', async () => {
     render(<App />)
     await screen.findByText('Cart total')
