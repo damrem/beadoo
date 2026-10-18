@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { BeadCard } from '@/components/BeadCard'
 import { Emoji } from '@/components/Emoji'
 import { statusEmoji } from '@/lib/emojis'
@@ -10,10 +11,12 @@ export function Board({
   beads,
   status = 'all',
   onOpen,
+  cardActions,
 }: {
   beads: Bead[]
   status?: StatusFilter
   onOpen: (id: string) => void
+  cardActions?: (bead: Bead) => ReactNode
 }) {
   return (
     <div className="grid min-h-0 flex-1 auto-cols-[minmax(15rem,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2">
@@ -33,7 +36,7 @@ export function Board({
           </h2>
           <div className="flex flex-col gap-2 overflow-y-auto">
             {column.beads.map((bead) => (
-              <BeadCard key={bead.id} bead={bead} onOpen={onOpen} />
+              <BeadCard key={bead.id} bead={bead} onOpen={onOpen} actions={cardActions?.(bead)} />
             ))}
           </div>
         </section>

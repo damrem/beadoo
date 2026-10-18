@@ -3,6 +3,7 @@ import { AttributeFilters } from '@/components/AttributeFilters'
 import { BeadDetail } from '@/components/BeadDetail'
 import { BeadPage } from '@/components/BeadPage'
 import { Board } from '@/components/Board'
+import { cardActionsOf, CardNotice, useCardWrites } from '@/components/CardActions'
 import { DatabaseSelector } from '@/components/DatabaseSelector'
 import { EpicHeader } from '@/components/EpicHeader'
 import { EpicLanes } from '@/components/EpicLanes'
@@ -190,6 +191,10 @@ function Beads() {
 
   const open = (id: string) => update({ bead: id })
 
+  const writes = useCardWrites(selectedDb && !selectedDb.refused ? selectedDb.name : null, refresh)
+
+  const cardActions = cardActionsOf(actor, writes)
+
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex flex-wrap items-center gap-1.5 border-b px-4 py-2">
@@ -245,6 +250,7 @@ function Beads() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      <CardNotice writes={writes} />
 
       {!selectedDb?.refused && (
         <div className="flex min-h-0 flex-1">
@@ -253,15 +259,15 @@ function Beads() {
               <EpicSidebar lanes={lanes} selected={epic} onSelect={(id) => update({ epic: id })} />
               <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
                 {selectedEpic && <EpicHeader epic={selectedEpic} onOpen={open} />}
-                {epic ? <Board beads={boardBeads} status={view.status} onOpen={open} /> : <NoMatch />}
+                {epic ? <Board beads={boardBeads} status={view.status} onOpen={open} cardActions={cardActions} /> : <NoMatch />}
               </main>
             </>
           ) : data ? (
             <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
               {view.mode === 'lanes' ? (
-                <EpicLanes lanes={lanes} status={view.status} onOpen={open} />
+                <EpicLanes lanes={lanes} status={view.status} onOpen={open} cardActions={cardActions} />
               ) : (
-                <EpicTable lanes={lanes} onOpen={open} />
+                <EpicTable lanes={lanes} onOpen={open} cardActions={cardActions} />
               )}
             </main>
           ) : (

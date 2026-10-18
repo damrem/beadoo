@@ -111,4 +111,14 @@ describe('the lanes view', () => {
     render(<EpicLanes lanes={[{ ...lanes[0], epic: { ...lanes[0].epic, id: 'none', title: 'No epic' } }]} onOpen={() => {}} />)
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
+
+  it('shows the actions of each bead on its card, and a click on an action does not open the bead', async () => {
+    const onOpen = vi.fn()
+    const onAction = vi.fn()
+    render(<EpicLanes lanes={lanes} onOpen={onOpen} cardActions={(bead) => <button onClick={() => onAction(bead.id)}>Spawn {bead.id}</button>} />)
+    const cell = screen.getByRole('group', { name: 'Checkout: Blocked' })
+    await userEvent.click(within(cell).getByRole('button', { name: 'Spawn b-2' }))
+    expect(onAction).toHaveBeenCalledWith('b-2')
+    expect(onOpen).not.toHaveBeenCalled()
+  })
 })

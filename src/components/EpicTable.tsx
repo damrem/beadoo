@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { LabelTags, Tag } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { OpenEpicButton } from '@/components/EpicHeader'
@@ -8,17 +9,27 @@ import { statusEmoji } from '@/lib/emojis'
 import { countLabel, NO_EPIC, statusTitle } from '@/lib/filters'
 import type { Lane } from '@/lib/filters'
 import { priorityTone } from '@/lib/tones'
+import type { Bead } from '../../shared/contract'
 
 const HEADINGS = ['Id', 'Title', 'Status', 'Priority', 'Assignee', 'Labels']
 
-export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: string) => void }) {
+export function EpicTable({
+  lanes,
+  onOpen,
+  cardActions,
+}: {
+  lanes: Lane[]
+  onOpen: (id: string) => void
+  cardActions?: (bead: Bead) => ReactNode
+}) {
   if (lanes.length === 0) return <NoMatch />
+  const headings = cardActions ? [...HEADINGS, 'Actions'] : HEADINGS
   return (
     <div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-card">
       <table aria-label="Beads by epic" className="w-full border-collapse text-sm">
         <thead className="sticky top-0 z-10 bg-card text-left text-xs text-muted-foreground">
           <tr>
-            {HEADINGS.map((heading) => (
+            {headings.map((heading) => (
               <th key={heading} className="px-3 py-2 font-medium">
                 {heading}
               </th>
@@ -28,7 +39,7 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
         {lanes.map((lane) => (
           <tbody key={lane.epic.id} aria-label={lane.epic.title}>
             <tr className="bg-muted">
-              <th colSpan={HEADINGS.length} scope="rowgroup" className="px-3 py-2 text-left font-normal">
+              <th colSpan={headings.length}scope="rowgroup" className="px-3 py-2 text-left font-normal">
                 <div className="flex flex-wrap items-center gap-3">
                   {lane.epic.id !== NO_EPIC && (
                     <BeadId id={lane.epic.id} className="font-mono text-xs text-muted-foreground" />
@@ -71,6 +82,7 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
                 <td className="px-3 py-2 text-xs">
                   <LabelTags labels={bead.labels} />
                 </td>
+                {cardActions && <td className="px-3 py-2">{cardActions(bead)}</td>}
               </tr>
             ))}
           </tbody>

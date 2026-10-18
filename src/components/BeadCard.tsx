@@ -95,13 +95,13 @@ export function WaitsOn({ blockers }: { blockers: string[] }) {
   )
 }
 
-export function BeadCard({ bead, onOpen }: { bead: BoardBead; onOpen: (id: string) => void }) {
+export function BeadCard({ bead, onOpen, actions }: { bead: BoardBead; onOpen: (id: string) => void; actions?: ReactNode }) {
   const now = new Date()
   const lease = leaseState(bead, now)
   const leaseText = leaseLabel(lease, now)
   const type = typeStyle(bead.issue_type)
   const blockers = bead.blockers ?? []
-  return (
+  const button = (
     <button
       type="button"
       onClick={() => onOpen(bead.id)}
@@ -111,7 +111,7 @@ export function BeadCard({ bead, onOpen }: { bead: BoardBead; onOpen: (id: strin
       <Card
         size="sm"
         data-type={bead.issue_type}
-        className="gap-2 pt-0 ring-2 ring-(color:--tone)/60 hover:bg-accent"
+        className={cn('gap-2 pt-0 ring-2 ring-(color:--tone)/60 hover:bg-accent', actions ? 'pb-10' : '')}
         style={toneStyle(type.tone)}
       >
         <CardHeader
@@ -147,5 +147,12 @@ export function BeadCard({ bead, onOpen }: { bead: BoardBead; onOpen: (id: strin
         )}
       </Card>
     </button>
+  )
+  if (!actions) return button
+  return (
+    <div className="relative">
+      {button}
+      <div className="absolute right-2 bottom-2 flex">{actions}</div>
+    </div>
   )
 }

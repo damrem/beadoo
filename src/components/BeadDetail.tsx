@@ -14,11 +14,11 @@ import { api } from '@/lib/api'
 import { openBlockers } from '@/lib/blockers'
 import type { Bead, ClaimAction } from '../../shared/contract'
 import type { SpawnedSession, SpawnRequest } from '../../shared/spawn'
-import { lastStarted } from '../../shared/started-note'
 import { priorityTone } from '@/lib/tones'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
 import { childBeadsOf, dependenciesOf, dependentsOf } from '@/lib/links'
 import type { LinkedBead } from '@/lib/links'
+import { releasedWorktree } from '@/lib/spawn-choice'
 import { beadUrl } from '@/lib/urls'
 
 const Markdown = lazy(() => import('@/components/Markdown').then((module) => ({ default: module.Markdown })))
@@ -83,9 +83,6 @@ type Write = {
   session?: SpawnedSession
   released?: string
 }
-
-export const releasedWorktree = (bead: Bead): string | undefined => lastStarted(bead.notes)?.worktree
-
 export type BeadState = ReturnType<typeof useBead>
 
 export function useBead(db: string, id: string | null, onWritten: () => void) {

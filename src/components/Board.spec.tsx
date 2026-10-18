@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Board } from './Board'
 
 const beads = [
@@ -32,5 +33,21 @@ describe('the board of an epic', () => {
     render(<Board beads={beads} onOpen={() => {}} />)
     expect(screen.getByRole('region', { name: 'Blocked' }).style.getPropertyValue('--tone')).toBe('var(--ctp-red)')
     expect(screen.getByRole('region', { name: 'Open' }).style.getPropertyValue('--tone')).toBe('var(--ctp-blue)')
+  })
+
+  it('shows the actions of each bead on its card, and a click on an action does not open the bead', async () => {
+    const onOpen = vi.fn()
+    const onAction = vi.fn()
+    render(
+      <Board
+        beads={beads}
+        onOpen={onOpen}
+        cardActions={(bead) => (bead.status === 'open' ? <button onClick={() => onAction(bead.id)}>Claim {bead.id}</button> : null)}
+      />,
+    )
+    await userEvent.click(within(screen.getByRole('region', { name: 'Open' })).getByRole('button', { name: 'Claim b-1' }))
+    expect(onAction).toHaveBeenCalledWith('b-1')
+    expect(onOpen).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Claim b-3' })).not.toBeInTheDocument()
   })
 })

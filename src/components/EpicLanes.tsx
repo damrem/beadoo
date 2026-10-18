@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { BeadCard, LabelTags } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { NoMatch } from '@/components/NoMatch'
@@ -8,6 +9,7 @@ import { statusEmoji } from '@/lib/emojis'
 import { columnsOf, columnStatusesOf, NO_EPIC, statusTitle } from '@/lib/filters'
 import type { Lane, StatusFilter } from '@/lib/filters'
 import { blockedFirst, statusTone, toneStyle } from '@/lib/tones'
+import type { Bead } from '../../shared/contract'
 
 const COLUMN_REM = 14
 
@@ -15,10 +17,12 @@ export function EpicLanes({
   lanes,
   status = 'all',
   onOpen,
+  cardActions,
 }: {
   lanes: Lane[]
   status?: StatusFilter
   onOpen: (id: string) => void
+  cardActions?: (bead: Bead) => ReactNode
 }) {
   if (lanes.length === 0) return <NoMatch />
   const statuses = blockedFirst(columnStatusesOf(lanes.flatMap((lane) => lane.beads), status))
@@ -71,7 +75,7 @@ export function EpicLanes({
                 className="flex min-h-16 min-w-0 flex-col gap-2 p-2"
               >
                 {cell.beads.map((bead) => (
-                  <BeadCard key={bead.id} bead={bead} onOpen={onOpen} />
+                  <BeadCard key={bead.id} bead={bead} onOpen={onOpen} actions={cardActions?.(bead)} />
                 ))}
               </div>
             ))}

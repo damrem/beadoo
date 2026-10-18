@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BeadCard } from './BeadCard'
 import type { BoardBead } from '@/lib/blockers'
 
@@ -74,5 +75,27 @@ describe('the card of a bead', () => {
   it('shows no ready mark on a bead that is not ready', () => {
     show({ status: 'open' })
     expect(screen.queryByText('ready')).not.toBeInTheDocument()
+  })
+
+  it('shows the actions of the bead on the card, and a click on an action does not open the bead', async () => {
+    const onOpen = vi.fn()
+    const onClaim = vi.fn()
+    render(
+      <BeadCard
+        bead={{ id: 'b-1', title: 'Fix the cart', status: 'open' }}
+        onOpen={onOpen}
+        actions={<button onClick={onClaim}>Claim</button>}
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Claim' }))
+    expect(onClaim).toHaveBeenCalledOnce()
+    expect(onOpen).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'b-1 Fix the cart' }))
+    expect(onOpen).toHaveBeenCalledWith('b-1')
+  })
+
+  it('shows no action row on a card with no action', () => {
+    show({ status: 'open' })
+    expect(screen.getAllByRole('button')).toHaveLength(1)
   })
 })

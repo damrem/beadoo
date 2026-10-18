@@ -617,7 +617,7 @@ describe('the beadoo page', () => {
       render(<App />)
       const checkout = await screen.findByRole('region', { name: 'Checkout' })
       expect(within(checkout).getByText('3 beads')).toBeInTheDocument()
-      expect(within(within(checkout).getByRole('group', { name: 'Checkout: Open' })).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['t-2 Pay button', 't-1 Cart total'])
+      expect(within(within(checkout).getByRole('group', { name: 'Checkout: Open' })).getAllByRole('button', { name: /^t-\d+ / }).map((b) => b.getAttribute('aria-label'))).toEqual(['t-2 Pay button', 't-1 Cart total'])
       expect(within(checkout).getByRole('group', { name: 'Checkout: Closed' })).toHaveTextContent('Receipt mail')
       expect(within(screen.getByRole('region', { name: 'No epic' })).getByRole('group', { name: 'No epic: Open' })).toHaveTextContent('Fix the logo')
       expect(screen.queryByRole('navigation', { name: 'Epics' })).not.toBeInTheDocument()
@@ -963,6 +963,99 @@ describe('the beadoo page', () => {
       expect(within(panel).getByText('/home/me/wt/t-1')).toBeInTheDocument()
       expect(within(panel).getByText(/Remove it with dre:wt cleanup/)).toBeInTheDocument()
       expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/unclaim?db=.claude'])
+    })
+  })
+
+  describe('the claim and the spawn from a card', () => {
+    const claimed = { ...beads[1], status: 'in_progress', assignee: 'Ann' }
+
+    beforeEach(() => {
+      answers['/api/actor?db=.claude'] = json({ actor: 'Ann' })
+      answers['POST /api/beads/t-1/claim?db=.claude'] = json(claimed)
+      answers['/api/beads/t-1/spawn-choices?db=.claude'] = json({ repo: '/home/me/.claude', worktrees: [] })
+    })
+
+    withPageToken()
+
+    const actionsOf = async (id: string) => screen.findByRole('toolbar', { name: `Actions on ${id}` })
+
+    const reads = () => calls.filter((call) => call.startsWith('/api/beads?')).length
+
+    it.each([
+      ['the epic board', '/?db=.claude&status=all&view=epic'],
+      ['the lanes', '/?db=.claude&status=all&view=lanes'],
+      ['the table', '/?db=.claude&status=all&view=table'],
+    ])('claims a bead from its card in %s, and does not open the detail of the bead', async (_view, search) => {
+      window.history.replaceState(null, '', search)
+      render(<App />)
+      await userEvent.click(within(await actionsOf('t-1')).getByRole('button', { name: 'Claim' }))
+      await waitFor(() => expect(reads()).toBe(2))
+      expect(writes).toEqual([{ path: '/api/beads/t-1/claim?db=.claude', token: 'page-token' }])
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(window.location.search).not.toContain('bead=')
+    })
+
+    it.each([
+      ['the epic board', '/?db=.claude&status=all&view=epic'],
+      ['the lanes', '/?db=.claude&status=all&view=lanes'],
+      ['the table', '/?db=.claude&status=all&view=table'],
+    ])('starts a session from the card in %s through the spawn window', async (_view, search) => {
+      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({
+        bead: claimed,
+        worktree: 'repo::/home/me/wt/t-1',
+        path: '/home/me/wt/t-1',
+        branch: 'feat/1-cart-total',
+        terminal: 'term_7',
+      })
+      window.history.replaceState(null, '', search)
+      render(<App />)
+      await userEvent.click(within(await actionsOf('t-1')).getByRole('button', { name: 'Spawn' }))
+      const modal = await screen.findByRole('dialog', { name: 'Spawn a session on t-1' })
+      await userEvent.click(await within(modal).findByRole('button', { name: 'Claim and spawn' }))
+      const result = await screen.findByRole('region', { name: 'Result on t-1' })
+      expect(await within(result).findByText('A session started on the bead')).toBeInTheDocument()
+      expect(within(result).getByText('term_7')).toBeInTheDocument()
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/spawn?db=.claude'])
+      expect(window.location.search).not.toContain('bead=')
+    })
+
+    it('offers to renew and to release a bead of the current actor on its card, and no action on a bead of another actor or a closed bead', async () => {
+      answers['/api/beads?db=.claude'] = json({
+        beads: [...beads, { ...claimed, id: 't-5', title: 'Ship the order' }, { ...claimed, id: 't-6', title: 'Mail the bill', assignee: 'Bob' }],
+        readyIds: ['t-1', 't-4'],
+      })
+      window.history.replaceState(null, '', '/?db=.claude&status=all&view=epic')
+      render(<App />)
+      const mine = await actionsOf('t-5')
+      expect(within(mine).getByRole('button', { name: 'Renew' })).toBeInTheDocument()
+      expect(within(mine).getByRole('button', { name: 'Unclaim' })).toBeInTheDocument()
+      expect(within(mine).queryByRole('button', { name: 'Spawn' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('toolbar', { name: 'Actions on t-6' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('toolbar', { name: 'Actions on t-3' })).not.toBeInTheDocument()
+    })
+
+    it('tells the user why the claim from a card failed', async () => {
+      answers['POST /api/beads/t-1/claim?db=.claude'] = json({ error: 'issue already claimed by Bob', code: 'CONFLICT' }, 409)
+      window.history.replaceState(null, '', '/?db=.claude&status=all&view=lanes')
+      render(<App />)
+      await userEvent.click(within(await actionsOf('t-1')).getByRole('button', { name: 'Claim' }))
+      const result = await screen.findByRole('region', { name: 'Result on t-1' })
+      expect(within(result).getByText('The page could not change the claim of t-1')).toBeInTheDocument()
+      expect(within(result).getByText('issue already claimed by Bob')).toBeInTheDocument()
+      await userEvent.click(within(result).getByRole('button', { name: 'Dismiss' }))
+      expect(screen.queryByRole('region', { name: 'Result on t-1' })).not.toBeInTheDocument()
+    })
+
+    it('tells the user that the worktree stays after the release of a claim from a card', async () => {
+      const started = { ...claimed, notes: 'started 2026-10-16 09:05 kind=new worktree=/home/me/wt/t-1 mode=plan' }
+      answers['/api/beads?db=.claude'] = json({ beads: [beads[0], started], readyIds: [] })
+      answers['POST /api/beads/t-1/unclaim?db=.claude'] = json({ ...started, status: 'open', assignee: undefined })
+      window.history.replaceState(null, '', '/?db=.claude&status=all&view=table')
+      render(<App />)
+      await userEvent.click(within(await actionsOf('t-1')).getByRole('button', { name: 'Unclaim' }))
+      const result = await screen.findByRole('region', { name: 'Result on t-1' })
+      expect(within(result).getByText('The worktree of the session stays')).toBeInTheDocument()
+      expect(within(result).getByText('/home/me/wt/t-1')).toBeInTheDocument()
     })
   })
 

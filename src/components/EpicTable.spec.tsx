@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { EpicTable } from './EpicTable'
 
 const toneOf = (element: Element | null) => (element as HTMLElement | null)?.style.getPropertyValue('--tone')
@@ -32,5 +33,21 @@ describe('the table of the beads', () => {
     const epicRow = screen.getByRole('rowheader', { name: /Checkout/ })
     expect(Array.from(epicRow.querySelectorAll<HTMLElement>('.tone-chip[title]'), (chip) => chip.title)).toEqual(['repo:shop', 'front'])
     expect(within(epicRow).getByText('shop')).toHaveClass('font-semibold')
+  })
+
+  it('shows the actions of each bead in an actions column, and a click on an action does not open the bead', async () => {
+    const onOpen = vi.fn()
+    const onAction = vi.fn()
+    render(<EpicTable lanes={lanes} onOpen={onOpen} cardActions={(bead) => <button onClick={() => onAction(bead.id)}>Claim {bead.id}</button>} />)
+    expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeInTheDocument()
+    expect(screen.getByRole('rowheader', { name: /Checkout/ })).toHaveAttribute('colspan', '7')
+    await userEvent.click(screen.getByRole('button', { name: 'Claim b-1' }))
+    expect(onAction).toHaveBeenCalledWith('b-1')
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('shows no actions column when the page gives no action', () => {
+    render(<EpicTable lanes={lanes} onOpen={() => {}} />)
+    expect(screen.queryByRole('columnheader', { name: 'Actions' })).not.toBeInTheDocument()
   })
 })

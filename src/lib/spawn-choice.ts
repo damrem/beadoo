@@ -1,6 +1,7 @@
 import type { Bead } from '../../shared/contract'
 import { branchFor, isRisky, locationsFor, needsBranch, needsTarget, PERMISSION_MODES, SESSION_LOCATIONS, WORKTREE_KINDS } from '../../shared/spawn'
 import type { SpawnChoices, SpawnRequest, SpawnWorktree } from '../../shared/spawn'
+import { lastStarted } from '../../shared/started-note'
 
 export type SpawnChoice = Pick<SpawnRequest, 'kind' | 'location' | 'mode'>
 
@@ -79,6 +80,8 @@ export const busyPlace = (request: SpawnRequest, choices: SpawnChoices): string 
   const place = sessionPlace(request, choices)
   return listed(choices, place)?.busy ? place : undefined
 }
+
+export const releasedWorktree = (bead: Pick<Bead, 'notes'>): string | undefined => lastStarted(bead.notes)?.worktree
 
 export function sentRequest(request: SpawnRequest): SpawnRequest {
   const sent: SpawnRequest = { kind: request.kind, location: request.location, mode: request.mode }
