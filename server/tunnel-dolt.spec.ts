@@ -142,6 +142,7 @@ describe.skipIf(!hasTools)('a database on a real Dolt server behind a tunnel', (
         store,
         tunnels,
         spawner: createSpawner(store, fakeOrca(root).io),
+        canSpawn: true,
         distDir,
         origin: base,
         token,

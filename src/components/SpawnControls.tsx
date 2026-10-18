@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useContext, useEffect, useId, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Emoji } from '@/components/Emoji'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { api } from '@/lib/api'
 import { busyPlace, defaultTarget, proposedRequest, readSpawnChoice, sentRequest, usableLocations, writeSpawnChoice } from '@/lib/spawn-choice'
+import { SpawnAllowed } from '@/lib/spawn-allowed'
 import { cn } from '@/lib/utils'
 import type { Bead } from '../../shared/contract'
 import { isRisky, needsBranch, needsTarget, PERMISSION_MODES, spawnRequestProblem, WORKTREE_KINDS } from '../../shared/spawn'
@@ -214,21 +215,27 @@ function SpawnForm({
   )
 }
 
-export function SpawnControls({
-  db,
-  bead,
-  disabled,
-  spawning,
-  size = 'sm',
-  onSpawn,
-}: {
+type SpawnControlsProps = {
   db: string
   bead: Bead
   disabled: boolean
   spawning: boolean
   size?: 'sm' | 'xs'
   onSpawn: (request: SpawnRequest) => void
-}) {
+}
+
+export function SpawnControls(props: SpawnControlsProps) {
+  return useContext(SpawnAllowed) ? <SpawnButton {...props} /> : null
+}
+
+function SpawnButton({
+  db,
+  bead,
+  disabled,
+  spawning,
+  size = 'sm',
+  onSpawn,
+}: SpawnControlsProps) {
   const [open, setOpen] = useState(false)
   const [choices, setChoices] = useState<SpawnChoices | null>(null)
 
@@ -310,7 +317,7 @@ export function WorktreeKept({ path }: { path: string }) {
     <Alert>
       <AlertTitle>The worktree of the session stays</AlertTitle>
       <AlertDescription>
-        <span className="font-mono break-all">{path}</span> stays on the disk. Remove it with dre:wt cleanup.
+        <span className="font-mono break-all">{path}</span> stays on the disk. Remove it in Orca, or with git worktree remove.
       </AlertDescription>
     </Alert>
   )

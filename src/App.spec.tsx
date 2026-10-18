@@ -28,6 +28,7 @@ beforeEach(() => {
         { name: '.claude', path: '/home/me/.claude' },
         { name: 'win', path: '/mnt/c/x', refused: 'Use a WSL path: the /mnt/c clone has a store that diverged.' },
       ],
+      spawn: true,
     }),
     '/api/beads?db=.claude': json({ beads, readyIds: ['t-1', 't-4'] }),
     '/api/beads/t-1?db=.claude': json({
@@ -786,6 +787,18 @@ describe('the beadoo page', () => {
       return modal
     }
 
+    it('shows no spawn button when Orca is not on the PATH of the server', async () => {
+      answers['/api/databases'] = json({ databases: [{ name: '.claude', path: MAIN }], spawn: false })
+      const panel = await openDetail()
+      expect(await within(panel).findByRole('button', { name: 'Claim' })).toBeInTheDocument()
+      expect(within(panel).queryByRole('button', { name: 'Spawn' })).not.toBeInTheDocument()
+    })
+
+    it('shows the spawn button when Orca is on the PATH of the server', async () => {
+      const panel = await openDetail()
+      expect(await within(panel).findByRole('button', { name: 'Spawn' })).toBeInTheDocument()
+    })
+
     const spawnBody = () => {
       const call = vi.mocked(fetch).mock.calls.find(([path]) => String(path).includes('/spawn?'))
       return call ? JSON.parse(String(call[1]?.body)) : undefined
@@ -961,7 +974,7 @@ describe('the beadoo page', () => {
       await userEvent.click(await within(panel).findByRole('button', { name: 'Unclaim' }))
       expect(await within(panel).findByText('The worktree of the session stays')).toBeInTheDocument()
       expect(within(panel).getByText('/home/me/wt/t-1')).toBeInTheDocument()
-      expect(within(panel).getByText(/Remove it with dre:wt cleanup/)).toBeInTheDocument()
+      expect(within(panel).getByText(/Remove it in Orca, or with git worktree remove/)).toBeInTheDocument()
       expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/unclaim?db=.claude'])
     })
   })

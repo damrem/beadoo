@@ -81,12 +81,12 @@ beforeEach(() => {
 
 const now = () => new Date(2026, 9, 16, 9, 5)
 
-const setUp = (bdOverrides: BdOverrides = {}, orcaOverrides: OrcaOverrides = {}) => {
+const setUp = (bdOverrides: BdOverrides = {}, orcaOverrides: OrcaOverrides = {}, sessionCommand?: () => string) => {
   const events: string[] = []
   const bd = fakeBd(shopPath, bdOverrides, events)
   const orca = fakeOrca(shopPath, orcaOverrides, events)
   const store = createStore(bd.run, { env: {}, now })
-  return { ...bd, ...orca, events, spawner: createSpawner(store, orca.io, now) }
+  return { ...bd, ...orca, events, spawner: createSpawner(store, orca.io, { now, ...(sessionCommand ? { sessionCommand } : {}) }) }
 }
 
 describe('a session that the page starts on a bead', () => {
@@ -364,6 +364,13 @@ describe('the worktree kind, the session location and the permission mode of a n
     expect(send(calls)).toContain('claude --permission-mode acceptEdits')
     expect(send(calls)).not.toContain('Produce a plan only')
     expect(bead.notes).toContain('mode=acceptEdits')
+  })
+
+  it('starts the session command of the config, with the mode and the prompt in their places', async () => {
+    const { spawner, calls } = setUp({}, {}, () => 'opencode --mode {mode} --prompt {prompt}')
+    await spawner.spawn(db, 's-1', { ...NEW, mode: 'acceptEdits' })
+    expect(send(calls)).toContain("opencode --mode acceptEdits --prompt 'Work on the bead s-1 ")
+    expect(send(calls)).not.toContain('claude --permission-mode')
   })
 
   it('refuses to bypass the permissions with no confirmation, and writes nothing', async () => {

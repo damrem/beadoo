@@ -1,9 +1,12 @@
 import { basename } from 'node:path'
 import type { DatabaseEntry } from '../shared/contract.ts'
+import { DEFAULT_SESSION_COMMAND } from './orca-rules.ts'
 
 export type TunnelCommands = { start: string[]; stop: string[] }
 
 export type ConfiguredDatabase = DatabaseEntry & { tunnel?: TunnelCommands }
+
+export type BeadooConfig = { databases: ConfiguredDatabase[]; sessionCommand: string }
 
 export const MOUNT_REFUSAL = 'Use a WSL path: the /mnt/c clone has a store that diverged.'
 
@@ -49,6 +52,20 @@ export function checkDatabases(config: unknown): ConfiguredDatabase[] {
     return path.startsWith('/mnt/') ? { name, path, refused: MOUNT_REFUSAL, ...tunnel } : { name, path, ...tunnel }
   })
 }
+
+export function checkSessionCommand(config: unknown): string {
+  const command = (config as { sessionCommand?: unknown } | null)?.sessionCommand
+  if (command === undefined) return DEFAULT_SESSION_COMMAND
+  if (typeof command !== 'string' || !command.includes('{prompt}')) {
+    throw new Error('The beadoo config: "sessionCommand" needs a text that holds {prompt}, such as "claude --permission-mode {mode} {prompt}"')
+  }
+  return command
+}
+
+export const checkConfig = (config: unknown): BeadooConfig => ({
+  databases: checkDatabases(config),
+  sessionCommand: checkSessionCommand(config),
+})
 
 export const publicEntry = ({ name, path, refused, tunnel }: ConfiguredDatabase): DatabaseEntry => ({
   name,

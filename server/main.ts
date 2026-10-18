@@ -1,12 +1,14 @@
+import { existsSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { realRunAsync } from './process.ts'
 import { createStore } from './beads-store.ts'
-import { configPath, loadDatabases } from './config.ts'
+import { configPath, loadConfig, loadDatabases } from './config.ts'
 import type { ConfigPlace } from './config.ts'
 import { startMessage } from './config-rules.ts'
 import { newToken } from './guard.ts'
+import { onPath } from './orca-rules.ts'
 import { createHandler } from './http.ts'
 import { createSpawner, realSpawnIo } from './spawner.ts'
 import { createTunnels, stopTunnelsOnExit } from './tunnels.ts'
@@ -24,7 +26,8 @@ const handler = createHandler({
   databases: () => loadDatabases(place),
   store,
   tunnels,
-  spawner: createSpawner(store, realSpawnIo()),
+  spawner: createSpawner(store, realSpawnIo(), { sessionCommand: () => loadConfig(place).sessionCommand }),
+  canSpawn: onPath('orca', process.env.PATH, existsSync),
   distDir: join(import.meta.dirname, '..', 'dist'),
   origin,
   token: newToken(),

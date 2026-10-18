@@ -8,6 +8,7 @@ import { readSpawnRequest } from '../shared/spawn.ts'
 import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
 import { publicEntry } from './config-rules.ts'
+import { ORCA_MISSING } from './orca-rules.ts'
 import type { ConfiguredDatabase } from './config-rules.ts'
 import type { Spawner } from './spawner.ts'
 import type { Tunnels } from './tunnels.ts'
@@ -18,6 +19,7 @@ export type AppDeps = {
   store: Store
   tunnels: Tunnels
   spawner: Spawner
+  canSpawn: boolean
   distDir: string
   origin: string
   token: string
@@ -148,7 +150,7 @@ export function createHandler(deps: AppDeps) {
     try {
       const databases = deps.databases()
       if (url.pathname === '/api/databases') {
-        sendJson(res, 200, { databases: databases.map(publicEntry) })
+        sendJson(res, 200, { databases: databases.map(publicEntry), spawn: deps.canSpawn })
         return
       }
       const name = url.searchParams.get('db')
@@ -170,6 +172,7 @@ export function createHandler(deps: AppDeps) {
         }
         const request = parsedBody(text)
         if (target.action === 'spawn') {
+          if (!deps.canSpawn) throw new StoreError(REFUSED, ORCA_MISSING)
           const spawn = readSpawnRequest(request)
           if (typeof spawn === 'string') {
             sendJson(res, 400, { error: spawn, code: INVALID })
@@ -200,6 +203,7 @@ export function createHandler(deps: AppDeps) {
       const choices = /^\/api\/beads\/([^/]+)\/spawn-choices$/.exec(url.pathname)
       const choicesId = choices?.[1] ? decoded(choices[1]) : null
       if (choicesId !== null) {
+        if (!deps.canSpawn) throw new StoreError(REFUSED, ORCA_MISSING)
         sendJson(res, 200, await deps.spawner.choices(db, choicesId))
         return
       }

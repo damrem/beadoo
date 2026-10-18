@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { FAKE_WORKTREE, FAKE_WORKTREE_ID, fakeOrca, orcaFailure } from './fake-orca.ts'
 import { createSessionWorktree, startSessionTerminal } from './orca.ts'
-import { beadSessionCommand, branchSlug, findRepo, orcaResult, otherTerminalHandles, quoteForSh, terminalHandle, worktreeCreateArgs } from './orca-rules.ts'
+import { beadSessionCommand, branchSlug, findRepo, onPath, orcaResult, otherTerminalHandles, quoteForSh, renderSessionCommand, terminalHandle, worktreeCreateArgs } from './orca-rules.ts'
 
 const REPO = '/home/me/shop'
 const options = { branch: 'feat/cart', lineage: 'child' as const }
@@ -79,9 +79,34 @@ describe('the command that the new terminal runs', () => {
     expect(beadSessionCommand('shop-4', REPO, undefined, { sessionPath: REPO })).toContain(`You run in ${REPO}, with no dedicated worktree`)
   })
 
+  it('starts the program of the session command that the user wrote', () => {
+    expect(beadSessionCommand('shop-4', REPO, FAKE_WORKTREE, { mode: 'acceptEdits', template: 'opencode --mode {mode} --prompt {prompt}' })).toMatch(
+      /^opencode --mode acceptEdits --prompt 'Work on the bead shop-4 /,
+    )
+  })
+
+  it('puts the prompt in each {prompt} place, also when the prompt holds a dollar sign', () => {
+    expect(renderSessionCommand('run {prompt} {prompt}', 'plan', 'pay $& now')).toBe("run 'pay $& now' 'pay $& now'")
+  })
+
   it('gives bash the text unchanged, also with quotes, dollars and back quotes', () => {
     const text = `it's $HOME and \`date\` and "x" and \\n`
     expect(execFileSync('bash', ['-c', `printf %s ${quoteForSh(text)}`], { encoding: 'utf8' })).toBe(text)
+  })
+})
+
+describe('the search for Orca', () => {
+  it('finds Orca in a folder of the PATH', () => {
+    expect(onPath('orca', '/usr/bin:/home/me/bin', (path) => path === '/home/me/bin/orca')).toBe(true)
+  })
+
+  it('does not find Orca when no folder of the PATH holds it', () => {
+    expect(onPath('orca', '/usr/bin:/bin', () => false)).toBe(false)
+    expect(onPath('orca', undefined, () => true)).toBe(false)
+  })
+
+  it('ignores an empty folder of the PATH', () => {
+    expect(onPath('orca', ':', (path) => path === 'orca')).toBe(false)
   })
 })
 

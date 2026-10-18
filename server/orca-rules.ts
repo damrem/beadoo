@@ -1,4 +1,4 @@
-import { resolve } from 'node:path'
+import { delimiter, join, resolve } from 'node:path'
 import type { PermissionMode } from '../shared/spawn.ts'
 import { parseJson } from './process.ts'
 
@@ -13,6 +13,14 @@ export type OrcaWorktree = { id: string; path: string }
 export type OrcaTerminal = { handle?: string }
 
 type OrcaEnvelope = { ok?: boolean; result?: unknown; error?: { code?: string; message?: string } }
+
+export const DEFAULT_SESSION_COMMAND = 'claude --permission-mode {mode} {prompt}'
+
+export const ORCA_MISSING = 'Orca is not on the PATH, so the page starts no session.'
+
+export function onPath(program: string, pathVariable: string | undefined, exists: (path: string) => boolean): boolean {
+  return (pathVariable ?? '').split(delimiter).some((dir) => dir !== '' && exists(join(dir, program)))
+}
 
 export function pathKey(path: string): string {
   const full = resolve(path)
@@ -80,11 +88,16 @@ export function beadSessionCommand(
   beadId: string,
   databasePath: string,
   worktreePath: string | undefined,
-  options: { mode?: PermissionMode; sessionPath?: string } = {},
+  options: { mode?: PermissionMode; sessionPath?: string; template?: string } = {},
 ): string {
   const mode = options.mode ?? 'plan'
   const prompt = `Work on the bead ${beadId} of the beads database ${databasePath}: read it with bd -C ${databasePath} show ${beadId}. ${sessionPlace(worktreePath, options.sessionPath)}, and the bead is already claimed for you.${mode === 'plan' ? ' Produce a plan only.' : ''}`
-  return `claude --permission-mode ${mode} ${quoteForSh(prompt)}`
+  return renderSessionCommand(options.template ?? DEFAULT_SESSION_COMMAND, mode, prompt)
+}
+
+export function renderSessionCommand(template: string, mode: PermissionMode, prompt: string): string {
+  const quoted = quoteForSh(prompt)
+  return template.replaceAll('{mode}', () => mode).replaceAll('{prompt}', () => quoted)
 }
 
 export function worktreeStays(worktreePath: string | undefined): string {

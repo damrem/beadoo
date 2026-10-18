@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { MOUNT_REFUSAL, publicEntry, startMessage } from './config-rules.ts'
-import { configPath, legacyConfigPaths, loadDatabases } from './config.ts'
+import { configPath, legacyConfigPaths, loadConfig, loadDatabases } from './config.ts'
 import type { ConfigPlace } from './config.ts'
 
 const tempHome = () => mkdtempSync(join(tmpdir(), 'beadoo-'))
@@ -125,6 +125,33 @@ describe('the database list of the page', () => {
     const path = join(home, 'config.json')
     writeFileSync(path, JSON.stringify({ databases: [{ name: 'broken' }] }))
     expect(() => loadDatabases(placeIn(home), path)).toThrow('entry 0 needs a "name" and a "path"')
+  })
+})
+
+describe('the session command of the config', () => {
+  it('uses the session command that the user wrote in the config', () => {
+    const home = tempHome()
+    const path = join(home, 'config.json')
+    writeJson(path, { databases: [], sessionCommand: 'opencode --prompt {prompt}' })
+    expect(loadConfig(placeIn(home), path).sessionCommand).toBe('opencode --prompt {prompt}')
+  })
+
+  it('starts claude in the chosen mode when the config holds no session command', () => {
+    const home = tempHome()
+    const path = join(home, 'config.json')
+    writeJson(path, { databases: [] })
+    expect(loadConfig(placeIn(home), path).sessionCommand).toBe('claude --permission-mode {mode} {prompt}')
+    expect(loadConfig(placeIn(tempHome())).sessionCommand).toBe('claude --permission-mode {mode} {prompt}')
+  })
+
+  it.each([
+    ['a command with no {prompt} place', 'claude --permission-mode {mode}'],
+    ['a command that is not a text', ['claude', '{prompt}']],
+  ])('reports %s', (_case, sessionCommand) => {
+    const home = tempHome()
+    const path = join(home, 'config.json')
+    writeJson(path, { databases: [], sessionCommand })
+    expect(() => loadConfig(placeIn(home), path)).toThrow('"sessionCommand" needs a text that holds {prompt}')
   })
 })
 

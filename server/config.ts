@@ -1,7 +1,8 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, isAbsolute, join } from 'node:path'
-import { checkDatabases, defaultDatabases } from './config-rules.ts'
-import type { ConfiguredDatabase } from './config-rules.ts'
+import { checkConfig, defaultDatabases } from './config-rules.ts'
+import type { BeadooConfig, ConfiguredDatabase } from './config-rules.ts'
+import { DEFAULT_SESSION_COMMAND } from './orca-rules.ts'
 import { parseJson } from './process.ts'
 
 export type ConfigPlace = { home: string; cwd: string; env?: Record<string, string | undefined>; log?: (line: string) => void }
@@ -24,8 +25,12 @@ function copyLegacyConfig(place: ConfigPlace, path: string): void {
   place.log?.(`beadoo copied the config ${legacy} to ${path}.`)
 }
 
-export function loadDatabases(place: ConfigPlace, path = configPath(place)): ConfiguredDatabase[] {
+export function loadConfig(place: ConfigPlace, path = configPath(place)): BeadooConfig {
   if (!existsSync(path)) copyLegacyConfig(place, path)
-  if (!existsSync(path)) return defaultDatabases(place.cwd, existsSync(join(place.cwd, '.beads')))
-  return checkDatabases(parseJson(readFileSync(path, 'utf8'), path))
+  if (!existsSync(path)) {
+    return { databases: defaultDatabases(place.cwd, existsSync(join(place.cwd, '.beads'))), sessionCommand: DEFAULT_SESSION_COMMAND }
+  }
+  return checkConfig(parseJson(readFileSync(path, 'utf8'), path))
 }
+
+export const loadDatabases = (place: ConfigPlace, path = configPath(place)): ConfiguredDatabase[] => loadConfig(place, path).databases
