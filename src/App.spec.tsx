@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App, POLL_MS } from './App'
 
@@ -749,15 +749,26 @@ describe('the beadoo page', () => {
 
   describe('the start of a session on a bead', () => {
     const session = {
-      bead: { ...beads[1], status: 'in_progress', assignee: 'Ann', notes: 'started 2026-10-16 09:05 in /home/me/wt/t-1' },
+      bead: { ...beads[1], status: 'in_progress', assignee: 'Ann', notes: 'started 2026-10-16 09:05 kind=new worktree=/home/me/wt/t-1' },
       worktree: 'repo::/home/me/wt/t-1',
       path: '/home/me/wt/t-1',
       branch: 'feat/1-cart-total',
       terminal: 'term_7',
     }
 
+    const MAIN = '/home/me/.claude'
+    const EPIC = '/home/me/wt/e-1'
+    const OTHER = '/home/me/wt/t-9'
+
+    const worktrees = [
+      { path: MAIN, branch: 'master', main: true },
+      { path: EPIC, branch: 'feat/e-1-checkout', parent: MAIN },
+      { path: OTHER, branch: 'feat/t-9-pay', heldBy: 't-9', busy: true },
+    ]
+
     beforeEach(() => {
       answers['/api/actor?db=.claude'] = json({ actor: 'Ann' })
+      answers['/api/beads/t-1/spawn-choices?db=.claude'] = json({ repo: MAIN, worktrees })
     })
 
     withPageToken()
@@ -768,47 +779,141 @@ describe('the beadoo page', () => {
       return screen.findByRole('dialog')
     }
 
+    const openSpawn = async (panel: HTMLElement) => {
+      await userEvent.click(await within(panel).findByRole('button', { name: 'Spawn' }))
+      const modal = await screen.findByRole('dialog', { name: 'Spawn a session on t-1' })
+      await within(modal).findByRole('button', { name: 'Claim and spawn' })
+      return modal
+    }
+
     const spawnBody = () => {
       const call = vi.mocked(fetch).mock.calls.find(([path]) => String(path).includes('/spawn?'))
       return call ? JSON.parse(String(call[1]?.body)) : undefined
     }
 
-    it('proposes a branch from the id and the title of the bead', async () => {
-      const dialog = await openDetail()
-      expect(await within(dialog).findByLabelText('Branch of the session')).toHaveValue('feat/1-cart-total')
+    it('proposes a new worktree in plan mode, with a branch from the id and the title of the bead', async () => {
+      const modal = await openSpawn(await openDetail())
+      expect(within(modal).getByRole('radio', { name: 'A new worktree' })).toBeChecked()
+      expect(within(modal).getByLabelText('Branch of the session')).toHaveValue('feat/1-cart-total')
+      expect(within(modal).getByRole('radio', { name: 'The new worktree' })).toBeChecked()
+      expect(within(modal).getByRole('radio', { name: 'Plan' })).toBeChecked()
     })
 
-    it('claims the bead and starts a session with one click, then shows the worktree, the branch and the terminal', async () => {
+    it('proposes a child of the epic worktree in plan mode when the epic already has a worktree', async () => {
+      answers['/api/beads/t-1/spawn-choices?db=.claude'] = json({ repo: MAIN, worktrees, epic: { id: 'e-1', path: EPIC } })
+      const modal = await openSpawn(await openDetail())
+      expect(within(modal).getByRole('radio', { name: 'A child of a worktree' })).toBeChecked()
+      expect(within(modal).getByLabelText('Parent worktree')).toHaveValue(EPIC)
+      expect(within(modal).getByRole('radio', { name: 'The child worktree' })).toBeChecked()
+      expect(within(modal).getByRole('radio', { name: 'Plan' })).toBeChecked()
+    })
+
+    it('claims the bead and starts a session, then shows the worktree, the branch and the terminal', async () => {
       answers['POST /api/beads/t-1/spawn?db=.claude'] = json(session)
-      const dialog = await openDetail()
-      await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim and spawn' }))
-      expect(await within(dialog).findByText('A session started on the bead')).toBeInTheDocument()
-      expect(within(dialog).getByText('/home/me/wt/t-1')).toBeInTheDocument()
-      expect(within(dialog).getByText('feat/1-cart-total')).toBeInTheDocument()
-      expect(within(dialog).getByText('term_7')).toBeInTheDocument()
-      expect(within(dialog).getByText('In progress')).toBeInTheDocument()
+      const panel = await openDetail()
+      const modal = await openSpawn(panel)
+      await userEvent.click(within(modal).getByRole('button', { name: 'Claim and spawn' }))
+      expect(await within(panel).findByText('A session started on the bead')).toBeInTheDocument()
+      expect(within(panel).getByText('/home/me/wt/t-1')).toBeInTheDocument()
+      expect(within(panel).getByText('feat/1-cart-total')).toBeInTheDocument()
+      expect(within(panel).getByText('term_7')).toBeInTheDocument()
+      expect(within(panel).getByText('In progress')).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Spawn a session on t-1' })).not.toBeInTheDocument())
       expect(writes).toEqual([{ path: '/api/beads/t-1/spawn?db=.claude', token: 'page-token' }])
-      expect(spawnBody()).toEqual({ branch: 'feat/1-cart-total' })
+      expect(spawnBody()).toEqual({ kind: 'new', location: 'worktree', mode: 'plan', branch: 'feat/1-cart-total' })
     })
 
     it('starts the session on the branch that the user typed', async () => {
       answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, branch: 'fix/cart-total' })
-      const dialog = await openDetail()
-      const branch = await within(dialog).findByLabelText('Branch of the session')
+      const panel = await openDetail()
+      const modal = await openSpawn(panel)
+      const branch = within(modal).getByLabelText('Branch of the session')
       await userEvent.clear(branch)
       await userEvent.type(branch, 'fix/cart-total')
-      await userEvent.click(within(dialog).getByRole('button', { name: 'Claim and spawn' }))
-      await within(dialog).findByText('A session started on the bead')
-      expect(spawnBody()).toEqual({ branch: 'fix/cart-total' })
+      await userEvent.click(within(modal).getByRole('button', { name: 'Claim and spawn' }))
+      await within(panel).findByText('A session started on the bead')
+      expect(spawnBody()).toMatchObject({ branch: 'fix/cart-total' })
     })
 
     it('does not start a session on a branch that is not a type and a slug, and tells the user why', async () => {
-      const dialog = await openDetail()
-      const branch = await within(dialog).findByLabelText('Branch of the session')
+      const modal = await openSpawn(await openDetail())
+      const branch = within(modal).getByLabelText('Branch of the session')
       await userEvent.clear(branch)
       await userEvent.type(branch, 'Cart')
-      expect(within(dialog).getByRole('button', { name: 'Claim and spawn' })).toBeDisabled()
-      expect(within(dialog).getByText(/Give the branch as <type>\/<slug>/)).toBeInTheDocument()
+      expect(within(modal).getByRole('button', { name: 'Claim and spawn' })).toBeDisabled()
+      expect(within(modal).getByText(/Give the branch as <type>\/<slug>/)).toBeInTheDocument()
+    })
+
+    it('starts the session in an existing worktree that the user chose, in the mode that the user chose', async () => {
+      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, path: EPIC, kind: 'existing', mode: 'acceptEdits' })
+      const panel = await openDetail()
+      const modal = await openSpawn(panel)
+      await userEvent.click(within(modal).getByRole('radio', { name: 'An existing worktree' }))
+      await userEvent.selectOptions(within(modal).getByLabelText('Target worktree'), EPIC)
+      await userEvent.click(within(modal).getByRole('radio', { name: 'The parent worktree' }))
+      await userEvent.click(within(modal).getByRole('radio', { name: 'Accept edits' }))
+      expect(within(modal).queryByLabelText('Branch of the session')).not.toBeInTheDocument()
+      await userEvent.click(within(modal).getByRole('button', { name: 'Claim and spawn' }))
+      await within(panel).findByText('A session started on the bead')
+      expect(spawnBody()).toEqual({ kind: 'existing', target: EPIC, location: 'parent', mode: 'acceptEdits' })
+    })
+
+    it('shows which bead holds a worktree, and still lets the user choose that worktree', async () => {
+      const modal = await openSpawn(await openDetail())
+      await userEvent.click(within(modal).getByRole('radio', { name: 'An existing worktree' }))
+      expect(within(modal).getByRole('option', { name: /feat\/t-9-pay .* held by t-9/ })).toBeEnabled()
+      await userEvent.selectOptions(within(modal).getByLabelText('Target worktree'), OTHER)
+      expect(within(modal).getByLabelText('Target worktree')).toHaveValue(OTHER)
+    })
+
+    it('warns the user when a Claude session already runs in the chosen worktree, and still lets the user start the session', async () => {
+      const modal = await openSpawn(await openDetail())
+      await userEvent.click(within(modal).getByRole('radio', { name: 'An existing worktree' }))
+      await userEvent.selectOptions(within(modal).getByLabelText('Target worktree'), OTHER)
+      expect(within(modal).getByText('A Claude session already runs in this worktree')).toBeInTheDocument()
+      expect(within(modal).getByRole('button', { name: 'Claim and spawn' })).toBeEnabled()
+    })
+
+    it('asks the user to confirm a session with no worktree before the start', async () => {
+      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, path: MAIN, kind: 'none' })
+      const panel = await openDetail()
+      const modal = await openSpawn(panel)
+      await userEvent.click(within(modal).getByRole('radio', { name: 'No worktree' }))
+      expect(within(modal).getByRole('radio', { name: 'The main checkout' })).toBeChecked()
+      expect(within(modal).getByRole('button', { name: 'Claim and spawn' })).toBeDisabled()
+      await userEvent.click(within(modal).getByRole('checkbox', { name: /I confirm the risky choice: the session has no dedicated worktree/ }))
+      await userEvent.click(within(modal).getByRole('button', { name: 'Claim and spawn' }))
+      await within(panel).findByText('A session started on the bead')
+      expect(spawnBody()).toEqual({ kind: 'none', location: 'worktree', mode: 'plan', confirmed: true })
+    })
+
+    it('asks the user to confirm a session that bypasses the permissions before the start', async () => {
+      const modal = await openSpawn(await openDetail())
+      await userEvent.click(within(modal).getByRole('radio', { name: 'Bypass permissions' }))
+      expect(within(modal).getByRole('button', { name: 'Claim and spawn' })).toBeDisabled()
+      await userEvent.click(within(modal).getByRole('checkbox', { name: /the session bypasses the permissions/ }))
+      expect(within(modal).getByRole('button', { name: 'Claim and spawn' })).toBeEnabled()
+    })
+
+    it('proposes the kind, the location and the mode of the last spawn when the user opens the window again', async () => {
+      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, path: EPIC, kind: 'existing', mode: 'default' })
+      const panel = await openDetail()
+      const modal = await openSpawn(panel)
+      await userEvent.click(within(modal).getByRole('radio', { name: 'An existing worktree' }))
+      await userEvent.click(within(modal).getByRole('radio', { name: 'Default' }))
+      await userEvent.click(within(modal).getByRole('button', { name: 'Claim and spawn' }))
+      await within(panel).findByText('A session started on the bead')
+      cleanup()
+      const again = await openSpawn(await openDetail())
+      expect(within(again).getByRole('radio', { name: 'An existing worktree' })).toBeChecked()
+      expect(within(again).getByRole('radio', { name: 'Default' })).toBeChecked()
+    })
+
+    it('tells the user when the page cannot list the worktrees of the repo', async () => {
+      answers['/api/beads/t-1/spawn-choices?db=.claude'] = json({ repo: MAIN, worktrees: [], problem: 'orca repo list failed: Orca is not running' })
+      const modal = await openSpawn(await openDetail())
+      expect(within(modal).getByText('The page could not list the worktrees')).toBeInTheDocument()
+      expect(within(modal).getByText(/Orca is not running/)).toBeInTheDocument()
     })
 
     it('tells the user why the session did not start', async () => {
@@ -816,10 +921,10 @@ describe('the beadoo page', () => {
         { error: 'orca terminal create failed: Timed out\nThe bead t-1 is open again.', code: 'SPAWN_FAILED' },
         502,
       )
-      const dialog = await openDetail()
-      await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim and spawn' }))
-      expect(await within(dialog).findByText('The page could not start a session')).toBeInTheDocument()
-      expect(within(dialog).getByText(/The bead t-1 is open again/)).toBeInTheDocument()
+      const panel = await openDetail()
+      await userEvent.click(within(await openSpawn(panel)).getByRole('button', { name: 'Claim and spawn' }))
+      expect(await within(panel).findByText('The page could not start a session')).toBeInTheDocument()
+      expect(within(panel).getByText(/The bead t-1 is open again/)).toBeInTheDocument()
     })
 
     it('shows the bead as the database holds it after a start that failed', async () => {
@@ -827,26 +932,37 @@ describe('the beadoo page', () => {
         { error: 'orca terminal create failed: Timed out\nThe page could not give the bead t-1 back: database is locked.', code: 'SPAWN_FAILED' },
         502,
       )
-      const dialog = await openDetail()
-      const spawn = await within(dialog).findByRole('button', { name: 'Claim and spawn' })
+      const panel = await openDetail()
+      const modal = await openSpawn(panel)
       answers['/api/beads/t-1?db=.claude'] = json({ ...beads[1], status: 'in_progress', assignee: 'Ann' })
-      await userEvent.click(spawn)
-      expect(await within(dialog).findByText('The page could not start a session')).toBeInTheDocument()
-      expect(await within(dialog).findByText('In progress')).toBeInTheDocument()
+      await userEvent.click(within(modal).getByRole('button', { name: 'Claim and spawn' }))
+      expect(await within(panel).findByText('The page could not start a session')).toBeInTheDocument()
+      expect(await within(panel).findByText('In progress')).toBeInTheDocument()
     })
 
     it('shows the warning when the session runs but the page could not note its start', async () => {
       answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, warning: 'The session runs, but the page could not write the note of the start' })
-      const dialog = await openDetail()
-      await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim and spawn' }))
-      expect(await within(dialog).findByText(/could not write the note of the start/)).toBeInTheDocument()
+      const panel = await openDetail()
+      await userEvent.click(within(await openSpawn(panel)).getByRole('button', { name: 'Claim and spawn' }))
+      expect(await within(panel).findByText(/could not write the note of the start/)).toBeInTheDocument()
     })
 
     it('does not offer to start a session on a bead that another actor holds', async () => {
       answers['/api/beads/t-1?db=.claude'] = json({ ...beads[1], status: 'in_progress', assignee: 'Bob' })
-      const dialog = await openDetail()
-      await within(dialog).findByText('Bob')
-      expect(within(dialog).queryByRole('button', { name: 'Claim and spawn' })).not.toBeInTheDocument()
+      const panel = await openDetail()
+      await within(panel).findByText('Bob')
+      expect(within(panel).queryByRole('button', { name: 'Spawn' })).not.toBeInTheDocument()
+    })
+
+    it('tells the user that the worktree stays after the release of the claim', async () => {
+      answers['/api/beads/t-1?db=.claude'] = json(session.bead)
+      answers['POST /api/beads/t-1/unclaim?db=.claude'] = json({ ...session.bead, status: 'open', assignee: undefined })
+      const panel = await openDetail()
+      await userEvent.click(await within(panel).findByRole('button', { name: 'Unclaim' }))
+      expect(await within(panel).findByText('The worktree of the session stays')).toBeInTheDocument()
+      expect(within(panel).getByText('/home/me/wt/t-1')).toBeInTheDocument()
+      expect(within(panel).getByText(/Remove it with dre:wt cleanup/)).toBeInTheDocument()
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/unclaim?db=.claude'])
     })
   })
 
@@ -1029,6 +1145,22 @@ describe('the beadoo page', () => {
       expect(within(dialog).queryByRole('form', { name: 'Edit the bead' })).not.toBeInTheDocument()
       expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/edit?db=.claude'])
       await waitFor(() => expect(reads()).toBe(2))
+    })
+
+    it('tells the user that the worktree of the session stays after the close of the bead', async () => {
+      const started = { ...beads[1], status: 'in_progress', notes: 'started 2026-10-16 09:05 kind=child worktree=/home/me/wt/t-1 mode=plan' }
+      answers['/api/beads/t-1?db=.claude'] = json(started)
+      answers['POST /api/beads/t-1/edit?db=.claude'] = json({ ...started, status: 'closed', close_reason: 'Shipped' })
+      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Edit' }))
+      await userEvent.selectOptions(within(dialog).getByLabelText('Status'), 'closed')
+      await userEvent.type(within(dialog).getByLabelText('Close reason'), 'Shipped')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+      expect(await within(dialog).findByText('The worktree of the session stays')).toBeInTheDocument()
+      expect(within(dialog).getByText('/home/me/wt/t-1')).toBeInTheDocument()
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/edit?db=.claude'])
     })
 
     it('shows the detail again and writes nothing when the user cancels the edit', async () => {

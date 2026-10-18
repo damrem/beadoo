@@ -4,7 +4,7 @@ import { extname, join, normalize, sep } from 'node:path'
 import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED, STALE, STORE_NOT_OPEN, TUNNEL_ROUTE, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
 import type { ClaimAction } from '../shared/contract.ts'
 import { isEditRequest } from '../shared/edit.ts'
-import { isSpawnRequest } from '../shared/spawn.ts'
+import { readSpawnRequest } from '../shared/spawn.ts'
 import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
 import { publicEntry } from './config-rules.ts'
@@ -170,11 +170,12 @@ export function createHandler(deps: AppDeps) {
         }
         const request = parsedBody(text)
         if (target.action === 'spawn') {
-          if (!isSpawnRequest(request)) {
-            sendJson(res, 400, { error: 'The spawn request gives no branch', code: INVALID })
+          const spawn = readSpawnRequest(request)
+          if (typeof spawn === 'string') {
+            sendJson(res, 400, { error: spawn, code: INVALID })
             return
           }
-          sendJson(res, 200, await deps.spawner.spawn(db, target.id, request.branch))
+          sendJson(res, 200, await deps.spawner.spawn(db, target.id, spawn))
           return
         }
         if (!isEditRequest(request)) {
@@ -194,6 +195,12 @@ export function createHandler(deps: AppDeps) {
       }
       if (url.pathname === '/api/beads') {
         sendJson(res, 200, await deps.store.listBeads(db))
+        return
+      }
+      const choices = /^\/api\/beads\/([^/]+)\/spawn-choices$/.exec(url.pathname)
+      const choicesId = choices?.[1] ? decoded(choices[1]) : null
+      if (choicesId !== null) {
+        sendJson(res, 200, await deps.spawner.choices(db, choicesId))
         return
       }
       const match = /^\/api\/beads\/([^/]+)$/.exec(url.pathname)

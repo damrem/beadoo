@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import type { RunResult } from '../../../lib/process.ts'
 import { createStore } from './beads-store.ts'
 import { createHandler, MAX_BODY_BYTES } from './http.ts'
-import { FAKE_WORKTREE, FAKE_WORKTREE_ID, fakeOrca, orcaFailure } from './fake-orca.ts'
+import { FAKE_EPIC_WORKTREE, FAKE_WORKTREE, FAKE_WORKTREE_ID, fakeOrca, orcaFailure } from './fake-orca.ts'
 import { createSpawner } from './spawner.ts'
 import { createTunnels } from './tunnels.ts'
 
@@ -364,6 +364,32 @@ describe('the page server', () => {
       expect(list.status).toBe(200)
       finish()
       expect((await started).status).toBe(200)
+    })
+
+    it('gives the worktrees that the user can choose for a new session', async () => {
+      const response = await fetch(`${base}/api/beads/s-1/spawn-choices?db=shop`)
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({
+        repo: '/home/me/shop',
+        worktrees: [
+          { path: '/home/me/shop', branch: 'main', main: true },
+          { path: FAKE_EPIC_WORKTREE, branch: 'feat/e-1-checkout', parent: '/home/me/shop' },
+        ],
+      })
+    })
+
+    it('starts a session in the existing worktree that the user chose', async () => {
+      const response = await spawn(JSON.stringify({ kind: 'existing', target: FAKE_EPIC_WORKTREE, location: 'worktree', mode: 'default' }))
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({ path: FAKE_EPIC_WORKTREE, session: FAKE_EPIC_WORKTREE, kind: 'existing', mode: 'default' })
+      expect(orca.calls.some((call) => call.startsWith('orca worktree create'))).toBe(false)
+    })
+
+    it('refuses a worktree kind that the page does not know, and claims nothing', async () => {
+      const response = await spawn(JSON.stringify({ kind: 'remote', location: 'worktree', mode: 'plan' }))
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({ code: 'INVALID', error: expect.stringMatching(/worktree kind/) })
+      expect(writes).toEqual([])
     })
 
     it('tells the user why the session did not start, and that the bead is open again', async () => {

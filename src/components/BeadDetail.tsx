@@ -5,7 +5,7 @@ import { BeadId } from '@/components/BeadId'
 import { BeadLink, CopyLinkButton } from '@/components/BeadLink'
 import { BeadEditor } from '@/components/BeadEditor'
 import { claimActions, ClaimControls } from '@/components/ClaimControls'
-import { SessionStarted, SpawnControls } from '@/components/SpawnControls'
+import { SessionStarted, SpawnControls, WorktreeKept } from '@/components/SpawnControls'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -13,7 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import { openBlockers } from '@/lib/blockers'
 import type { Bead, ClaimAction } from '../../shared/contract'
-import type { SpawnedSession } from '../../shared/spawn'
+import type { SpawnedSession, SpawnRequest } from '../../shared/spawn'
+import { lastStarted } from '../../shared/started-note'
 import { priorityTone } from '@/lib/tones'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
 import { childBeadsOf, dependenciesOf, dependentsOf } from '@/lib/links'
@@ -74,7 +75,16 @@ function LinkedBeads({
 
 type Load = { id: string; bead?: Bead; error?: string }
 
-type Write = { id: string; action: ClaimAction | 'spawn' | null; error?: string; failed?: 'claim' | 'spawn'; session?: SpawnedSession }
+type Write = {
+  id: string
+  action: ClaimAction | 'spawn' | null
+  error?: string
+  failed?: 'claim' | 'spawn'
+  session?: SpawnedSession
+  released?: string
+}
+
+export const releasedWorktree = (bead: Bead): string | undefined => lastStarted(bead.notes)?.worktree
 
 export type BeadState = ReturnType<typeof useBead>
 
@@ -108,7 +118,8 @@ export function useBead(db: string, id: string | null, onWritten: () => void) {
       .claim(db, beadId, action)
       .then((bead) => {
         setLoad((current) => (current?.id === beadId ? { id: beadId, bead } : current))
-        setWrite(null)
+        const released = action === 'unclaim' ? releasedWorktree(bead) : undefined
+        setWrite(released ? { id: beadId, action: null, released } : null)
       })
       .catch((reason: Error) => {
         setWrite({ id: beadId, action: null, error: reason.message })
@@ -117,10 +128,10 @@ export function useBead(db: string, id: string | null, onWritten: () => void) {
       .finally(onWritten)
   }
 
-  const runSpawn = (beadId: string, branch: string) => {
+  const runSpawn = (beadId: string, request: SpawnRequest) => {
     setWrite({ id: beadId, action: 'spawn' })
     api
-      .spawn(db, beadId, branch)
+      .spawn(db, beadId, request)
       .then((session) => {
         setLoad((current) => (current?.id === beadId ? { id: beadId, bead: session.bead } : current))
         setWrite({ id: beadId, action: null, session })
@@ -134,6 +145,12 @@ export function useBead(db: string, id: string | null, onWritten: () => void) {
 
   const show = (written: Bead) => setLoad((current) => (current?.id === written.id ? { id: written.id, bead: written } : current))
 
+  const saved = (before: Bead, written: Bead) => {
+    show(written)
+    const released = before.status !== 'closed' && written.status === 'closed' ? releasedWorktree(written) : undefined
+    setWrite(released ? { id: written.id, action: null, released } : null)
+  }
+
   return {
     bead: load?.id === id ? load.bead : undefined,
     error: load?.id === id ? load.error : undefined,
@@ -141,11 +158,13 @@ export function useBead(db: string, id: string | null, onWritten: () => void) {
     writeError: write?.id === id ? write.error : undefined,
     failed: write?.id === id ? write.failed : undefined,
     session: write?.id === id ? write.session : undefined,
+    released: write?.id === id ? write.released : undefined,
     editing,
     setEditing,
     runClaim,
     runSpawn,
     show,
+    saved,
   }
 }
 
@@ -166,7 +185,7 @@ export function BeadBody({
   onOpen?: (id: string) => void
   onWritten: () => void
 }) {
-  const { bead, error, writing, writeError, failed, session, editing, setEditing, runClaim, runSpawn, show } = state
+  const { bead, error, writing, writeError, failed, session, released, editing, setEditing, runClaim, runSpawn, show, saved } = state
   const waits = bead ? openBlockers(bead) : []
   const now = new Date()
   const leaseText = bead && leaseLabel(leaseState(bead, now), now)
@@ -189,14 +208,15 @@ export function BeadBody({
         </Alert>
       )}
       {session && <SessionStarted session={session} />}
+      {released && <WorktreeKept path={released} />}
       {bead && editing && (
         <BeadEditor
           key={bead.id}
           db={db}
           bead={bead}
           onCancel={() => setEditing(false)}
-          onSaved={(saved) => {
-            show(saved)
+          onSaved={(written) => {
+            saved(bead, written)
             setEditing(false)
             onWritten()
           }}
@@ -221,10 +241,11 @@ export function BeadBody({
             {claimActions(bead, actor).includes('claim') && (
               <SpawnControls
                 key={bead.id}
+                db={db}
                 bead={bead}
                 disabled={writing !== null}
                 spawning={writing === 'spawn'}
-                onSpawn={(branch) => runSpawn(bead.id, branch)}
+                onSpawn={(request) => runSpawn(bead.id, request)}
               />
             )}
           </div>
