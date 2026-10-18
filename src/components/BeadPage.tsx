@@ -1,16 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { BeadBody, beadTitle, useBead } from '@/components/BeadDetail'
 import { BeadId } from '@/components/BeadId'
 import { CopyLinkButton } from '@/components/BeadLink'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
 import { api } from '@/lib/api'
 import { boardUrl } from '@/lib/urls'
-
-const noop = () => {}
+import type { Bead } from '../../shared/contract'
 
 export function BeadPage({ db, id }: { db: string; id: string }) {
   const [actor, setActor] = useState<string | null>(null)
-  const state = useBead(db, id, noop)
+  const [beads, setBeads] = useState<Bead[] | undefined>(undefined)
+
+  const readBeads = useCallback(() => {
+    api
+      .beads(db)
+      .then((list) => setBeads(list.beads))
+      .catch(() => setBeads(undefined))
+  }, [db])
+
+  const state = useBead(db, id, readBeads)
   const title = beadTitle(state)
 
   useEffect(() => {
@@ -23,6 +31,8 @@ export function BeadPage({ db, id }: { db: string; id: string }) {
       live = false
     }
   }, [db])
+
+  useEffect(readBeads, [readBeads])
 
   useEffect(() => {
     document.title = `${id} · beadoo`
@@ -45,7 +55,7 @@ export function BeadPage({ db, id }: { db: string; id: string }) {
           <CopyLinkButton db={db} id={id} />
         </div>
         <h1 className="px-4 font-heading text-xl font-semibold">{title}</h1>
-        <BeadBody db={db} actor={actor} state={state} onWritten={noop} />
+        <BeadBody db={db} actor={actor} state={state} beads={beads} onWritten={readBeads} />
       </main>
     </div>
   )

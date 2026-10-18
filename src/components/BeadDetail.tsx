@@ -15,6 +15,8 @@ import type { Bead, ClaimAction } from '../../shared/contract'
 import type { SpawnedSession } from '../../shared/spawn'
 import { priorityTone } from '@/lib/tones'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
+import { childBeadsOf } from '@/lib/links'
+import type { LinkedBead } from '@/lib/links'
 import { beadUrl } from '@/lib/urls'
 
 const Markdown = lazy(() => import('@/components/Markdown').then((module) => ({ default: module.Markdown })))
@@ -36,6 +38,34 @@ function Text({ label, value }: { label: string; value?: string | null }) {
       <Suspense fallback={<p className="text-sm whitespace-pre-wrap">{value}</p>}>
         <Markdown text={value} />
       </Suspense>
+    </section>
+  )
+}
+
+function LinkedBeads({
+  label,
+  db,
+  links,
+  onOpen,
+}: {
+  label: string
+  db: string
+  links: LinkedBead[]
+  onOpen?: (id: string) => void
+}) {
+  if (links.length === 0) return null
+  return (
+    <section className="flex flex-col gap-1">
+      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</h3>
+      <ul aria-label={label} className="flex flex-col gap-1 text-sm">
+        {links.map((link) => (
+          <li key={`${link.type ?? ''}:${link.id}`} className="flex flex-wrap items-center gap-2">
+            <BeadLink db={db} id={link.id} onOpen={onOpen} />
+            <span className="min-w-0 flex-1 truncate">{link.title ?? ''}</span>
+            {link.status && <StatusTag status={link.status} />}
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
@@ -123,12 +153,14 @@ export function BeadBody({
   db,
   actor,
   state,
+  beads,
   onOpen,
   onWritten,
 }: {
   db: string
   actor: string | null
   state: BeadState
+  beads?: Bead[]
   onOpen?: (id: string) => void
   onWritten: () => void
 }) {
@@ -218,6 +250,7 @@ export function BeadBody({
                 : blockers.map((dep) => <BeadLink key={dep.id} db={db} id={dep.id} onOpen={onOpen} className="mr-2" />)}
             </Field>
           </dl>
+          <LinkedBeads label="Children" db={db} links={childBeadsOf(beads ?? [], bead.id)} onOpen={onOpen} />
           <Text label="Description" value={bead.description} />
           <Text label="Notes" value={bead.notes} />
         </>
@@ -230,6 +263,7 @@ export function BeadDetail({
   db,
   id,
   actor,
+  beads,
   onClose,
   onOpen,
   onWritten,
@@ -237,6 +271,7 @@ export function BeadDetail({
   db: string
   id: string | null
   actor: string | null
+  beads?: Bead[]
   onClose: () => void
   onOpen: (id: string) => void
   onWritten: () => void
@@ -259,7 +294,7 @@ export function BeadDetail({
           </SheetDescription>
           <SheetTitle>{beadTitle(state)}</SheetTitle>
         </SheetHeader>
-        <BeadBody db={db} actor={actor} state={state} onOpen={onOpen} onWritten={onWritten} />
+        <BeadBody db={db} actor={actor} state={state} beads={beads} onOpen={onOpen} onWritten={onWritten} />
       </SheetContent>
     </Sheet>
   )

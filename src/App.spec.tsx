@@ -223,6 +223,50 @@ describe('the beadoo page', () => {
     expect(window.location.search).toContain('bead=e-1')
   })
 
+  describe('the children of a bead', () => {
+    beforeEach(() => {
+      answers['/api/beads/e-1?db=.claude'] = json({ ...beads[0], description: 'Pay for the cart.' })
+    })
+
+    it('lists a link to each child of a bead in its detail', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&bead=e-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      const children = await within(dialog).findByRole('list', { name: 'Children' })
+      expect(within(children).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+        '2Pay button📋Open',
+        '1Cart total📋Open',
+        '3Receipt mail✅Closed',
+      ])
+      expect(within(children).getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.claude&id=t-1')
+    })
+
+    it('opens the child in the detail when the user clicks its link', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&bead=e-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      const children = await within(dialog).findByRole('list', { name: 'Children' })
+      await userEvent.click(within(children).getByRole('link', { name: '1' }))
+      expect(await within(dialog).findByText('Show the total of the cart.')).toBeInTheDocument()
+      expect(window.location.search).toContain('bead=t-1')
+    })
+
+    it('shows no list of children for a bead that has no child', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      await within(dialog).findByText('Show the total of the cart.')
+      expect(within(dialog).queryByRole('list', { name: 'Children' })).not.toBeInTheDocument()
+    })
+
+    it('lists the children on the page of the bead, with links to their pages', async () => {
+      window.history.replaceState(null, '', '/bead?db=.claude&id=e-1')
+      render(<App />)
+      const children = await screen.findByRole('list', { name: 'Children' })
+      expect(within(children).getByRole('link', { name: '2' })).toHaveAttribute('href', '/bead?db=.claude&id=t-2')
+    })
+  })
+
   describe('the page of one bead', () => {
     beforeEach(() => {
       window.history.replaceState(null, '', '/bead?db=.claude&id=t-1')

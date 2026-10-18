@@ -268,6 +268,7 @@ function Beads() {
           db={view.db}
           id={view.bead}
           actor={actor}
+          beads={data?.beads}
           onClose={() => update({ bead: null })}
           onOpen={open}
           onWritten={refresh}
