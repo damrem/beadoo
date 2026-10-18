@@ -2,6 +2,7 @@ import { BeadCard, LabelTags } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { NoMatch } from '@/components/NoMatch'
 import { Emoji } from '@/components/Emoji'
+import { OpenEpicButton } from '@/components/EpicHeader'
 import { EpicProgress, EpicWarning } from '@/components/EpicProgress'
 import { statusEmoji } from '@/lib/emojis'
 import { columnsOf, columnStatusesOf, NO_EPIC, statusTitle } from '@/lib/filters'
@@ -57,6 +58,7 @@ export function EpicLanes({
                 <>
                   <EpicProgress title={lane.epic.title} counts={lane.epic.counts} />
                   <EpicWarning status={lane.epic.status} counts={lane.epic.counts} />
+                  <OpenEpicButton epic={lane.epic} onOpen={onOpen} />
                 </>
               )}
               <LabelTags labels={lane.epic.labels} />

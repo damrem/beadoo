@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { EpicLanes } from './EpicLanes'
 
 const lanes = [
@@ -21,6 +22,13 @@ describe('the lanes view', () => {
       'Checkout: In progress',
       'Checkout: Closed',
     ])
+  })
+
+  it('opens the epic when the user clicks the button in the lane header', async () => {
+    const onOpen = vi.fn()
+    render(<EpicLanes lanes={lanes} onOpen={onOpen} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Open the epic Checkout' }))
+    expect(onOpen).toHaveBeenCalledWith('e-1')
   })
 
   it('shows only the open column when the user shows the ready beads', () => {
