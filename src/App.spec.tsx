@@ -782,6 +782,43 @@ describe('the beadoo page', () => {
       expect(within(again).queryByText('The page could not change the claim')).not.toBeInTheDocument()
     })
 
+    describe('the claim of an epic', () => {
+      const epic = { ...beads[0], dependencies: [] }
+
+      beforeEach(() => {
+        answers['/api/beads/e-1?db=.claude'] = json(epic)
+        answers['POST /api/beads/e-1/claim?db=.claude'] = json({ ...epic, status: 'in_progress', assignee: 'Ann' })
+      })
+
+      it('opens the epic from its board, and the user claims the epic from its detail', async () => {
+        window.history.replaceState(null, '', '/?db=.claude&view=epic')
+        render(<App />)
+        await userEvent.click(await screen.findByRole('button', { name: 'Open the epic Checkout' }))
+        const dialog = await screen.findByRole('dialog')
+        await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim' }))
+        expect(await within(dialog).findByText('In progress')).toBeInTheDocument()
+        expect(within(dialog).getByText('Ann')).toBeInTheDocument()
+        expect(writes).toEqual([{ path: '/api/beads/e-1/claim?db=.claude', token: 'page-token' }])
+      })
+
+      it('opens the epic from the table of the beads by epic', async () => {
+        window.history.replaceState(null, '', '/?db=.claude&view=table')
+        render(<App />)
+        const group = await screen.findByRole('rowgroup', { name: 'Checkout' })
+        await userEvent.click(within(group).getByRole('button', { name: 'Open the epic Checkout' }))
+        const dialog = await screen.findByRole('dialog')
+        expect(await within(dialog).findByRole('button', { name: 'Claim' })).toBeInTheDocument()
+        expect(window.location.search).toContain('bead=e-1')
+      })
+
+      it('does not offer to open an epic for the beads that have no epic', async () => {
+        window.history.replaceState(null, '', '/?db=.claude&view=table')
+        render(<App />)
+        const group = await screen.findByRole('rowgroup', { name: 'No epic' })
+        expect(within(group).queryByRole('button', { name: /Open the epic/ })).not.toBeInTheDocument()
+      })
+    })
+
     it('tells the user when the export file and the database do not hold the same count of beads', async () => {
       answers['POST /api/beads/t-1/claim?db=.claude'] = json(
         { error: 'The write is done, but /home/me/.claude/.beads/issues.jsonl holds 2 lines and bd list gives 3 beads.', code: 'EXPORT_MISMATCH' },

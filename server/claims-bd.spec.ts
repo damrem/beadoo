@@ -66,6 +66,14 @@ describe.skipIf(!hasBd)('a claim from the page in a real bd database', () => {
     expect(shown(id).notes).toContain('started 2026-10-16 09:05 in /home/me/wt')
   })
 
+  it('claims an epic that has an open child, and bd show gives the claim of the page user', { timeout: 60_000 }, async () => {
+    const epic = (JSON.parse(sh('bd', ['-C', db.path, 'create', 'Checkout', '--type', 'epic', '--json'])) as Bead).id
+    sh('bd', ['-C', db.path, 'create', 'Card form', '--parent', epic, '--json'])
+    const bead = await createStore(run, { env: { BEADS_ACTOR: 'Ann' } }).writeClaim(db, epic, 'claim')
+    expect(bead).toMatchObject({ id: epic, issue_type: 'epic', status: 'in_progress', assignee: 'Ann' })
+    expect(shown(epic)).toMatchObject({ status: 'in_progress', assignee: 'Ann' })
+  })
+
   it.each(['claim', 'unclaim', 'renew'] as const)(
     'reports a bead that the database does not have as not found when the user asks to %s it',
     { timeout: 60_000 },

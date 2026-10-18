@@ -1,5 +1,6 @@
 import { LabelTags, Tag } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
+import { OpenEpicButton } from '@/components/EpicHeader'
 import { NoMatch } from '@/components/NoMatch'
 import { StatusBar } from '@/components/StatusBar'
 import { Emoji } from '@/components/Emoji'
@@ -33,6 +34,7 @@ export function EpicTable({ lanes, onOpen }: { lanes: Lane[]; onOpen: (id: strin
                     <BeadId id={lane.epic.id} className="font-mono text-xs text-muted-foreground" />
                   )}
                   <span className="font-semibold">{lane.epic.title}</span>
+                  <OpenEpicButton epic={lane.epic} onOpen={onOpen} />
                   <LabelTags labels={lane.epic.labels} />
                   <span className="ml-auto flex items-center gap-3">
                     <StatusBar title={lane.epic.title} counts={lane.epic.counts} />

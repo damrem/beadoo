@@ -3,6 +3,7 @@ import { AttributeFilters } from '@/components/AttributeFilters'
 import { BeadDetail } from '@/components/BeadDetail'
 import { Board } from '@/components/Board'
 import { DatabaseSelector } from '@/components/DatabaseSelector'
+import { EpicHeader } from '@/components/EpicHeader'
 import { EpicLanes } from '@/components/EpicLanes'
 import { EpicSidebar } from '@/components/EpicSidebar'
 import { EpicTable } from '@/components/EpicTable'
@@ -170,6 +171,8 @@ export function App() {
     return lanes[0]?.epic.id ?? null
   }, [lanes, view.epic])
 
+  const selectedEpic = lanes.find((lane) => lane.epic.id === epic)?.epic
+
   const boardBeads = useMemo(
     () => (data && epic ? filterBeads(childrenOf(groups, epic), data.readyIds, filter) : []),
     [data, groups, epic, filter],
@@ -239,6 +242,7 @@ export function App() {
             <>
               <EpicSidebar lanes={lanes} selected={epic} onSelect={(id) => update({ epic: id })} />
               <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
+                {selectedEpic && <EpicHeader epic={selectedEpic} onOpen={open} />}
                 {epic ? <Board beads={boardBeads} status={view.status} onOpen={open} /> : <NoMatch />}
               </main>
             </>
