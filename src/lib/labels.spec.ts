@@ -3,7 +3,7 @@ import { labelParts, mergedLabels } from '@/lib/labels'
 describe('the labels of the beads', () => {
   it('reads a label with a colon as a property with a name and a value', () => {
     expect(labelParts('complexity:3')).toEqual({ name: 'complexity', value: '3' })
-    expect(labelParts('repo:.claude')).toEqual({ name: 'repo', value: '.claude' })
+    expect(labelParts('repo:.team')).toEqual({ name: 'repo', value: '.team' })
   })
 
   it('keeps the text after the first colon as the value', () => {
@@ -32,7 +32,7 @@ describe('the labels of the beads', () => {
   })
 
   it('keeps the repo of a child when the epic has no repo', () => {
-    expect(mergedLabels(['complexity:4'], ['repo:.claude', 'complexity:1'])).toEqual(['complexity:4', 'repo:.claude'])
+    expect(mergedLabels(['complexity:4'], ['repo:.team', 'complexity:1'])).toEqual(['complexity:4', 'repo:.team'])
   })
 
   it('keeps each different value of a property that only the children have', () => {

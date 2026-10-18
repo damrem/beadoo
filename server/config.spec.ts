@@ -85,9 +85,9 @@ describe('the database list of the page', () => {
   it('refuses a database on the Windows mount and tells the user to use a WSL path', () => {
     const home = tempHome()
     const path = join(home, 'config.json')
-    writeFileSync(path, JSON.stringify({ databases: [{ name: 'win', path: '/mnt/c/Users/me/.claude' }] }))
+    writeFileSync(path, JSON.stringify({ databases: [{ name: 'win', path: '/mnt/c/Users/me/.team' }] }))
     expect(loadDatabases(placeIn(home), path)).toEqual([
-      { name: 'win', path: '/mnt/c/Users/me/.claude', refused: MOUNT_REFUSAL },
+      { name: 'win', path: '/mnt/c/Users/me/.team', refused: MOUNT_REFUSAL },
     ])
   })
 

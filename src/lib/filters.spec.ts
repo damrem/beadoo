@@ -52,9 +52,9 @@ describe('the filters of the page', () => {
 
   it('shows the default view and filters for each value that a link does not name, and not the last values of the user', () => {
     const lastVisit = { status: 'closed', text: 'zzzqqq', view: 'table', labels: ['front'], type: 'bug', priority: 2 }
-    expect(readViewState('?view=lanes&db=.claude&status=ready', lastVisit)).toMatchObject({
+    expect(readViewState('?view=lanes&db=.team&status=ready', lastVisit)).toMatchObject({
       mode: 'lanes',
-      db: '.claude',
+      db: '.team',
       status: 'ready',
       text: '',
       labels: [],
@@ -65,9 +65,9 @@ describe('the filters of the page', () => {
 
   it('shows the last view and filters of the user when the address names only the database', () => {
     const lastVisit = { status: 'closed', text: 'cart', view: 'table', labels: ['front'], type: 'bug', priority: 2 }
-    expect(readViewState('?db=.claude', lastVisit)).toMatchObject({
+    expect(readViewState('?db=.team', lastVisit)).toMatchObject({
       mode: 'table',
-      db: '.claude',
+      db: '.team',
       status: ['closed'],
       text: 'cart',
       labels: ['front'],

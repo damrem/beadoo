@@ -9,7 +9,7 @@ const show = async (bead: Partial<Bead>) => {
     'fetch',
     vi.fn(async () => new Response(JSON.stringify(full), { status: 200 })),
   )
-  render(<BeadDetail db=".claude" id={full.id} actor={null} onClose={() => {}} onOpen={() => {}} onWritten={() => {}} />)
+  render(<BeadDetail db=".team" id={full.id} actor={null} onClose={() => {}} onOpen={() => {}} onWritten={() => {}} />)
   const dialog = await screen.findByRole('dialog')
   await within(dialog).findByText('Cart total')
   return dialog
@@ -74,7 +74,7 @@ describe('the detail of a bead', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     const dialog = await show({ id: 'claude-31u.9' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }))
-    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/bead?db=.claude&id=claude-31u.9`)
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/bead?db=.team&id=claude-31u.9`)
     expect(await within(dialog).findByRole('button', { name: 'Link copied' })).toBeInTheDocument()
   })
   it('shows how many open beads the bead waits on, and their ids, whatever its own status', async () => {

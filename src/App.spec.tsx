@@ -25,13 +25,13 @@ beforeEach(() => {
   answers = {
     '/api/databases': json({
       databases: [
-        { name: '.claude', path: '/home/me/.claude' },
+        { name: '.team', path: '/home/me/.team' },
         { name: 'win', path: '/mnt/c/x', refused: 'Use a WSL path: the /mnt/c clone has a store that diverged.' },
       ],
       spawn: true,
     }),
-    '/api/beads?db=.claude': json({ beads, readyIds: ['t-1', 't-4'] }),
-    '/api/beads/t-1?db=.claude': json({
+    '/api/beads?db=.team': json({ beads, readyIds: ['t-1', 't-4'] }),
+    '/api/beads/t-1?db=.team': json({
       ...beads[1],
       description: 'Show the total of the cart.',
       notes: '2026-10-14 started',
@@ -82,12 +82,12 @@ describe('the beadoo page', () => {
     expect(within(column('Open')).queryByText('Pay button')).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Closed' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'In progress' })).not.toBeInTheDocument()
-    expect(window.location.search).toContain('db=.claude')
+    expect(window.location.search).toContain('db=.team')
     expect(window.location.search).toContain('status=ready')
   })
 
   it('lists the epics with the count of their children for each status', async () => {
-    window.history.replaceState(null, '', '/?db=.claude&status=all')
+    window.history.replaceState(null, '', '/?db=.team&status=all')
     render(<App />)
     const epics = await screen.findByRole('navigation', { name: 'Epics' })
     expect(within(epics).getByRole('button', { name: /Checkout.*2 Open · 1 Closed/ })).toBeInTheDocument()
@@ -96,7 +96,7 @@ describe('the beadoo page', () => {
 
   describe('the epic board and the filters', () => {
     beforeEach(() => {
-      answers['/api/beads?db=.claude'] = json({
+      answers['/api/beads?db=.team'] = json({
         beads: [
           { id: 'e-0', title: 'Old search', status: 'open', issue_type: 'epic', priority: 0 },
           { id: 't-0', title: 'Search index', status: 'closed', parent: 'e-0' },
@@ -116,7 +116,7 @@ describe('the beadoo page', () => {
     })
 
     it('lists only the epics with a child whose title holds the text that the user typed', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&status=all&q=logo')
+      window.history.replaceState(null, '', '/?db=.team&status=all&q=logo')
       render(<App />)
       const epics = await screen.findByRole('navigation', { name: 'Epics' })
       expect(within(epics).getAllByRole('button').map((button) => button.textContent)).toEqual(['No epic1 Open'])
@@ -124,7 +124,7 @@ describe('the beadoo page', () => {
     })
 
     it('selects the first listed epic when the filters remove the selected epic', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&status=closed&epic=e-0')
+      window.history.replaceState(null, '', '/?db=.team&status=closed&epic=e-0')
       render(<App />)
       expect(await screen.findByText('Search index')).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
@@ -134,7 +134,7 @@ describe('the beadoo page', () => {
     })
 
     it('tells the user when no bead matches the filters, and shows no empty column', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&q=nothing-like-this')
+      window.history.replaceState(null, '', '/?db=.team&q=nothing-like-this')
       render(<App />)
       expect(await screen.findByText('No bead matches the filters.')).toBeInTheDocument()
       expect(screen.queryByRole('region')).not.toBeInTheDocument()
@@ -150,14 +150,14 @@ describe('the beadoo page', () => {
   })
 
   it('shows on each epic lane the count of the closed children over all the children, also under the ready filter', async () => {
-    window.history.replaceState(null, '', '/?db=.claude&view=lanes')
+    window.history.replaceState(null, '', '/?db=.team&view=lanes')
     render(<App />)
     const lane = await screen.findByRole('region', { name: 'Checkout' })
     expect(within(lane).getByRole('progressbar', { name: 'Checkout: 1/3 children closed' })).toBeInTheDocument()
   })
 
   it('marks only the ready beads, and the ready filter shows only them', async () => {
-    window.history.replaceState(null, '', '/?db=.claude&status=all')
+    window.history.replaceState(null, '', '/?db=.team&status=all')
     render(<App />)
     const cart = await screen.findByRole('button', { name: 't-1 Cart total' })
     expect(within(cart).getByText('ready')).toBeInTheDocument()
@@ -168,13 +168,13 @@ describe('the beadoo page', () => {
   })
 
   it('shows an open bead that waits on an open bead in the blocked column, with the id of its blocker', async () => {
-    answers['/api/beads?db=.claude'] = json({
+    answers['/api/beads?db=.team'] = json({
       beads: beads.map((bead) =>
         bead.id === 't-2' ? { ...bead, dependencies: [{ issue_id: 't-2', depends_on_id: 't-1', type: 'blocks' }] } : bead,
       ),
       readyIds: ['t-1', 't-4'],
     })
-    window.history.replaceState(null, '', '/?db=.claude&status=all')
+    window.history.replaceState(null, '', '/?db=.team&status=all')
     render(<App />)
     const card = await within(await screen.findByRole('region', { name: 'Blocked' })).findByRole('button', { name: 't-2 Pay button' })
     expect(card).toHaveTextContent('waits on 1: 1')
@@ -190,7 +190,7 @@ describe('the beadoo page', () => {
   })
 
   it('shows the children of a parent that is not an epic on the board of that parent', async () => {
-    answers['/api/beads?db=.claude'] = json({
+    answers['/api/beads?db=.team'] = json({
       beads: [
         ...beads,
         { id: 'c-1', title: 'Tidy the repo', status: 'closed', issue_type: 'chore' },
@@ -198,7 +198,7 @@ describe('the beadoo page', () => {
       ],
       readyIds: ['t-1', 't-4'],
     })
-    window.history.replaceState(null, '', '/?db=.claude&status=all')
+    window.history.replaceState(null, '', '/?db=.team&status=all')
     render(<App />)
     const epics = await screen.findByRole('navigation', { name: 'Epics' })
     await userEvent.click(within(epics).getByRole('button', { name: /Tidy the repo/ }))
@@ -206,7 +206,7 @@ describe('the beadoo page', () => {
   })
 
   it('shows the ready child of a closed epic with the default filter', async () => {
-    answers['/api/beads?db=.claude'] = json({
+    answers['/api/beads?db=.team'] = json({
       beads: [
         { id: 'e-2', title: 'Old search', status: 'closed', issue_type: 'epic' },
         { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' },
@@ -239,16 +239,16 @@ describe('the beadoo page', () => {
   })
 
   it('gives the detail of a bead a link to the page of that bead', async () => {
-    window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+    window.history.replaceState(null, '', '/?db=.team&bead=t-1')
     render(<App />)
     const dialog = await screen.findByRole('dialog')
     const link = within(dialog).getByRole('link', { name: 'Open t-1 as a page' })
-    expect(link).toHaveAttribute('href', '/bead?db=.claude&id=t-1')
+    expect(link).toHaveAttribute('href', '/bead?db=.team&id=t-1')
     expect(link).toHaveAttribute('target', '_blank')
   })
 
   it('shows the parent of a bead in the detail when the user clicks the parent link', async () => {
-    window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+    window.history.replaceState(null, '', '/?db=.team&bead=t-1')
     render(<App />)
     const dialog = await screen.findByRole('dialog')
     await userEvent.click(await within(dialog).findByRole('link', { name: '1' }))
@@ -258,11 +258,11 @@ describe('the beadoo page', () => {
 
   describe('the children of a bead', () => {
     beforeEach(() => {
-      answers['/api/beads/e-1?db=.claude'] = json({ ...beads[0], description: 'Pay for the cart.' })
+      answers['/api/beads/e-1?db=.team'] = json({ ...beads[0], description: 'Pay for the cart.' })
     })
 
     it('lists a link to each child of a bead in its detail', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&bead=e-1')
+      window.history.replaceState(null, '', '/?db=.team&bead=e-1')
       render(<App />)
       const dialog = await screen.findByRole('dialog')
       const children = await within(dialog).findByRole('list', { name: 'Children' })
@@ -271,11 +271,11 @@ describe('the beadoo page', () => {
         '1Cart total📋Open',
         '3Receipt mail✅Closed',
       ])
-      expect(within(children).getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.claude&id=t-1')
+      expect(within(children).getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.team&id=t-1')
     })
 
     it('opens the child in the detail when the user clicks its link', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&bead=e-1')
+      window.history.replaceState(null, '', '/?db=.team&bead=e-1')
       render(<App />)
       const dialog = await screen.findByRole('dialog')
       const children = await within(dialog).findByRole('list', { name: 'Children' })
@@ -285,7 +285,7 @@ describe('the beadoo page', () => {
     })
 
     it('shows no list of children for a bead that has no child', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      window.history.replaceState(null, '', '/?db=.team&bead=t-1')
       render(<App />)
       const dialog = await screen.findByRole('dialog')
       await within(dialog).findByText('Show the total of the cart.')
@@ -293,16 +293,16 @@ describe('the beadoo page', () => {
     })
 
     it('lists the children on the page of the bead, with links to their pages', async () => {
-      window.history.replaceState(null, '', '/bead?db=.claude&id=e-1')
+      window.history.replaceState(null, '', '/bead?db=.team&id=e-1')
       render(<App />)
       const children = await screen.findByRole('list', { name: 'Children' })
-      expect(within(children).getByRole('link', { name: '2' })).toHaveAttribute('href', '/bead?db=.claude&id=t-2')
+      expect(within(children).getByRole('link', { name: '2' })).toHaveAttribute('href', '/bead?db=.team&id=t-2')
     })
   })
 
   describe('the dependency links of a bead', () => {
     beforeEach(() => {
-      answers['/api/beads?db=.claude'] = json({
+      answers['/api/beads?db=.team'] = json({
         beads: [
           beads[0],
           { ...beads[1], dependencies: [{ issue_id: 't-1', depends_on_id: 't-2', type: 'blocks' }] },
@@ -312,7 +312,7 @@ describe('the beadoo page', () => {
         ],
         readyIds: ['t-1', 't-4'],
       })
-      answers['/api/beads/t-2?db=.claude'] = json({
+      answers['/api/beads/t-2?db=.team'] = json({
         ...beads[2],
         dependencies: [
           { id: 'e-1', dependency_type: 'parent-child' },
@@ -322,7 +322,7 @@ describe('the beadoo page', () => {
     })
 
     it('lists the beads that block a bead and the beads that it blocks, with the type of each link', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      window.history.replaceState(null, '', '/?db=.team&bead=t-1')
       render(<App />)
       const dialog = await screen.findByRole('dialog')
       const dependencies = await within(dialog).findByRole('list', { name: 'Dependencies' })
@@ -338,20 +338,20 @@ describe('the beadoo page', () => {
         'blocks4Fix the logo📋Open',
       ])
       expect(within(dialog).getByRole('list', { name: 'Dependencies' })).toHaveTextContent('relates to3Receipt mail✅Closed')
-      expect(within(dependents).getByRole('link', { name: '4' })).toHaveAttribute('href', '/bead?db=.claude&id=t-4')
+      expect(within(dependents).getByRole('link', { name: '4' })).toHaveAttribute('href', '/bead?db=.team&id=t-4')
     })
 
     it('shows the dependency links on the page of the bead', async () => {
-      window.history.replaceState(null, '', '/bead?db=.claude&id=t-2')
+      window.history.replaceState(null, '', '/bead?db=.team&id=t-2')
       render(<App />)
       const dependents = await screen.findByRole('list', { name: 'Dependents' })
-      expect(within(dependents).getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.claude&id=t-1')
+      expect(within(dependents).getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.team&id=t-1')
     })
   })
 
   describe('the page of one bead', () => {
     beforeEach(() => {
-      window.history.replaceState(null, '', '/bead?db=.claude&id=t-1')
+      window.history.replaceState(null, '', '/bead?db=.team&id=t-1')
     })
 
     it('shows the bead as a full page when the user opens the address of the bead', async () => {
@@ -367,32 +367,32 @@ describe('the beadoo page', () => {
       render(<App />)
       await screen.findByText('Show the total of the cart.')
       expect(window.location.pathname).toBe('/bead')
-      expect(window.location.search).toBe('?db=.claude&id=t-1')
-      expect(calls).toContain('/api/beads/t-1?db=.claude')
+      expect(window.location.search).toBe('?db=.team&id=t-1')
+      expect(calls).toContain('/api/beads/t-1?db=.team')
     })
 
     it('links the other beads to their own pages and links back to the board', async () => {
       render(<App />)
       await screen.findByText('Show the total of the cart.')
-      expect(screen.getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.claude&id=e-1')
-      expect(screen.getByRole('link', { name: 'beadoo' })).toHaveAttribute('href', '/?db=.claude')
+      expect(screen.getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.team&id=e-1')
+      expect(screen.getByRole('link', { name: 'beadoo' })).toHaveAttribute('href', '/?db=.team')
     })
 
     it('tells the user when the database has no bead with the id of the address', async () => {
-      window.history.replaceState(null, '', '/bead?db=.claude&id=t-9')
+      window.history.replaceState(null, '', '/bead?db=.team&id=t-9')
       render(<App />)
       expect(await screen.findByText('Not found')).toBeInTheDocument()
     })
   })
 
   it('opens the bead that the link names', async () => {
-    window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+    window.history.replaceState(null, '', '/?db=.team&bead=t-1')
     render(<App />)
     expect(await screen.findByText('Show the total of the cart.')).toBeInTheDocument()
   })
 
   it('reports a store that did not open instead of an empty board', async () => {
-    answers['/api/beads?db=.claude'] = json(
+    answers['/api/beads?db=.team'] = json(
       { error: 'bd list gave no bead: the store did not open', code: 'STORE_NOT_OPEN' },
       503,
     )
@@ -411,7 +411,7 @@ describe('the beadoo page', () => {
   it('keeps the last beads and shows an alert when a refresh fails', async () => {
     render(<App />)
     await screen.findByText('Cart total')
-    answers['/api/beads?db=.claude'] = json({ error: 'bd timed out' }, 500)
+    answers['/api/beads?db=.team'] = json({ error: 'bd timed out' }, 500)
     await userEvent.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(await screen.findByText('bd timed out')).toBeInTheDocument()
     expect(screen.getByText('Cart total')).toBeInTheDocument()
@@ -430,7 +430,7 @@ describe('the beadoo page', () => {
 
   it('shows the filters of the link and not the last filters of the user when the user opens a link', async () => {
     window.localStorage.setItem('beadoo:filters', JSON.stringify({ status: 'all', text: 'zzzqqq', labels: ['front'], type: 'bug', priority: 2 }))
-    window.history.replaceState(null, '', '/?view=lanes&db=.claude&status=ready')
+    window.history.replaceState(null, '', '/?view=lanes&db=.team&status=ready')
     render(<App />)
     expect(await screen.findByText('Cart total')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Find in the titles' })).toHaveValue('')
@@ -448,11 +448,11 @@ describe('the beadoo page', () => {
   })
 
   it('shows the open and the in progress beads together when the user selects both', async () => {
-    answers['/api/beads?db=.claude'] = json({
+    answers['/api/beads?db=.team'] = json({
       beads: [...beads, { id: 't-5', title: 'Ship it', status: 'in_progress', parent: 'e-1' }],
       readyIds: ['t-1', 't-4'],
     })
-    window.history.replaceState(null, '', '/?db=.claude&view=lanes')
+    window.history.replaceState(null, '', '/?db=.team&view=lanes')
     render(<App />)
     await screen.findByText('Cart total')
     await userEvent.click(screen.getByRole('button', { name: 'Open' }))
@@ -470,7 +470,7 @@ describe('the beadoo page', () => {
   })
 
   it('shows in the lanes only the columns of the statuses that the user selected', async () => {
-    window.history.replaceState(null, '', '/?db=.claude&view=lanes&status=open&status=closed')
+    window.history.replaceState(null, '', '/?db=.team&view=lanes&status=open&status=closed')
     render(<App />)
     const checkout = await screen.findByRole('region', { name: 'Checkout' })
     expect(within(checkout).getAllByRole('group').map((cell) => cell.getAttribute('aria-label'))).toEqual([
@@ -480,7 +480,7 @@ describe('the beadoo page', () => {
   })
 
   it('opens an old link that holds one status', async () => {
-    window.history.replaceState(null, '', '/?db=.claude&view=lanes&status=closed')
+    window.history.replaceState(null, '', '/?db=.team&view=lanes&status=closed')
     render(<App />)
     expect(await screen.findByText('Receipt mail')).toBeInTheDocument()
     expect(screen.queryByText('Cart total')).not.toBeInTheDocument()
@@ -532,7 +532,7 @@ describe('the beadoo page', () => {
 
     describe('the label, type and priority filters', () => {
       beforeEach(() => {
-        answers['/api/beads?db=.claude'] = json({
+        answers['/api/beads?db=.team'] = json({
           beads: [
             beads[0],
             { ...beads[1], labels: ['front', 'urgent'] },
@@ -547,7 +547,7 @@ describe('the beadoo page', () => {
       const select = (name: string) => screen.getByRole('combobox', { name })
 
       it('shows the same beads in the three views when the user selects labels and a type', async () => {
-        window.history.replaceState(null, '', '/?db=.claude&status=all')
+        window.history.replaceState(null, '', '/?db=.team&status=all')
         render(<App />)
         await screen.findByText('Cart total')
         await userEvent.selectOptions(select('Label filter'), 'front')
@@ -564,7 +564,7 @@ describe('the beadoo page', () => {
       })
 
       it('shows a bead again when the user removes a label filter that the bead does not hold', async () => {
-        window.history.replaceState(null, '', '/?db=.claude&status=all&view=lanes&label=front&label=urgent')
+        window.history.replaceState(null, '', '/?db=.team&status=all&view=lanes&label=front&label=urgent')
         render(<App />)
         await screen.findByText('Cart total')
         expect(screen.queryByText('Pay button')).not.toBeInTheDocument()
@@ -603,7 +603,7 @@ describe('the beadoo page', () => {
       })
 
       it('opens the page with the label, type and priority filters that the link names', async () => {
-        window.history.replaceState(null, '', '/?db=.claude&status=all&view=table&label=urgent&type=bug&priority=2')
+        window.history.replaceState(null, '', '/?db=.team&status=all&view=table&label=urgent&type=bug&priority=2')
         render(<App />)
         const table = await screen.findByRole('table', { name: 'Beads by epic' })
         expect(cardNames(table)).toEqual(['t-4 Fix the logo'])
@@ -614,7 +614,7 @@ describe('the beadoo page', () => {
     })
 
     it('shows one lane for each epic and one column for each status in the lanes view', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&status=all&view=lanes')
+      window.history.replaceState(null, '', '/?db=.team&status=all&view=lanes')
       render(<App />)
       const checkout = await screen.findByRole('region', { name: 'Checkout' })
       expect(within(checkout).getByText('3 beads')).toBeInTheDocument()
@@ -625,7 +625,7 @@ describe('the beadoo page', () => {
     })
 
     it('shows a table grouped by epic, with a status bar that counts the children of each epic', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&view=table')
+      window.history.replaceState(null, '', '/?db=.team&view=table')
       render(<App />)
       const checkout = await screen.findByRole('rowgroup', { name: 'Checkout' })
       expect(within(checkout).getByRole('img', { name: 'Checkout: 2 Open · 1 Closed' })).toBeInTheDocument()
@@ -637,7 +637,7 @@ describe('the beadoo page', () => {
     })
 
     it('shows the title row of each epic across all the columns of the table', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&view=table')
+      window.history.replaceState(null, '', '/?db=.team&view=table')
       render(<App />)
       const table = await screen.findByRole('table', { name: 'Beads by epic' })
       const columns = within(table).getAllByRole('columnheader').length
@@ -647,7 +647,7 @@ describe('the beadoo page', () => {
     })
 
     it('leaves out of the lanes and of the table an epic with no bead that matches the filters', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&view=table&q=logo')
+      window.history.replaceState(null, '', '/?db=.team&view=table&q=logo')
       render(<App />)
       expect(await screen.findByRole('rowgroup', { name: 'No epic' })).toBeInTheDocument()
       expect(screen.queryByRole('rowgroup', { name: 'Checkout' })).not.toBeInTheDocument()
@@ -657,7 +657,7 @@ describe('the beadoo page', () => {
     })
 
     it('opens the epic board on the first epic of the lanes view', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&view=lanes&q=logo')
+      window.history.replaceState(null, '', '/?db=.team&view=lanes&q=logo')
       render(<App />)
       const [firstLane] = await screen.findAllByRole('region', { name: /./ })
       expect(firstLane).toHaveAccessibleName('No epic')
@@ -668,7 +668,7 @@ describe('the beadoo page', () => {
     })
 
     it('tells the user when no bead matches the filters', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&view=lanes&q=nothing-like-this')
+      window.history.replaceState(null, '', '/?db=.team&view=lanes&q=nothing-like-this')
       render(<App />)
       expect(await screen.findByText('No bead matches the filters.')).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Table' }))
@@ -676,7 +676,7 @@ describe('the beadoo page', () => {
     })
 
     it('opens the detail of a bead from a lane card and from a table row', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&view=lanes')
+      window.history.replaceState(null, '', '/?db=.team&view=lanes')
       render(<App />)
       await userEvent.click(await screen.findByRole('button', { name: 't-1 Cart total' }))
       expect(await within(await screen.findByRole('dialog')).findByText('Show the total of the cart.')).toBeInTheDocument()
@@ -727,12 +727,12 @@ describe('the beadoo page', () => {
     beforeEach(() => {
       vi.useFakeTimers({ shouldAdvanceTime: true })
       vi.setSystemTime(now)
-      answers['/api/beads?db=.claude'] = json({ beads: [...beads, claimed], readyIds: ['t-1', 't-4'] })
-      answers['/api/beads/t-5?db=.claude'] = json(claimed)
+      answers['/api/beads?db=.team'] = json({ beads: [...beads, claimed], readyIds: ['t-1', 't-4'] })
+      answers['/api/beads/t-5?db=.team'] = json(claimed)
     })
 
     it('shows on the card that the claim lease of a bead expired', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&status=all')
+      window.history.replaceState(null, '', '/?db=.team&status=all')
       render(<App />)
       const card = await screen.findByRole('button', { name: 't-5 Ship the order' })
       expect(within(card).getByText('lease expired at 23:31')).toBeInTheDocument()
@@ -740,7 +740,7 @@ describe('the beadoo page', () => {
     })
 
     it('shows the lease and the last heartbeat in the detail of a claimed bead', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&status=all&bead=t-5')
+      window.history.replaceState(null, '', '/?db=.team&status=all&bead=t-5')
       render(<App />)
       const dialog = await screen.findByRole('dialog')
       expect(await within(dialog).findByText('lease expired at 23:31')).toBeInTheDocument()
@@ -757,7 +757,7 @@ describe('the beadoo page', () => {
       terminal: 'term_7',
     }
 
-    const MAIN = '/home/me/.claude'
+    const MAIN = '/home/me/.team'
     const EPIC = '/home/me/wt/e-1'
     const OTHER = '/home/me/wt/t-9'
 
@@ -768,13 +768,13 @@ describe('the beadoo page', () => {
     ]
 
     beforeEach(() => {
-      answers['/api/actor?db=.claude'] = json({ actor: 'Ann' })
-      answers['/api/beads/t-1/spawn-choices?db=.claude'] = json({ repo: MAIN, worktrees })
+      answers['/api/actor?db=.team'] = json({ actor: 'Ann' })
+      answers['/api/beads/t-1/spawn-choices?db=.team'] = json({ repo: MAIN, worktrees })
     })
 
     withPageToken()
 
-    const openDetail = async (search = '/?db=.claude&bead=t-1') => {
+    const openDetail = async (search = '/?db=.team&bead=t-1') => {
       window.history.replaceState(null, '', search)
       render(<App />)
       return screen.findByRole('dialog')
@@ -788,7 +788,7 @@ describe('the beadoo page', () => {
     }
 
     it('shows no spawn button when Orca is not on the PATH of the server', async () => {
-      answers['/api/databases'] = json({ databases: [{ name: '.claude', path: MAIN }], spawn: false })
+      answers['/api/databases'] = json({ databases: [{ name: '.team', path: MAIN }], spawn: false })
       const panel = await openDetail()
       expect(await within(panel).findByRole('button', { name: 'Claim' })).toBeInTheDocument()
       expect(within(panel).queryByRole('button', { name: 'Spawn' })).not.toBeInTheDocument()
@@ -813,7 +813,7 @@ describe('the beadoo page', () => {
     })
 
     it('proposes a child of the epic worktree in plan mode when the epic already has a worktree', async () => {
-      answers['/api/beads/t-1/spawn-choices?db=.claude'] = json({ repo: MAIN, worktrees, epic: { id: 'e-1', path: EPIC } })
+      answers['/api/beads/t-1/spawn-choices?db=.team'] = json({ repo: MAIN, worktrees, epic: { id: 'e-1', path: EPIC } })
       const modal = await openSpawn(await openDetail())
       expect(within(modal).getByRole('radio', { name: 'A child of a worktree' })).toBeChecked()
       expect(within(modal).getByLabelText('Parent worktree')).toHaveValue(EPIC)
@@ -822,7 +822,7 @@ describe('the beadoo page', () => {
     })
 
     it('claims the bead and starts a session, then shows the worktree, the branch and the terminal', async () => {
-      answers['POST /api/beads/t-1/spawn?db=.claude'] = json(session)
+      answers['POST /api/beads/t-1/spawn?db=.team'] = json(session)
       const panel = await openDetail()
       const modal = await openSpawn(panel)
       await userEvent.click(within(modal).getByRole('button', { name: 'Claim and spawn' }))
@@ -832,12 +832,12 @@ describe('the beadoo page', () => {
       expect(within(panel).getByText('term_7')).toBeInTheDocument()
       expect(within(panel).getByText('In progress')).toBeInTheDocument()
       await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Spawn a session on t-1' })).not.toBeInTheDocument())
-      expect(writes).toEqual([{ path: '/api/beads/t-1/spawn?db=.claude', token: 'page-token' }])
+      expect(writes).toEqual([{ path: '/api/beads/t-1/spawn?db=.team', token: 'page-token' }])
       expect(spawnBody()).toEqual({ kind: 'new', location: 'worktree', mode: 'plan', branch: 'feat/1-cart-total' })
     })
 
     it('starts the session on the branch that the user typed', async () => {
-      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, branch: 'fix/cart-total' })
+      answers['POST /api/beads/t-1/spawn?db=.team'] = json({ ...session, branch: 'fix/cart-total' })
       const panel = await openDetail()
       const modal = await openSpawn(panel)
       const branch = within(modal).getByLabelText('Branch of the session')
@@ -858,7 +858,7 @@ describe('the beadoo page', () => {
     })
 
     it('starts the session in an existing worktree that the user chose, in the mode that the user chose', async () => {
-      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, path: EPIC, kind: 'existing', mode: 'acceptEdits' })
+      answers['POST /api/beads/t-1/spawn?db=.team'] = json({ ...session, path: EPIC, kind: 'existing', mode: 'acceptEdits' })
       const panel = await openDetail()
       const modal = await openSpawn(panel)
       await userEvent.click(within(modal).getByRole('radio', { name: 'An existing worktree' }))
@@ -888,7 +888,7 @@ describe('the beadoo page', () => {
     })
 
     it('asks the user to confirm a session with no worktree before the start', async () => {
-      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, path: MAIN, kind: 'none' })
+      answers['POST /api/beads/t-1/spawn?db=.team'] = json({ ...session, path: MAIN, kind: 'none' })
       const panel = await openDetail()
       const modal = await openSpawn(panel)
       await userEvent.click(within(modal).getByRole('radio', { name: 'No worktree' }))
@@ -909,7 +909,7 @@ describe('the beadoo page', () => {
     })
 
     it('proposes the kind, the location and the mode of the last spawn when the user opens the window again', async () => {
-      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, path: EPIC, kind: 'existing', mode: 'default' })
+      answers['POST /api/beads/t-1/spawn?db=.team'] = json({ ...session, path: EPIC, kind: 'existing', mode: 'default' })
       const panel = await openDetail()
       const modal = await openSpawn(panel)
       await userEvent.click(within(modal).getByRole('radio', { name: 'An existing worktree' }))
@@ -923,14 +923,14 @@ describe('the beadoo page', () => {
     })
 
     it('tells the user when the page cannot list the worktrees of the repo', async () => {
-      answers['/api/beads/t-1/spawn-choices?db=.claude'] = json({ repo: MAIN, worktrees: [], problem: 'orca repo list failed: Orca is not running' })
+      answers['/api/beads/t-1/spawn-choices?db=.team'] = json({ repo: MAIN, worktrees: [], problem: 'orca repo list failed: Orca is not running' })
       const modal = await openSpawn(await openDetail())
       expect(within(modal).getByText('The page could not list the worktrees')).toBeInTheDocument()
       expect(within(modal).getByText(/Orca is not running/)).toBeInTheDocument()
     })
 
     it('tells the user why the session did not start', async () => {
-      answers['POST /api/beads/t-1/spawn?db=.claude'] = json(
+      answers['POST /api/beads/t-1/spawn?db=.team'] = json(
         { error: 'orca terminal create failed: Timed out\nThe bead t-1 is open again.', code: 'SPAWN_FAILED' },
         502,
       )
@@ -941,41 +941,41 @@ describe('the beadoo page', () => {
     })
 
     it('shows the bead as the database holds it after a start that failed', async () => {
-      answers['POST /api/beads/t-1/spawn?db=.claude'] = json(
+      answers['POST /api/beads/t-1/spawn?db=.team'] = json(
         { error: 'orca terminal create failed: Timed out\nThe page could not give the bead t-1 back: database is locked.', code: 'SPAWN_FAILED' },
         502,
       )
       const panel = await openDetail()
       const modal = await openSpawn(panel)
-      answers['/api/beads/t-1?db=.claude'] = json({ ...beads[1], status: 'in_progress', assignee: 'Ann' })
+      answers['/api/beads/t-1?db=.team'] = json({ ...beads[1], status: 'in_progress', assignee: 'Ann' })
       await userEvent.click(within(modal).getByRole('button', { name: 'Claim and spawn' }))
       expect(await within(panel).findByText('The page could not start a session')).toBeInTheDocument()
       expect(await within(panel).findByText('In progress')).toBeInTheDocument()
     })
 
     it('shows the warning when the session runs but the page could not note its start', async () => {
-      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({ ...session, warning: 'The session runs, but the page could not write the note of the start' })
+      answers['POST /api/beads/t-1/spawn?db=.team'] = json({ ...session, warning: 'The session runs, but the page could not write the note of the start' })
       const panel = await openDetail()
       await userEvent.click(within(await openSpawn(panel)).getByRole('button', { name: 'Claim and spawn' }))
       expect(await within(panel).findByText(/could not write the note of the start/)).toBeInTheDocument()
     })
 
     it('does not offer to start a session on a bead that another actor holds', async () => {
-      answers['/api/beads/t-1?db=.claude'] = json({ ...beads[1], status: 'in_progress', assignee: 'Bob' })
+      answers['/api/beads/t-1?db=.team'] = json({ ...beads[1], status: 'in_progress', assignee: 'Bob' })
       const panel = await openDetail()
       await within(panel).findByText('Bob')
       expect(within(panel).queryByRole('button', { name: 'Spawn' })).not.toBeInTheDocument()
     })
 
     it('tells the user that the worktree stays after the release of the claim', async () => {
-      answers['/api/beads/t-1?db=.claude'] = json(session.bead)
-      answers['POST /api/beads/t-1/unclaim?db=.claude'] = json({ ...session.bead, status: 'open', assignee: undefined })
+      answers['/api/beads/t-1?db=.team'] = json(session.bead)
+      answers['POST /api/beads/t-1/unclaim?db=.team'] = json({ ...session.bead, status: 'open', assignee: undefined })
       const panel = await openDetail()
       await userEvent.click(await within(panel).findByRole('button', { name: 'Unclaim' }))
       expect(await within(panel).findByText('The worktree of the session stays')).toBeInTheDocument()
       expect(within(panel).getByText('/home/me/wt/t-1')).toBeInTheDocument()
       expect(within(panel).getByText(/Remove it in Orca, or with git worktree remove/)).toBeInTheDocument()
-      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/unclaim?db=.claude'])
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/unclaim?db=.team'])
     })
   })
 
@@ -983,9 +983,9 @@ describe('the beadoo page', () => {
     const claimed = { ...beads[1], status: 'in_progress', assignee: 'Ann' }
 
     beforeEach(() => {
-      answers['/api/actor?db=.claude'] = json({ actor: 'Ann' })
-      answers['POST /api/beads/t-1/claim?db=.claude'] = json(claimed)
-      answers['/api/beads/t-1/spawn-choices?db=.claude'] = json({ repo: '/home/me/.claude', worktrees: [] })
+      answers['/api/actor?db=.team'] = json({ actor: 'Ann' })
+      answers['POST /api/beads/t-1/claim?db=.team'] = json(claimed)
+      answers['/api/beads/t-1/spawn-choices?db=.team'] = json({ repo: '/home/me/.team', worktrees: [] })
     })
 
     withPageToken()
@@ -995,25 +995,25 @@ describe('the beadoo page', () => {
     const reads = () => calls.filter((call) => call.startsWith('/api/beads?')).length
 
     it.each([
-      ['the epic board', '/?db=.claude&status=all&view=epic'],
-      ['the lanes', '/?db=.claude&status=all&view=lanes'],
-      ['the table', '/?db=.claude&status=all&view=table'],
+      ['the epic board', '/?db=.team&status=all&view=epic'],
+      ['the lanes', '/?db=.team&status=all&view=lanes'],
+      ['the table', '/?db=.team&status=all&view=table'],
     ])('claims a bead from its card in %s, and does not open the detail of the bead', async (_view, search) => {
       window.history.replaceState(null, '', search)
       render(<App />)
       await userEvent.click(within(await actionsOf('t-1')).getByRole('button', { name: 'Claim' }))
       await waitFor(() => expect(reads()).toBe(2))
-      expect(writes).toEqual([{ path: '/api/beads/t-1/claim?db=.claude', token: 'page-token' }])
+      expect(writes).toEqual([{ path: '/api/beads/t-1/claim?db=.team', token: 'page-token' }])
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(window.location.search).not.toContain('bead=')
     })
 
     it.each([
-      ['the epic board', '/?db=.claude&status=all&view=epic'],
-      ['the lanes', '/?db=.claude&status=all&view=lanes'],
-      ['the table', '/?db=.claude&status=all&view=table'],
+      ['the epic board', '/?db=.team&status=all&view=epic'],
+      ['the lanes', '/?db=.team&status=all&view=lanes'],
+      ['the table', '/?db=.team&status=all&view=table'],
     ])('starts a session from the card in %s through the spawn window', async (_view, search) => {
-      answers['POST /api/beads/t-1/spawn?db=.claude'] = json({
+      answers['POST /api/beads/t-1/spawn?db=.team'] = json({
         bead: claimed,
         worktree: 'repo::/home/me/wt/t-1',
         path: '/home/me/wt/t-1',
@@ -1028,16 +1028,16 @@ describe('the beadoo page', () => {
       const result = await screen.findByRole('region', { name: 'Result on t-1' })
       expect(await within(result).findByText('A session started on the bead')).toBeInTheDocument()
       expect(within(result).getByText('term_7')).toBeInTheDocument()
-      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/spawn?db=.claude'])
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/spawn?db=.team'])
       expect(window.location.search).not.toContain('bead=')
     })
 
     it('offers to renew and to release a bead of the current actor on its card, and no action on a bead of another actor or a closed bead', async () => {
-      answers['/api/beads?db=.claude'] = json({
+      answers['/api/beads?db=.team'] = json({
         beads: [...beads, { ...claimed, id: 't-5', title: 'Ship the order' }, { ...claimed, id: 't-6', title: 'Mail the bill', assignee: 'Bob' }],
         readyIds: ['t-1', 't-4'],
       })
-      window.history.replaceState(null, '', '/?db=.claude&status=all&view=epic')
+      window.history.replaceState(null, '', '/?db=.team&status=all&view=epic')
       render(<App />)
       const mine = await actionsOf('t-5')
       expect(within(mine).getByRole('button', { name: 'Renew' })).toBeInTheDocument()
@@ -1048,8 +1048,8 @@ describe('the beadoo page', () => {
     })
 
     it('tells the user why the claim from a card failed', async () => {
-      answers['POST /api/beads/t-1/claim?db=.claude'] = json({ error: 'issue already claimed by Bob', code: 'CONFLICT' }, 409)
-      window.history.replaceState(null, '', '/?db=.claude&status=all&view=lanes')
+      answers['POST /api/beads/t-1/claim?db=.team'] = json({ error: 'issue already claimed by Bob', code: 'CONFLICT' }, 409)
+      window.history.replaceState(null, '', '/?db=.team&status=all&view=lanes')
       render(<App />)
       await userEvent.click(within(await actionsOf('t-1')).getByRole('button', { name: 'Claim' }))
       const result = await screen.findByRole('region', { name: 'Result on t-1' })
@@ -1061,9 +1061,9 @@ describe('the beadoo page', () => {
 
     it('tells the user that the worktree stays after the release of a claim from a card', async () => {
       const started = { ...claimed, notes: 'started 2026-10-16 09:05 kind=new worktree=/home/me/wt/t-1 mode=plan' }
-      answers['/api/beads?db=.claude'] = json({ beads: [beads[0], started], readyIds: [] })
-      answers['POST /api/beads/t-1/unclaim?db=.claude'] = json({ ...started, status: 'open', assignee: undefined })
-      window.history.replaceState(null, '', '/?db=.claude&status=all&view=table')
+      answers['/api/beads?db=.team'] = json({ beads: [beads[0], started], readyIds: [] })
+      answers['POST /api/beads/t-1/unclaim?db=.team'] = json({ ...started, status: 'open', assignee: undefined })
+      window.history.replaceState(null, '', '/?db=.team&status=all&view=table')
       render(<App />)
       await userEvent.click(within(await actionsOf('t-1')).getByRole('button', { name: 'Unclaim' }))
       const result = await screen.findByRole('region', { name: 'Result on t-1' })
@@ -1084,7 +1084,7 @@ describe('the beadoo page', () => {
     beforeEach(() => {
       vi.useFakeTimers({ shouldAdvanceTime: true })
       vi.setSystemTime(new Date(2026, 9, 15, 10, 2))
-      answers['/api/actor?db=.claude'] = json({ actor: 'Ann' })
+      answers['/api/actor?db=.team'] = json({ actor: 'Ann' })
     })
 
     withPageToken()
@@ -1096,50 +1096,50 @@ describe('the beadoo page', () => {
     }
 
     it('claims a bead from its detail, shows the claim and reads the beads again', async () => {
-      answers['POST /api/beads/t-1/claim?db=.claude'] = json(mine)
-      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      answers['POST /api/beads/t-1/claim?db=.team'] = json(mine)
+      const dialog = await openDetail('/?db=.team&bead=t-1')
       const reads = () => calls.filter((call) => call.startsWith('/api/beads?')).length
       await waitFor(() => expect(reads()).toBe(1))
       await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim' }))
       expect(await within(dialog).findByText('In progress')).toBeInTheDocument()
       expect(within(dialog).getByText('Ann')).toBeInTheDocument()
       expect(within(dialog).getByText('lease until 10:05')).toBeInTheDocument()
-      expect(writes).toEqual([{ path: '/api/beads/t-1/claim?db=.claude', token: 'page-token' }])
+      expect(writes).toEqual([{ path: '/api/beads/t-1/claim?db=.team', token: 'page-token' }])
       await waitFor(() => expect(reads()).toBe(2))
     })
 
     it('offers to renew and to release a claim of the current actor, and not to claim it again', async () => {
-      answers['/api/beads/t-1?db=.claude'] = json(mine)
-      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      answers['/api/beads/t-1?db=.team'] = json(mine)
+      const dialog = await openDetail('/?db=.team&bead=t-1')
       expect(await within(dialog).findByRole('button', { name: 'Renew' })).toBeInTheDocument()
       expect(within(dialog).getByRole('button', { name: 'Unclaim' })).toBeInTheDocument()
       expect(within(dialog).queryByRole('button', { name: 'Claim' })).not.toBeInTheDocument()
     })
 
     it('renews the lease of a claim of the current actor and shows the new end of the lease', async () => {
-      answers['/api/beads/t-1?db=.claude'] = json(mine)
-      answers['POST /api/beads/t-1/renew?db=.claude'] = json({
+      answers['/api/beads/t-1?db=.team'] = json(mine)
+      answers['POST /api/beads/t-1/renew?db=.team'] = json({
         ...mine,
         lease_expires_at: new Date(2026, 9, 15, 10, 7).toISOString(),
       })
-      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      const dialog = await openDetail('/?db=.team&bead=t-1')
       await userEvent.click(await within(dialog).findByRole('button', { name: 'Renew' }))
       expect(await within(dialog).findByText('lease until 10:07')).toBeInTheDocument()
-      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/renew?db=.claude'])
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/renew?db=.team'])
     })
 
     it('releases a claim of the current actor', async () => {
-      answers['/api/beads/t-1?db=.claude'] = json(mine)
-      answers['POST /api/beads/t-1/unclaim?db=.claude'] = json({ ...beads[1], status: 'open' })
-      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      answers['/api/beads/t-1?db=.team'] = json(mine)
+      answers['POST /api/beads/t-1/unclaim?db=.team'] = json({ ...beads[1], status: 'open' })
+      const dialog = await openDetail('/?db=.team&bead=t-1')
       await userEvent.click(await within(dialog).findByRole('button', { name: 'Unclaim' }))
       expect(await within(dialog).findByRole('button', { name: 'Claim' })).toBeInTheDocument()
       expect(within(dialog).getByText('nobody')).toBeInTheDocument()
     })
 
     it('does not offer to renew or to release a claim of another actor', async () => {
-      answers['/api/beads/t-1?db=.claude'] = json({ ...mine, assignee: 'Bob' })
-      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      answers['/api/beads/t-1?db=.team'] = json({ ...mine, assignee: 'Bob' })
+      const dialog = await openDetail('/?db=.team&bead=t-1')
       await within(dialog).findByText('Bob')
       expect(within(dialog).queryByRole('button', { name: 'Renew' })).not.toBeInTheDocument()
       expect(within(dialog).queryByRole('button', { name: 'Unclaim' })).not.toBeInTheDocument()
@@ -1147,31 +1147,31 @@ describe('the beadoo page', () => {
     })
 
     it('does not offer to claim a closed bead', async () => {
-      answers['/api/beads/t-3?db=.claude'] = json(beads[3])
-      const dialog = await openDetail('/?db=.claude&status=all&bead=t-3')
+      answers['/api/beads/t-3?db=.team'] = json(beads[3])
+      const dialog = await openDetail('/?db=.team&status=all&bead=t-3')
       await within(dialog).findByText('Closed')
       expect(within(dialog).queryByRole('button', { name: 'Claim' })).not.toBeInTheDocument()
     })
 
     it('tells the user why the claim failed and shows the bead as the database has it', async () => {
-      answers['POST /api/beads/t-1/claim?db=.claude'] = json(
+      answers['POST /api/beads/t-1/claim?db=.team'] = json(
         { error: 'issue already claimed by Bob', code: 'CONFLICT' },
         409,
       )
-      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      const dialog = await openDetail('/?db=.team&bead=t-1')
       const claim = await within(dialog).findByRole('button', { name: 'Claim' })
-      answers['/api/beads/t-1?db=.claude'] = json({ ...mine, assignee: 'Bob' })
+      answers['/api/beads/t-1?db=.team'] = json({ ...mine, assignee: 'Bob' })
       await userEvent.click(claim)
       expect(await within(dialog).findByText('issue already claimed by Bob')).toBeInTheDocument()
       expect(await within(dialog).findByText('Bob')).toBeInTheDocument()
     })
 
     it('does not show the error of a failed claim again when the user opens the bead a second time', async () => {
-      answers['POST /api/beads/t-1/claim?db=.claude'] = json(
+      answers['POST /api/beads/t-1/claim?db=.team'] = json(
         { error: 'issue already claimed by Bob', code: 'CONFLICT' },
         409,
       )
-      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      const dialog = await openDetail('/?db=.team&bead=t-1')
       await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim' }))
       expect(await within(dialog).findByText('issue already claimed by Bob')).toBeInTheDocument()
       await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
@@ -1187,23 +1187,23 @@ describe('the beadoo page', () => {
       const epic = { ...beads[0], dependencies: [] }
 
       beforeEach(() => {
-        answers['/api/beads/e-1?db=.claude'] = json(epic)
-        answers['POST /api/beads/e-1/claim?db=.claude'] = json({ ...epic, status: 'in_progress', assignee: 'Ann' })
+        answers['/api/beads/e-1?db=.team'] = json(epic)
+        answers['POST /api/beads/e-1/claim?db=.team'] = json({ ...epic, status: 'in_progress', assignee: 'Ann' })
       })
 
       it('opens the epic from its board, and the user claims the epic from its detail', async () => {
-        window.history.replaceState(null, '', '/?db=.claude&view=epic')
+        window.history.replaceState(null, '', '/?db=.team&view=epic')
         render(<App />)
         await userEvent.click(await screen.findByRole('button', { name: 'Open the epic Checkout' }))
         const dialog = await screen.findByRole('dialog')
         await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim' }))
         expect(await within(dialog).findByText('In progress')).toBeInTheDocument()
         expect(within(dialog).getByText('Ann')).toBeInTheDocument()
-        expect(writes).toEqual([{ path: '/api/beads/e-1/claim?db=.claude', token: 'page-token' }])
+        expect(writes).toEqual([{ path: '/api/beads/e-1/claim?db=.team', token: 'page-token' }])
       })
 
       it('opens the epic from the table of the beads by epic', async () => {
-        window.history.replaceState(null, '', '/?db=.claude&view=table')
+        window.history.replaceState(null, '', '/?db=.team&view=table')
         render(<App />)
         const group = await screen.findByRole('rowgroup', { name: 'Checkout' })
         await userEvent.click(within(group).getByRole('button', { name: 'Open the epic Checkout' }))
@@ -1213,7 +1213,7 @@ describe('the beadoo page', () => {
       })
 
       it('does not offer to open an epic for the beads that have no epic', async () => {
-        window.history.replaceState(null, '', '/?db=.claude&view=table')
+        window.history.replaceState(null, '', '/?db=.team&view=table')
         render(<App />)
         const group = await screen.findByRole('rowgroup', { name: 'No epic' })
         expect(within(group).queryByRole('button', { name: /Open the epic/ })).not.toBeInTheDocument()
@@ -1221,11 +1221,11 @@ describe('the beadoo page', () => {
     })
 
     it('tells the user when the export file and the database do not hold the same count of beads', async () => {
-      answers['POST /api/beads/t-1/claim?db=.claude'] = json(
-        { error: 'The write is done, but /home/me/.claude/.beads/issues.jsonl holds 2 lines and bd list gives 3 beads.', code: 'EXPORT_MISMATCH' },
+      answers['POST /api/beads/t-1/claim?db=.team'] = json(
+        { error: 'The write is done, but /home/me/.team/.beads/issues.jsonl holds 2 lines and bd list gives 3 beads.', code: 'EXPORT_MISMATCH' },
         500,
       )
-      const dialog = await openDetail('/?db=.claude&bead=t-1')
+      const dialog = await openDetail('/?db=.team&bead=t-1')
       await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim' }))
       expect(await within(dialog).findByText(/holds 2 lines and bd list gives 3 beads/)).toBeInTheDocument()
     })
@@ -1233,8 +1233,8 @@ describe('the beadoo page', () => {
 
   describe('the edit of a bead from its detail', () => {
     it('saves the edit, shows the new values and reads the beads again', async () => {
-      answers['POST /api/beads/t-1/edit?db=.claude'] = json({ ...beads[1], title: 'Basket total', status: 'closed', close_reason: 'Shipped' })
-      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      answers['POST /api/beads/t-1/edit?db=.team'] = json({ ...beads[1], title: 'Basket total', status: 'closed', close_reason: 'Shipped' })
+      window.history.replaceState(null, '', '/?db=.team&bead=t-1')
       render(<App />)
       const dialog = await screen.findByRole('dialog')
       const reads = () => calls.filter((call) => call.startsWith('/api/beads?')).length
@@ -1249,15 +1249,15 @@ describe('the beadoo page', () => {
       expect(await within(dialog).findByRole('heading', { name: 'Basket total' })).toBeInTheDocument()
       expect(within(dialog).getByText('Shipped')).toBeInTheDocument()
       expect(within(dialog).queryByRole('form', { name: 'Edit the bead' })).not.toBeInTheDocument()
-      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/edit?db=.claude'])
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/edit?db=.team'])
       await waitFor(() => expect(reads()).toBe(2))
     })
 
     it('tells the user that the worktree of the session stays after the close of the bead', async () => {
       const started = { ...beads[1], status: 'in_progress', notes: 'started 2026-10-16 09:05 kind=child worktree=/home/me/wt/t-1 mode=plan' }
-      answers['/api/beads/t-1?db=.claude'] = json(started)
-      answers['POST /api/beads/t-1/edit?db=.claude'] = json({ ...started, status: 'closed', close_reason: 'Shipped' })
-      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      answers['/api/beads/t-1?db=.team'] = json(started)
+      answers['POST /api/beads/t-1/edit?db=.team'] = json({ ...started, status: 'closed', close_reason: 'Shipped' })
+      window.history.replaceState(null, '', '/?db=.team&bead=t-1')
       render(<App />)
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(await within(dialog).findByRole('button', { name: 'Edit' }))
@@ -1266,11 +1266,11 @@ describe('the beadoo page', () => {
       await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
       expect(await within(dialog).findByText('The worktree of the session stays')).toBeInTheDocument()
       expect(within(dialog).getByText('/home/me/wt/t-1')).toBeInTheDocument()
-      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/edit?db=.claude'])
+      expect(writes.map((write) => write.path)).toEqual(['/api/beads/t-1/edit?db=.team'])
     })
 
     it('shows the detail again and writes nothing when the user cancels the edit', async () => {
-      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      window.history.replaceState(null, '', '/?db=.team&bead=t-1')
       render(<App />)
       const dialog = await screen.findByRole('dialog')
       await userEvent.click(await within(dialog).findByRole('button', { name: 'Edit' }))
@@ -1322,12 +1322,12 @@ describe('the beadoo page', () => {
     it('shows no read time of the previous database when the user selects a database that does not answer', async () => {
       answers['/api/databases'] = json({
         databases: [
-          { name: '.claude', path: '/home/me/.claude' },
+          { name: '.team', path: '/home/me/.team' },
           { name: 'remote', path: '/home/me/remote', hasTunnel: true },
         ],
       })
-      answers['/api/beads?db=.claude'] = json({ beads, readyIds: ['t-1', 't-4'] })
-      window.history.replaceState(null, '', '/?db=.claude')
+      answers['/api/beads?db=.team'] = json({ beads, readyIds: ['t-1', 't-4'] })
+      window.history.replaceState(null, '', '/?db=.team')
       render(<App />)
       await screen.findByText('Cart total')
       expect(screen.queryByText('Not read')).not.toBeInTheDocument()
@@ -1363,18 +1363,18 @@ describe('the beadoo page', () => {
     let answerClaude = (_answer: Answer) => {}
     answers['/api/databases'] = json({
       databases: [
-        { name: '.claude', path: '/home/me/.claude' },
+        { name: '.team', path: '/home/me/.team' },
         { name: 'shop', path: '/home/me/shop' },
       ],
     })
-    answers['/api/beads?db=.claude'] = new Promise<Answer>((resolve) => {
+    answers['/api/beads?db=.team'] = new Promise<Answer>((resolve) => {
       answerClaude = resolve
     })
     answers['/api/beads?db=shop'] = json({
       beads: [{ id: 's-1', title: 'Shop task', status: 'open' }],
       readyIds: ['s-1'],
     })
-    window.history.replaceState(null, '', '/?db=.claude&epic=none')
+    window.history.replaceState(null, '', '/?db=.team&epic=none')
     render(<App />)
     await userEvent.click(await screen.findByRole('combobox', { name: 'Database' }))
     await userEvent.click(await screen.findByRole('option', { name: 'shop' }))
