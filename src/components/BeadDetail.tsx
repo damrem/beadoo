@@ -15,7 +15,7 @@ import type { Bead, ClaimAction } from '../../shared/contract'
 import type { SpawnedSession } from '../../shared/spawn'
 import { priorityTone } from '@/lib/tones'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
-import { childBeadsOf } from '@/lib/links'
+import { childBeadsOf, dependenciesOf, dependentsOf } from '@/lib/links'
 import type { LinkedBead } from '@/lib/links'
 import { beadUrl } from '@/lib/urls'
 
@@ -60,6 +60,7 @@ function LinkedBeads({
       <ul aria-label={label} className="flex flex-col gap-1 text-sm">
         {links.map((link) => (
           <li key={`${link.type ?? ''}:${link.id}`} className="flex flex-wrap items-center gap-2">
+            {link.type && <Tag>{link.type}</Tag>}
             <BeadLink db={db} id={link.id} onOpen={onOpen} />
             <span className="min-w-0 flex-1 truncate">{link.title ?? ''}</span>
             {link.status && <StatusTag status={link.status} />}
@@ -165,7 +166,6 @@ export function BeadBody({
   onWritten: () => void
 }) {
   const { bead, error, writing, writeError, failed, session, editing, setEditing, runClaim, runSpawn, show } = state
-  const blockers = bead?.dependencies?.filter((dep) => dep.dependency_type !== 'parent-child') ?? []
   const now = new Date()
   const leaseText = bead && leaseLabel(leaseState(bead, now), now)
   const heartbeat = bead?.heartbeat_at ? new Date(bead.heartbeat_at) : undefined
@@ -244,13 +244,10 @@ export function BeadBody({
             <Field label="Labels">
               <LabelTags labels={bead.labels} />
             </Field>
-            <Field label="Dependencies">
-              {blockers.length === 0
-                ? 'none'
-                : blockers.map((dep) => <BeadLink key={dep.id} db={db} id={dep.id} onOpen={onOpen} className="mr-2" />)}
-            </Field>
           </dl>
           <LinkedBeads label="Children" db={db} links={childBeadsOf(beads ?? [], bead.id)} onOpen={onOpen} />
+          <LinkedBeads label="Dependencies" db={db} links={dependenciesOf(bead, beads ?? [])} onOpen={onOpen} />
+          <LinkedBeads label="Dependents" db={db} links={dependentsOf(beads ?? [], bead.id)} onOpen={onOpen} />
           <Text label="Description" value={bead.description} />
           <Text label="Notes" value={bead.notes} />
         </>

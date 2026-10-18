@@ -267,6 +267,55 @@ describe('the beadoo page', () => {
     })
   })
 
+  describe('the dependency links of a bead', () => {
+    beforeEach(() => {
+      answers['/api/beads?db=.claude'] = json({
+        beads: [
+          beads[0],
+          { ...beads[1], dependencies: [{ issue_id: 't-1', depends_on_id: 't-2', type: 'blocks' }] },
+          { ...beads[2], dependencies: [{ issue_id: 't-2', depends_on_id: 't-3', type: 'relates-to' }] },
+          beads[3],
+          { ...beads[4], dependencies: [{ issue_id: 't-4', depends_on_id: 't-2', type: 'blocks' }] },
+        ],
+        readyIds: ['t-1', 't-4'],
+      })
+      answers['/api/beads/t-2?db=.claude'] = json({
+        ...beads[2],
+        dependencies: [
+          { id: 'e-1', dependency_type: 'parent-child' },
+          { id: 't-3', title: 'Receipt mail', status: 'closed', dependency_type: 'relates-to' },
+        ],
+      })
+    })
+
+    it('lists the beads that block a bead and the beads that it blocks, with the type of each link', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      const dependencies = await within(dialog).findByRole('list', { name: 'Dependencies' })
+      await waitFor(() =>
+        expect(within(dependencies).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['blocked by2Pay button📋Open']),
+      )
+      expect(within(dialog).queryByRole('list', { name: 'Dependents' })).not.toBeInTheDocument()
+
+      await userEvent.click(within(dependencies).getByRole('link', { name: '2' }))
+      const dependents = await within(dialog).findByRole('list', { name: 'Dependents' })
+      expect(within(dependents).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+        'blocks1Cart total📋Open',
+        'blocks4Fix the logo📋Open',
+      ])
+      expect(within(dialog).getByRole('list', { name: 'Dependencies' })).toHaveTextContent('relates to3Receipt mail✅Closed')
+      expect(within(dependents).getByRole('link', { name: '4' })).toHaveAttribute('href', '/bead?db=.claude&id=t-4')
+    })
+
+    it('shows the dependency links on the page of the bead', async () => {
+      window.history.replaceState(null, '', '/bead?db=.claude&id=t-2')
+      render(<App />)
+      const dependents = await screen.findByRole('list', { name: 'Dependents' })
+      expect(within(dependents).getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.claude&id=t-1')
+    })
+  })
+
   describe('the page of one bead', () => {
     beforeEach(() => {
       window.history.replaceState(null, '', '/bead?db=.claude&id=t-1')
