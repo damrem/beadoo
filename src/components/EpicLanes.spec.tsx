@@ -72,4 +72,18 @@ describe('the lanes view', () => {
     expect(within(lane).getByTitle('repo:shop')).toBeInTheDocument()
     expect(within(lane).getByTitle('handoff')).toHaveTextContent('👋handoff')
   })
+
+  it('shows a bar and the count of the closed children over all the children of the epic', () => {
+    render(<EpicLanes lanes={[{ ...lanes[0], epic: { ...lanes[0].epic, counts: { open: 2, blocked: 2, closed: 13 } } }]} onOpen={() => {}} />)
+    const lane = screen.getByRole('region', { name: 'Checkout' })
+    const bar = within(lane).getByRole('progressbar', { name: 'Checkout: 13/17 children closed' })
+    expect(bar).toHaveAttribute('aria-valuenow', '13')
+    expect(bar).toHaveAttribute('aria-valuemax', '17')
+    expect(within(lane).getByText('13/17')).toBeInTheDocument()
+  })
+
+  it('shows no progress bar on the lane of the beads that have no epic', () => {
+    render(<EpicLanes lanes={[{ ...lanes[0], epic: { ...lanes[0].epic, id: 'none', title: 'No epic' } }]} onOpen={() => {}} />)
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
 })

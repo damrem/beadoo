@@ -148,6 +148,13 @@ describe('the beadoo page', () => {
     expect(window.location.search).toContain('status=all')
   })
 
+  it('shows on each epic lane the count of the closed children over all the children, also under the ready filter', async () => {
+    window.history.replaceState(null, '', '/?db=.claude&view=lanes')
+    render(<App />)
+    const lane = await screen.findByRole('region', { name: 'Checkout' })
+    expect(within(lane).getByRole('progressbar', { name: 'Checkout: 1/3 children closed' })).toBeInTheDocument()
+  })
+
   it('marks only the ready beads, and the ready filter shows only them', async () => {
     window.history.replaceState(null, '', '/?db=.claude&status=all')
     render(<App />)
