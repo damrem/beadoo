@@ -66,4 +66,13 @@ describe('the card of a bead', () => {
     show({ status: 'open' })
     expect(screen.queryByText(/waits on/)).not.toBeInTheDocument()
   })
+  it('marks a ready bead, so the user sees that it can start now', () => {
+    show({ status: 'open', ready: true })
+    expect(screen.getByText('ready')).toHaveAttribute('title', 'No open blocker: the bead can start now')
+  })
+
+  it('shows no ready mark on a bead that is not ready', () => {
+    show({ status: 'open' })
+    expect(screen.queryByText('ready')).not.toBeInTheDocument()
+  })
 })

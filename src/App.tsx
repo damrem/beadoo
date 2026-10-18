@@ -142,7 +142,7 @@ export function App() {
     return () => window.clearInterval(timer)
   }, [refresh, selectedDb])
 
-  const beads = useMemo(() => withBlockers(data?.beads ?? []), [data])
+  const beads = useMemo(() => withBlockers(data?.beads ?? [], data?.readyIds), [data])
 
   const groups = useMemo(() => groupByParent(beads), [beads])
 

@@ -148,6 +148,17 @@ describe('the beadoo page', () => {
     expect(window.location.search).toContain('status=all')
   })
 
+  it('marks only the ready beads, and the ready filter shows only them', async () => {
+    window.history.replaceState(null, '', '/?db=.claude&status=all')
+    render(<App />)
+    const cart = await screen.findByRole('button', { name: 't-1 Cart total' })
+    expect(within(cart).getByText('ready')).toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 't-2 Pay button' })).queryByText('ready')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+    expect(screen.queryByRole('button', { name: 't-2 Pay button' })).not.toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 't-1 Cart total' })).getByText('ready')).toBeInTheDocument()
+  })
+
   it('shows an open bead that waits on an open bead in the blocked column, with the id of its blocker', async () => {
     answers['/api/beads?db=.claude'] = json({
       beads: beads.map((bead) =>

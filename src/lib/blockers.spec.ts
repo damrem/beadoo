@@ -1,5 +1,5 @@
 import type { Bead } from '../../shared/contract'
-import { boardStatusOf, openBlockers, withBlockers } from '@/lib/blockers'
+import { boardStatusOf, isReady, openBlockers, withBlockers } from '@/lib/blockers'
 import { columnsOf } from '@/lib/filters'
 
 const blocks = (issue: string, target: string) => ({ issue_id: issue, depends_on_id: target, type: 'blocks' })
@@ -90,5 +90,21 @@ describe('the blockers of a bead', () => {
       ],
     }
     expect(openBlockers(bead)).toEqual(['t-1'])
+  })
+})
+
+describe('the ready beads', () => {
+  const beads: Bead[] = [
+    { id: 't-1', title: 'Cart total', status: 'open' },
+    { id: 't-2', title: 'Pay button', status: 'open' },
+    { id: 't-3', title: 'Receipt mail', status: 'in_progress' },
+  ]
+
+  it('marks as ready each bead that bd gives as ready, and no other bead', () => {
+    expect(withBlockers(beads, ['t-1']).filter(isReady).map((bead) => bead.id)).toEqual(['t-1'])
+  })
+
+  it('marks no bead as ready before bd gives the ready beads', () => {
+    expect(withBlockers(beads).filter(isReady)).toEqual([])
   })
 })
