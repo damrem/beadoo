@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { BeadDetail } from './BeadDetail'
 import type { Bead } from '../../shared/contract'
 
@@ -65,6 +66,15 @@ describe('the detail of a bead', () => {
     const dialog = await show({ id: 'claude-258.1', parent: 'claude-dp9' })
     const header = within(dialog).getByTitle('claude-258.1')
     expect(header).toHaveTextContent(/^258\.1$/)
-    expect(within(dialog).getByRole('button', { name: 'dp9' }).firstElementChild).toHaveAttribute('title', 'claude-dp9')
+    expect(within(dialog).getByRole('link', { name: 'dp9' }).firstElementChild).toHaveAttribute('title', 'claude-dp9')
+  })
+
+  it('copies the full address of the bead page when the user clicks the copy button', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    const dialog = await show({ id: 'claude-31u.9' })
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }))
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/bead?db=.claude&id=claude-31u.9`)
+    expect(await within(dialog).findByRole('button', { name: 'Link copied' })).toBeInTheDocument()
   })
 })
