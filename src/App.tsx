@@ -9,6 +9,7 @@ import { EpicLanes } from '@/components/EpicLanes'
 import { EpicSidebar } from '@/components/EpicSidebar'
 import { EpicTable } from '@/components/EpicTable'
 import { FilterBar } from '@/components/FilterBar'
+import { Logo } from '@/components/Logo'
 import { NoMatch } from '@/components/NoMatch'
 import { RefreshButton } from '@/components/RefreshButton'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
@@ -193,7 +194,10 @@ function Beads() {
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex flex-wrap items-center gap-1.5 border-b px-4 py-2">
-        <h1 className="font-heading text-base font-semibold">beadoo</h1>
+        <h1 className="flex items-center gap-1.5 font-heading text-base font-semibold">
+          <Logo />
+          beadoo
+        </h1>
         <ViewSwitch mode={view.mode} onMode={(mode) => update({ mode })} />
         <DatabaseSelector
           databases={databases ?? []}
