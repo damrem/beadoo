@@ -82,6 +82,23 @@ describe('the lanes view', () => {
     expect(within(lane).getByText('13/17')).toBeInTheDocument()
   })
 
+  it('warns that an open epic can close when all its children are closed', () => {
+    render(<EpicLanes lanes={[{ ...lanes[0], epic: { ...lanes[0].epic, counts: { closed: 1 } } }]} onOpen={() => {}} />)
+    const lane = screen.getByRole('region', { name: 'Checkout' })
+    expect(within(lane).getByRole('note', { name: 'All the children are closed, so the epic can close.' })).toHaveTextContent('⚠️can close')
+  })
+
+  it('warns that a closed epic still has an open child', () => {
+    render(<EpicLanes lanes={[{ ...lanes[0], epic: { ...lanes[0].epic, status: 'closed', counts: { open: 1 } } }]} onOpen={() => {}} />)
+    const lane = screen.getByRole('region', { name: 'Checkout' })
+    expect(within(lane).getByRole('note', { name: 'The epic is closed, but a child is still open.' })).toHaveTextContent('⚠️open child')
+  })
+
+  it('shows no warning on an epic whose status agrees with its children', () => {
+    render(<EpicLanes lanes={lanes} onOpen={() => {}} />)
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
+  })
+
   it('shows no progress bar on the lane of the beads that have no epic', () => {
     render(<EpicLanes lanes={[{ ...lanes[0], epic: { ...lanes[0].epic, id: 'none', title: 'No epic' } }]} onOpen={() => {}} />)
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()

@@ -1,4 +1,6 @@
-import { progressLabel, progressOf, progressPercent } from '@/lib/progress'
+import { Tag } from '@/components/BeadCard'
+import { Emoji } from '@/components/Emoji'
+import { epicMismatch, MISMATCH_TEXTS, progressLabel, progressOf, progressPercent } from '@/lib/progress'
 import { statusTone, toneStyle } from '@/lib/tones'
 
 export function EpicProgress({ title, counts }: { title: string; counts: Record<string, number> }) {
@@ -21,5 +23,19 @@ export function EpicProgress({ title, counts }: { title: string; counts: Record<
       </div>
       <span className="font-mono text-xs text-muted-foreground tabular-nums">{label}</span>
     </div>
+  )
+}
+
+export function EpicWarning({ status, counts }: { status: string; counts: Record<string, number> }) {
+  const mismatch = epicMismatch(status, progressOf(counts))
+  if (!mismatch) return null
+  const text = MISMATCH_TEXTS[mismatch]
+  return (
+    <span role="note" aria-label={text.full}>
+      <Tag tone="yellow" title={text.full}>
+        <Emoji emoji="⚠️" />
+        {text.short}
+      </Tag>
+    </span>
   )
 }
