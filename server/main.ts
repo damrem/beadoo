@@ -1,7 +1,7 @@
 import { createServer } from 'node:http'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { realRunAsync } from '../../../lib/process.ts'
+import { realRunAsync } from './process.ts'
 import { createStore } from './beads-store.ts'
 import { loadDatabases } from './config.ts'
 import { newToken } from './guard.ts'

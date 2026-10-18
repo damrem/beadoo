@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { RunAsync, RunResult } from '../../../lib/process.ts'
+import type { RunAsync, RunResult } from './process.ts'
 import { BEADS_DELETED, CONFLICT, EXPORT_MISMATCH, NOT_FOUND, REFUSED, STORE_NOT_OPEN, UNREACHABLE } from '../shared/contract.ts'
 import { createStore, EXPORT_FILE } from './beads-store.ts'
 

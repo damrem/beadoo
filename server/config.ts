@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { parseJson } from '../../../lib/process.ts'
+import { parseJson } from './process.ts'
 import { checkDatabases, defaultConfig } from './config-rules.ts'
 import type { ConfiguredDatabase } from './config-rules.ts'
 

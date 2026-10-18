@@ -1,4 +1,4 @@
-import type { RunAsync, RunResult } from '../../../lib/process.ts'
+import type { RunAsync, RunResult } from './process.ts'
 import { NOT_FOUND, STORE_NOT_OPEN, UNREACHABLE } from '../shared/contract.ts'
 import { createStore } from './beads-store.ts'
 

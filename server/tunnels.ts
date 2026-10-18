@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
-import type { RunResult } from '../../../lib/process.ts'
-import { withoutWarnings } from '../../../lib/process.ts'
+import type { RunResult } from './process.ts'
+import { withoutWarnings } from './process.ts'
 import { INVALID, REFUSED } from '../shared/contract.ts'
 import { StoreError } from './beads-store.ts'
 import type { ConfiguredDatabase, TunnelCommands } from './config-rules.ts'
