@@ -1,16 +1,20 @@
+import { basename } from 'node:path'
 import type { DatabaseEntry } from '../shared/contract.ts'
 
 export type TunnelCommands = { start: string[]; stop: string[] }
 
 export type ConfiguredDatabase = DatabaseEntry & { tunnel?: TunnelCommands }
 
-export type PageConfig = { databases: { name: string; path: string; tunnel?: TunnelCommands }[] }
-
 export const MOUNT_REFUSAL = 'Use a WSL path: the /mnt/c clone has a store that diverged.'
 
-export const defaultConfig = (home: string): PageConfig => ({
-  databases: [{ name: '.claude', path: `${home}/.claude` }],
-})
+export const defaultDatabases = (cwd: string, hasBeads: boolean): ConfiguredDatabase[] =>
+  hasBeads ? [{ name: basename(cwd) || cwd, path: cwd }] : []
+
+export function startMessage(origin: string, databases: readonly DatabaseEntry[], configFile: string): string {
+  const first = databases[0]
+  if (!first) return `beadoo: ${origin}\nNo beads database: start beadoo in a folder that holds .beads, or list the databases in ${configFile}.`
+  return `beadoo: ${origin}/?db=${encodeURIComponent(first.name)}`
+}
 
 const isEntry = (value: unknown): value is { name: string; path: string; tunnel?: unknown } =>
   typeof value === 'object' &&
@@ -32,13 +36,13 @@ const isTunnel = (value: unknown): value is TunnelCommands =>
 
 export function checkDatabases(config: unknown): ConfiguredDatabase[] {
   const databases = (config as { databases?: unknown } | null)?.databases
-  if (!Array.isArray(databases)) throw new Error('beadoo.json holds no "databases" list')
+  if (!Array.isArray(databases)) throw new Error('The beadoo config holds no "databases" list')
   return databases.map((entry, index) => {
-    if (!isEntry(entry)) throw new Error(`beadoo.json: entry ${index} needs a "name" and a "path"`)
+    if (!isEntry(entry)) throw new Error(`The beadoo config: entry ${index} needs a "name" and a "path"`)
     const { name, path } = entry
     if (entry.tunnel !== undefined && !isTunnel(entry.tunnel)) {
       throw new Error(
-        `beadoo.json: the "tunnel" of entry ${index} needs a "start" and a "stop" command, each a list of strings that starts with the program`,
+        `The beadoo config: the "tunnel" of entry ${index} needs a "start" and a "stop" command, each a list of strings that starts with the program`,
       )
     }
     const tunnel = entry.tunnel ? { tunnel: { start: [...entry.tunnel.start], stop: [...entry.tunnel.stop] } } : {}

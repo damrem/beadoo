@@ -154,7 +154,7 @@ export function createHandler(deps: AppDeps) {
       const name = url.searchParams.get('db')
       const db = databases.find((entry) => entry.name === name)
       if (!db) {
-        sendJson(res, 404, { error: `No database is named "${name ?? ''}" in beadoo.json` })
+        sendJson(res, 404, { error: `No database is named "${name ?? ''}" in the beadoo config` })
         return
       }
       if (tunnelStart) {
