@@ -23,12 +23,34 @@ const typeOf = (issueType: string | undefined): string => {
   return 'feat'
 }
 
-export function branchFor(bead: Pick<Bead, 'id' | 'title' | 'issue_type'>): string {
-  const slug = `${bead.id} ${bead.title}`
+const MAX_TITLE_WORDS = 4
+
+const FILLER_WORDS = new Set([
+  'a', 'an', 'the', 'of', 'to', 'for', 'in', 'on', 'and', 'or', 'it', 'its', 'is', 'are', 'be',
+  'after', 'before', 'with', 'from', 'by', 'at', 'as', 'that', 'this', 'into', 'when', 'so',
+])
+
+const wordsOf = (text: string): string[] =>
+  text
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+
+const shortId = (id: string): string => {
+  const [base, ...children] = id.split('.')
+  const local = base.slice(base.lastIndexOf('-') + 1) || base
+  return wordsOf([local, ...children].join(' ')).join('-')
+}
+
+export function branchFor(bead: Pick<Bead, 'id' | 'title' | 'issue_type'>): string {
+  const title = wordsOf(bead.title)
+    .filter((word) => !FILLER_WORDS.has(word))
+    .slice(0, MAX_TITLE_WORDS)
+  const slug = [shortId(bead.id), ...title]
+    .filter(Boolean)
+    .join('-')
     .slice(0, MAX_SLUG_LENGTH)
     .replace(/^-+|-+$/g, '')
   return `${typeOf(bead.issue_type)}/${slug || 'bead'}`

@@ -573,7 +573,7 @@ describe('the beadoo page', () => {
       bead: { ...beads[1], status: 'in_progress', assignee: 'Ann', notes: 'started 2026-10-16 09:05 in /home/me/wt/t-1' },
       worktree: 'repo::/home/me/wt/t-1',
       path: '/home/me/wt/t-1',
-      branch: 'feat/t-1-cart-total',
+      branch: 'feat/1-cart-total',
       terminal: 'term_7',
     }
 
@@ -596,7 +596,7 @@ describe('the beadoo page', () => {
 
     it('proposes a branch from the id and the title of the bead', async () => {
       const dialog = await openDetail()
-      expect(await within(dialog).findByLabelText('Branch of the session')).toHaveValue('feat/t-1-cart-total')
+      expect(await within(dialog).findByLabelText('Branch of the session')).toHaveValue('feat/1-cart-total')
     })
 
     it('claims the bead and starts a session with one click, then shows the worktree, the branch and the terminal', async () => {
@@ -605,11 +605,11 @@ describe('the beadoo page', () => {
       await userEvent.click(await within(dialog).findByRole('button', { name: 'Claim and spawn' }))
       expect(await within(dialog).findByText('A session started on the bead')).toBeInTheDocument()
       expect(within(dialog).getByText('/home/me/wt/t-1')).toBeInTheDocument()
-      expect(within(dialog).getByText('feat/t-1-cart-total')).toBeInTheDocument()
+      expect(within(dialog).getByText('feat/1-cart-total')).toBeInTheDocument()
       expect(within(dialog).getByText('term_7')).toBeInTheDocument()
       expect(within(dialog).getByText('In progress')).toBeInTheDocument()
       expect(writes).toEqual([{ path: '/api/beads/t-1/spawn?db=.claude', token: 'page-token' }])
-      expect(spawnBody()).toEqual({ branch: 'feat/t-1-cart-total' })
+      expect(spawnBody()).toEqual({ branch: 'feat/1-cart-total' })
     })
 
     it('starts the session on the branch that the user typed', async () => {
