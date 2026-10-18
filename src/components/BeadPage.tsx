@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { BeadBody, beadTitle, useBead } from '@/components/BeadDetail'
 import { BeadId } from '@/components/BeadId'
 import { CopyLinkButton } from '@/components/BeadLink'
+import { Logo } from '@/components/Logo'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
 import { api } from '@/lib/api'
 import { boardUrl } from '@/lib/urls'
@@ -41,7 +42,8 @@ export function BeadPage({ db, id }: { db: string; id: string }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
-        <a href={boardUrl(db)} className="font-heading text-base font-semibold">
+        <a href={boardUrl(db)} className="flex items-center gap-1.5 font-heading text-base font-semibold">
+          <Logo />
           beadoo
         </a>
         <span className="text-sm text-muted-foreground">{db}</span>
