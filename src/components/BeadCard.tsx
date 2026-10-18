@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BeadId } from '@/components/BeadId'
 import { Emoji } from '@/components/Emoji'
-import type { Bead } from '../../shared/contract'
+import { isReady, waitsOnLabel } from '@/lib/blockers'
+import type { BoardBead } from '@/lib/blockers'
 import { labelEmoji, statusEmoji, typeEmoji } from '@/lib/emojis'
 import { statusTitle } from '@/lib/filters'
 import { labelParts } from '@/lib/labels'
@@ -80,11 +81,26 @@ export function LabelTags({ labels }: { labels?: string[] }) {
   )
 }
 
-export function BeadCard({ bead, onOpen }: { bead: Bead; onOpen: (id: string) => void }) {
+export function WaitsOn({ blockers }: { blockers: string[] }) {
+  return (
+    <span className="text-xs text-destructive" title={blockers.join(', ')}>
+      {waitsOnLabel(blockers.length)}:{' '}
+      {blockers.map((id, index) => (
+        <span key={id} className="font-mono">
+          {index > 0 && ', '}
+          <BeadId id={id} />
+        </span>
+      ))}
+    </span>
+  )
+}
+
+export function BeadCard({ bead, onOpen }: { bead: BoardBead; onOpen: (id: string) => void }) {
   const now = new Date()
   const lease = leaseState(bead, now)
   const leaseText = leaseLabel(lease, now)
   const type = typeStyle(bead.issue_type)
+  const blockers = bead.blockers ?? []
   return (
     <button
       type="button"
@@ -109,11 +125,17 @@ export function BeadCard({ bead, onOpen }: { bead: Bead; onOpen: (id: string) =>
             <BeadId id={bead.id} />
             {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}
             {bead.issue_type && <TypeTag type={bead.issue_type} />}
+            {isReady(bead) && (
+              <Tag tone="green" title="No open blocker: the bead can start now">
+                ready
+              </Tag>
+            )}
           </div>
           <CardTitle className="text-sm">{bead.title}</CardTitle>
         </CardHeader>
-        {(bead.assignee || leaseText || (bead.labels?.length ?? 0) > 0) && (
+        {(blockers.length > 0 || bead.assignee || leaseText || (bead.labels?.length ?? 0) > 0) && (
           <CardContent className="flex flex-wrap gap-1">
+            {blockers.length > 0 && <WaitsOn blockers={blockers} />}
             {bead.assignee && <span className="text-xs text-muted-foreground">@{bead.assignee}</span>}
             {leaseText && (
               <span className={lease.kind === 'expired' ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>

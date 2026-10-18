@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { BLOCKED } from '@/lib/blockers'
 import { ACCENTS, toneVar } from '@/lib/palette'
 import type { Accent, Tone } from '@/lib/palette'
 
@@ -74,6 +75,6 @@ export const typeStyle = (type: string | undefined): TypeStyle =>
   type === undefined ? { tone: NEUTRAL, pattern: 'none' } : TYPE_STYLES[type] ?? { tone: hashedAccent(type), pattern: 'none' }
 
 export const blockedFirst = (statuses: string[]): string[] =>
-  statuses.includes('blocked') ? ['blocked', ...statuses.filter((status) => status !== 'blocked')] : statuses
+  statuses.includes(BLOCKED) ? [BLOCKED, ...statuses.filter((status) => status !== BLOCKED)] : statuses
 
 export const toneStyle = (tone: Tone): CSSProperties => ({ '--tone': toneVar(tone) }) as CSSProperties

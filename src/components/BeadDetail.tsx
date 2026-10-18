@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { LabelTags, StatusTag, Tag, TypeTag } from '@/components/BeadCard'
+import { LabelTags, StatusTag, Tag, TypeTag, WaitsOn } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { BeadLink, CopyLinkButton } from '@/components/BeadLink'
 import { BeadEditor } from '@/components/BeadEditor'
@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
+import { openBlockers } from '@/lib/blockers'
 import type { Bead, ClaimAction } from '../../shared/contract'
 import type { SpawnedSession } from '../../shared/spawn'
 import { priorityTone } from '@/lib/tones'
@@ -166,6 +167,7 @@ export function BeadBody({
   onWritten: () => void
 }) {
   const { bead, error, writing, writeError, failed, session, editing, setEditing, runClaim, runSpawn, show } = state
+  const waits = bead ? openBlockers(bead) : []
   const now = new Date()
   const leaseText = bead && leaseLabel(leaseState(bead, now), now)
   const heartbeat = bead?.heartbeat_at ? new Date(bead.heartbeat_at) : undefined
@@ -230,6 +232,11 @@ export function BeadBody({
             <Field label="Status">
               <StatusTag status={bead.status} />
             </Field>
+            {waits.length > 0 && (
+              <Field label="Blocked">
+                <WaitsOn blockers={waits} />
+              </Field>
+            )}
             {bead.status === 'closed' && bead.close_reason && <Field label="Close reason">{bead.close_reason}</Field>}
             <Field label="Priority">
               {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}

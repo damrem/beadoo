@@ -1,10 +1,10 @@
 import { render, screen, within } from '@testing-library/react'
 import { BeadCard } from './BeadCard'
-import type { Bead } from '../../shared/contract'
+import type { BoardBead } from '@/lib/blockers'
 
 const toneOf = (element: Element | null) => (element as HTMLElement | null)?.style.getPropertyValue('--tone')
 
-const show = (bead: Partial<Bead>) =>
+const show = (bead: Partial<BoardBead>) =>
   render(<BeadCard bead={{ id: 'b-1', title: 'Fix the cart', status: 'blocked', ...bead }} onOpen={() => {}} />)
 
 describe('the card of a bead', () => {
@@ -54,5 +54,25 @@ describe('the card of a bead', () => {
   it('shows a wave for a handoff bead', () => {
     show({ labels: ['handoff'] })
     expect(screen.getByTitle('handoff')).toHaveTextContent('👋handoff')
+  })
+  it('shows how many open beads the bead waits on, and their ids', () => {
+    show({ status: 'open', blockers: ['claude-0fo.3', 'claude-0fo.5'] })
+    const waits = screen.getByText(/waits on 2/)
+    expect(waits).toHaveTextContent('waits on 2: 0fo.3, 0fo.5')
+    expect(waits).toHaveAttribute('title', 'claude-0fo.3, claude-0fo.5')
+  })
+
+  it('shows no wait line for a bead with no open blocker', () => {
+    show({ status: 'open' })
+    expect(screen.queryByText(/waits on/)).not.toBeInTheDocument()
+  })
+  it('marks a ready bead, so the user sees that it can start now', () => {
+    show({ status: 'open', ready: true })
+    expect(screen.getByText('ready')).toHaveAttribute('title', 'No open blocker: the bead can start now')
+  })
+
+  it('shows no ready mark on a bead that is not ready', () => {
+    show({ status: 'open' })
+    expect(screen.queryByText('ready')).not.toBeInTheDocument()
   })
 })

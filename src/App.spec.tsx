@@ -148,6 +148,38 @@ describe('the beadoo page', () => {
     expect(window.location.search).toContain('status=all')
   })
 
+  it('shows on each epic lane the count of the closed children over all the children, also under the ready filter', async () => {
+    window.history.replaceState(null, '', '/?db=.claude&view=lanes')
+    render(<App />)
+    const lane = await screen.findByRole('region', { name: 'Checkout' })
+    expect(within(lane).getByRole('progressbar', { name: 'Checkout: 1/3 children closed' })).toBeInTheDocument()
+  })
+
+  it('marks only the ready beads, and the ready filter shows only them', async () => {
+    window.history.replaceState(null, '', '/?db=.claude&status=all')
+    render(<App />)
+    const cart = await screen.findByRole('button', { name: 't-1 Cart total' })
+    expect(within(cart).getByText('ready')).toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 't-2 Pay button' })).queryByText('ready')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+    expect(screen.queryByRole('button', { name: 't-2 Pay button' })).not.toBeInTheDocument()
+    expect(within(screen.getByRole('button', { name: 't-1 Cart total' })).getByText('ready')).toBeInTheDocument()
+  })
+
+  it('shows an open bead that waits on an open bead in the blocked column, with the id of its blocker', async () => {
+    answers['/api/beads?db=.claude'] = json({
+      beads: beads.map((bead) =>
+        bead.id === 't-2' ? { ...bead, dependencies: [{ issue_id: 't-2', depends_on_id: 't-1', type: 'blocks' }] } : bead,
+      ),
+      readyIds: ['t-1', 't-4'],
+    })
+    window.history.replaceState(null, '', '/?db=.claude&status=all')
+    render(<App />)
+    const card = await within(await screen.findByRole('region', { name: 'Blocked' })).findByRole('button', { name: 't-2 Pay button' })
+    expect(card).toHaveTextContent('waits on 1: 1')
+    expect(within(column('Open')).queryByText('Pay button')).not.toBeInTheDocument()
+  })
+
   it('shows the beads that have no epic when the user selects "No epic"', async () => {
     render(<App />)
     await screen.findByText('Cart total')

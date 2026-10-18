@@ -18,6 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api, ApiError } from '@/lib/api'
 import { beadAddressOf } from '@/lib/urls'
+import { withBlockers } from '@/lib/blockers'
 import { UNREACHABLE } from '../shared/contract'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
 import {
@@ -149,19 +150,21 @@ function Beads() {
     return () => window.clearInterval(timer)
   }, [refresh, selectedDb])
 
-  const groups = useMemo(() => groupByParent(data?.beads ?? []), [data])
+  const beads = useMemo(() => withBlockers(data?.beads ?? [], data?.readyIds), [data])
 
-  const epics = useMemo(() => (data ? epicsOf(data.beads, groups, view.status) : []), [data, groups, view.status])
+  const groups = useMemo(() => groupByParent(beads), [beads])
 
-  const options = useMemo(() => {
-    const loaded = data?.beads ?? []
-    return {
-      labels: labelsOf(loaded),
-      types: typesOf(loaded),
-      priorities: prioritiesOf(loaded),
-      statuses: statusTogglesOf(loaded),
-    }
-  }, [data])
+  const epics = useMemo(() => (data ? epicsOf(beads, groups, view.status) : []), [data, beads, groups, view.status])
+
+  const options = useMemo(
+    () => ({
+      labels: labelsOf(beads),
+      types: typesOf(beads),
+      priorities: prioritiesOf(beads),
+      statuses: statusTogglesOf(beads),
+    }),
+    [beads],
+  )
 
   const filter = useMemo<BeadFilter>(
     () => ({ status: view.status, text: view.text, labels: view.labels, type: view.type, priority: view.priority }),
@@ -169,8 +172,8 @@ function Beads() {
   )
 
   const lanes = useMemo(
-    () => (data ? lanesOf(epics, groups, data.readyIds, filter, data.beads) : []),
-    [data, groups, epics, filter],
+    () => (data ? lanesOf(epics, groups, data.readyIds, filter, beads) : []),
+    [data, beads, groups, epics, filter],
   )
 
   const epic = useMemo(() => {

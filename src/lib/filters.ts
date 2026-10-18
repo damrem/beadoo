@@ -1,4 +1,5 @@
 import type { Bead } from '../../shared/contract'
+import { boardStatusOf } from '@/lib/blockers'
 import { mergedLabels } from '@/lib/labels'
 
 export const STATUS_CHOICES = ['ready', 'all'] as const
@@ -73,7 +74,7 @@ export function toggleStatus(current: StatusFilter, clicked: string): StatusFilt
 }
 
 export const statusTogglesOf = (beads: Bead[]): string[] =>
-  STATUS_TOGGLES.filter((status) => BOARD_COLUMNS.includes(status) || beads.some((bead) => bead.status === status))
+  STATUS_TOGGLES.filter((status) => BOARD_COLUMNS.includes(status) || beads.some((bead) => boardStatusOf(bead) === status))
 
 const isViewMode = (value: string | null | undefined): value is ViewMode => VIEW_MODES.includes(value as ViewMode)
 
@@ -133,7 +134,7 @@ export function filterBeads(beads: Bead[], readyIds: string[], filter: BeadFilte
   const needle = filter.text.trim().toLowerCase()
   return beads.filter((bead) => {
     if (status === 'ready' && !ready.has(bead.id)) return false
-    if (!isStatusChoice(status) && !status.includes(bead.status)) return false
+    if (!isStatusChoice(status) && !status.includes(boardStatusOf(bead))) return false
     if (type !== null && typeOf(bead) !== type) return false
     if (priority !== null && bead.priority !== priority) return false
     if (!labels.every((label) => bead.labels?.includes(label))) return false
@@ -190,7 +191,10 @@ export const countLabel = (counts: Record<string, number>): string =>
 
 export const countByStatus = (beads: Bead[]): Record<string, number> => {
   const counts: Record<string, number> = {}
-  for (const bead of beads) counts[bead.status] = (counts[bead.status] ?? 0) + 1
+  for (const bead of beads) {
+    const status = boardStatusOf(bead)
+    counts[status] = (counts[status] ?? 0) + 1
+  }
   return counts
 }
 
@@ -214,14 +218,14 @@ export function epicsOf(beads: Bead[], groups: Groups, status: StatusFilter): Ep
   ]
 }
 
-export const statusesOf = (beads: Bead[]): string[] => inStatusOrder(beads.map((bead) => bead.status))
+export const statusesOf = (beads: Bead[]): string[] => inStatusOrder(beads.map(boardStatusOf))
 
 export const READY_STATUSES = ['open']
 
 export function columnStatusesOf(beads: Bead[], status: StatusFilter): string[] {
   if (status === 'all') return statusesOf(beads)
   const allowed = status === 'ready' ? READY_STATUSES : status
-  const held = beads.map((bead) => bead.status)
+  const held = beads.map(boardStatusOf)
   return inStatusOrder([...allowed, ...held]).filter((value) => allowed.includes(value) || held.includes(value))
 }
 
@@ -229,7 +233,7 @@ export function columnsOf(beads: Bead[], statuses: string[] = statusesOf(beads))
   return statuses.map((status) => ({
     status,
     beads: beads
-      .filter((bead) => bead.status === status)
+      .filter((bead) => boardStatusOf(bead) === status)
       .sort(byPriorityThenId),
   }))
 }
