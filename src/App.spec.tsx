@@ -200,9 +200,156 @@ describe('the beadoo page', () => {
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByText('Show the total of the cart.')).toBeInTheDocument()
     expect(within(dialog).getByText('2026-10-14 started')).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: '1' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: '2' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: '1' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: '2' })).toBeInTheDocument()
     expect(window.location.search).toContain('bead=t-1')
+  })
+
+  it('gives the detail of a bead a link to the page of that bead', async () => {
+    window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+    render(<App />)
+    const dialog = await screen.findByRole('dialog')
+    const link = within(dialog).getByRole('link', { name: 'Open t-1 as a page' })
+    expect(link).toHaveAttribute('href', '/bead?db=.claude&id=t-1')
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('shows the parent of a bead in the detail when the user clicks the parent link', async () => {
+    window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+    render(<App />)
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(await within(dialog).findByRole('link', { name: '1' }))
+    expect(window.location.pathname).toBe('/')
+    expect(window.location.search).toContain('bead=e-1')
+  })
+
+  describe('the children of a bead', () => {
+    beforeEach(() => {
+      answers['/api/beads/e-1?db=.claude'] = json({ ...beads[0], description: 'Pay for the cart.' })
+    })
+
+    it('lists a link to each child of a bead in its detail', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&bead=e-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      const children = await within(dialog).findByRole('list', { name: 'Children' })
+      expect(within(children).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+        '2Pay button📋Open',
+        '1Cart total📋Open',
+        '3Receipt mail✅Closed',
+      ])
+      expect(within(children).getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.claude&id=t-1')
+    })
+
+    it('opens the child in the detail when the user clicks its link', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&bead=e-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      const children = await within(dialog).findByRole('list', { name: 'Children' })
+      await userEvent.click(within(children).getByRole('link', { name: '1' }))
+      expect(await within(dialog).findByText('Show the total of the cart.')).toBeInTheDocument()
+      expect(window.location.search).toContain('bead=t-1')
+    })
+
+    it('shows no list of children for a bead that has no child', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      await within(dialog).findByText('Show the total of the cart.')
+      expect(within(dialog).queryByRole('list', { name: 'Children' })).not.toBeInTheDocument()
+    })
+
+    it('lists the children on the page of the bead, with links to their pages', async () => {
+      window.history.replaceState(null, '', '/bead?db=.claude&id=e-1')
+      render(<App />)
+      const children = await screen.findByRole('list', { name: 'Children' })
+      expect(within(children).getByRole('link', { name: '2' })).toHaveAttribute('href', '/bead?db=.claude&id=t-2')
+    })
+  })
+
+  describe('the dependency links of a bead', () => {
+    beforeEach(() => {
+      answers['/api/beads?db=.claude'] = json({
+        beads: [
+          beads[0],
+          { ...beads[1], dependencies: [{ issue_id: 't-1', depends_on_id: 't-2', type: 'blocks' }] },
+          { ...beads[2], dependencies: [{ issue_id: 't-2', depends_on_id: 't-3', type: 'relates-to' }] },
+          beads[3],
+          { ...beads[4], dependencies: [{ issue_id: 't-4', depends_on_id: 't-2', type: 'blocks' }] },
+        ],
+        readyIds: ['t-1', 't-4'],
+      })
+      answers['/api/beads/t-2?db=.claude'] = json({
+        ...beads[2],
+        dependencies: [
+          { id: 'e-1', dependency_type: 'parent-child' },
+          { id: 't-3', title: 'Receipt mail', status: 'closed', dependency_type: 'relates-to' },
+        ],
+      })
+    })
+
+    it('lists the beads that block a bead and the beads that it blocks, with the type of each link', async () => {
+      window.history.replaceState(null, '', '/?db=.claude&bead=t-1')
+      render(<App />)
+      const dialog = await screen.findByRole('dialog')
+      const dependencies = await within(dialog).findByRole('list', { name: 'Dependencies' })
+      await waitFor(() =>
+        expect(within(dependencies).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['blocked by2Pay button📋Open']),
+      )
+      expect(within(dialog).queryByRole('list', { name: 'Dependents' })).not.toBeInTheDocument()
+
+      await userEvent.click(within(dependencies).getByRole('link', { name: '2' }))
+      const dependents = await within(dialog).findByRole('list', { name: 'Dependents' })
+      expect(within(dependents).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+        'blocks1Cart total📋Open',
+        'blocks4Fix the logo📋Open',
+      ])
+      expect(within(dialog).getByRole('list', { name: 'Dependencies' })).toHaveTextContent('relates to3Receipt mail✅Closed')
+      expect(within(dependents).getByRole('link', { name: '4' })).toHaveAttribute('href', '/bead?db=.claude&id=t-4')
+    })
+
+    it('shows the dependency links on the page of the bead', async () => {
+      window.history.replaceState(null, '', '/bead?db=.claude&id=t-2')
+      render(<App />)
+      const dependents = await screen.findByRole('list', { name: 'Dependents' })
+      expect(within(dependents).getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.claude&id=t-1')
+    })
+  })
+
+  describe('the page of one bead', () => {
+    beforeEach(() => {
+      window.history.replaceState(null, '', '/bead?db=.claude&id=t-1')
+    })
+
+    it('shows the bead as a full page when the user opens the address of the bead', async () => {
+      render(<App />)
+      expect(await screen.findByRole('heading', { level: 1, name: 'Cart total' })).toBeInTheDocument()
+      expect(await screen.findByText('Show the total of the cart.')).toBeInTheDocument()
+      expect(screen.getByText('2026-10-14 started')).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.queryByRole('navigation', { name: 'Epics' })).not.toBeInTheDocument()
+    })
+
+    it('keeps the address of the bead, so that a reload shows the same bead', async () => {
+      render(<App />)
+      await screen.findByText('Show the total of the cart.')
+      expect(window.location.pathname).toBe('/bead')
+      expect(window.location.search).toBe('?db=.claude&id=t-1')
+      expect(calls).toContain('/api/beads/t-1?db=.claude')
+    })
+
+    it('links the other beads to their own pages and links back to the board', async () => {
+      render(<App />)
+      await screen.findByText('Show the total of the cart.')
+      expect(screen.getByRole('link', { name: '1' })).toHaveAttribute('href', '/bead?db=.claude&id=e-1')
+      expect(screen.getByRole('link', { name: 'beadoo' })).toHaveAttribute('href', '/?db=.claude')
+    })
+
+    it('tells the user when the database has no bead with the id of the address', async () => {
+      window.history.replaceState(null, '', '/bead?db=.claude&id=t-9')
+      render(<App />)
+      expect(await screen.findByText('Not found')).toBeInTheDocument()
+    })
   })
 
   it('opens the bead that the link names', async () => {

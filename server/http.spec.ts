@@ -442,6 +442,13 @@ describe('the page server', () => {
     expect(html).toContain(`<meta name="beads-token" content="${token}" />`)
   })
 
+  it('serves the page at the address of a bead, also when the bead id holds a dot', async () => {
+    const response = await fetch(`${base}/bead?db=shop&id=s-1.2`)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/html')
+    expect(await response.text()).toContain('<title>beadoo</title>')
+  })
+
   it('serves the built files of the page', async () => {
     expect(await (await fetch(`${base}/assets/app.js`)).text()).toBe('console.log(1)')
   })

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AttributeFilters } from '@/components/AttributeFilters'
 import { BeadDetail } from '@/components/BeadDetail'
+import { BeadPage } from '@/components/BeadPage'
 import { Board } from '@/components/Board'
 import { DatabaseSelector } from '@/components/DatabaseSelector'
 import { EpicHeader } from '@/components/EpicHeader'
@@ -16,6 +17,7 @@ import { ViewSwitch } from '@/components/ViewSwitch'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api, ApiError } from '@/lib/api'
+import { beadAddressOf } from '@/lib/urls'
 import { UNREACHABLE } from '../shared/contract'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
 import {
@@ -56,6 +58,11 @@ function writeStored(filters: StoredFilters) {
 }
 
 export function App() {
+  const address = beadAddressOf(window.location)
+  return address ? <BeadPage db={address.db} id={address.id} /> : <Beads />
+}
+
+function Beads() {
   const [view, setView] = useState<ViewState>(() => readViewState(window.location.search, readStored()))
   const [databases, setDatabases] = useState<DatabaseEntry[] | null>(null)
   const [data, setData] = useState<BeadList | null>(null)
@@ -265,6 +272,7 @@ export function App() {
           db={view.db}
           id={view.bead}
           actor={actor}
+          beads={data?.beads}
           onClose={() => update({ bead: null })}
           onOpen={open}
           onWritten={refresh}
