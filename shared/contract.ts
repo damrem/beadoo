@@ -15,7 +15,12 @@ export type Bead = {
   close_reason?: string | null
   lease_expires_at?: string
   dependencies?: { id: string; title?: string; status?: string; dependency_type?: string }[]
+  metadata?: BeadMetadata | null
 }
+
+export const METADATA_KEYS = ['branch', 'repoPath', 'baselineSha', 'pr'] as const
+
+export type BeadMetadata = { [key in (typeof METADATA_KEYS)[number]]?: string }
 
 export type BeadList = { beads: Bead[]; readyIds: string[] }
 

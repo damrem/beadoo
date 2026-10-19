@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import { openBlockers } from '@/lib/blockers'
+import { METADATA_KEYS } from '../../shared/contract'
 import type { Bead, ClaimAction } from '../../shared/contract'
 import type { SpawnedSession, SpawnRequest } from '../../shared/spawn'
 import { priorityTone } from '@/lib/tones'
@@ -70,6 +71,28 @@ function LinkedBeads({
         ))}
       </ul>
     </section>
+  )
+}
+
+function MetadataChips({ bead }: { bead: Bead }) {
+  const entries = METADATA_KEYS.flatMap((key) => {
+    const value = bead.metadata?.[key]
+    return typeof value === 'string' && value ? [{ key, value }] : []
+  })
+  if (entries.length === 0) return null
+  return (
+    <Field label="Metadata">
+      <ul aria-label="Metadata" className="flex flex-wrap gap-1">
+        {entries.map(({ key, value }) => (
+          <li key={key}>
+            <Tag title={value}>
+              <span>{key}</span>
+              <span className="font-mono break-all">{value}</span>
+            </Tag>
+          </li>
+        ))}
+      </ul>
+    </Field>
   )
 }
 
@@ -269,6 +292,7 @@ export function BeadBody({
             <Field label="Labels">
               <LabelTags labels={bead.labels} />
             </Field>
+            <MetadataChips bead={bead} />
           </dl>
           <LinkedBeads label="Children" db={db} links={childBeadsOf(beads ?? [], bead.id)} onOpen={onOpen} />
           <LinkedBeads label="Dependencies" db={db} links={dependenciesOf(bead, beads ?? [])} onOpen={onOpen} />
