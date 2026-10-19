@@ -37,6 +37,7 @@ export type OrcaOverrides = {
   create?: RunResult
   send?: RunResult
   rename?: RunResult
+  merged?: RunResult
 }
 
 export function fakeOrca(repoPath: string, overrides: OrcaOverrides = {}, events: string[] = []) {
@@ -49,6 +50,7 @@ export function fakeOrca(repoPath: string, overrides: OrcaOverrides = {}, events
       branch = args.at(-1)!
       return text('')
     }
+    if (command === 'git' && args.includes('--merged')) return overrides.merged ?? text('')
     if (command === 'git') return text(`${branch}\n`)
     const sub = `${args[0]} ${args[1]}`
     if (sub === 'repo list') return orcaOk({ repos: overrides.repos ?? [{ id: 'repo-1', path: repoPath }] })

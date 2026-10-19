@@ -432,6 +432,13 @@ describe('the choices that the page offers for a new session', () => {
     expect(worktrees.find((worktree) => worktree.path === shopPath)?.busy).toBeUndefined()
   })
 
+  it('marks a worktree whose branch is already merged, and never the main checkout', async () => {
+    const { spawner } = setUp({}, { merged: text('main\nfeat/e-1-checkout\n') })
+    const { worktrees } = await spawner.choices(db, 's-1')
+    expect(worktrees.find((worktree) => worktree.path === EPIC)?.merged).toBe(true)
+    expect(worktrees.find((worktree) => worktree.path === shopPath)?.merged).toBeUndefined()
+  })
+
   it('gives the epic worktree when the start note of the epic names a path that still exists', async () => {
     const { spawner, io } = setUp({ bead: { parent: 'e-1' }, others: { 'e-1': { id: 'e-1', title: 'Checkout', status: 'in_progress', notes: `started 2026-10-15 08:00 in ${EPIC}` } } })
     expect((await spawner.choices(db, 's-1')).epic).toEqual({ id: 'e-1', path: EPIC })

@@ -39,6 +39,16 @@ export async function repoWorktrees(io: SessionIo, repoPath: string): Promise<Re
   )
 }
 
+const MERGE_BASES = ['origin/HEAD', 'origin/main', 'origin/master']
+
+export async function mergedBranches(io: SessionIo, repoPath: string): Promise<Set<string>> {
+  for (const base of MERGE_BASES) {
+    const result = await io.run('git', ['-C', repoPath, 'for-each-ref', '--merged', base, '--format=%(refname:short)', 'refs/heads'])
+    if (result.status === 0) return new Set(result.stdout.split('\n').map((line) => line.trim()).filter(Boolean))
+  }
+  return new Set()
+}
+
 export async function claudeWorktreePaths(io: SessionIo): Promise<Set<string>> {
   const terminals = (await orca<{ terminals?: ListedTerminal[] }>(io, ['terminal', 'list']))?.terminals ?? []
   return new Set(

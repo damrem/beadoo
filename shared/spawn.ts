@@ -26,6 +26,7 @@ export type SpawnWorktree = {
   branch?: string
   parent?: string
   main?: boolean
+  merged?: boolean
   heldBy?: string
   busy?: boolean
 }
