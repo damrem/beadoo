@@ -12,7 +12,7 @@ import type { SpawnChoices, SpawnedSession, SpawnRequest } from '../shared/spawn
 import { lastStarted, startedLine } from '../shared/started-note.ts'
 import { StoreError, writeIsDone } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
-import { claudeWorktreePaths, parentOf, repoWorktrees, worktreeAt } from './orca-worktrees.ts'
+import { claudeWorktreePaths, mergedBranches, parentOf, repoWorktrees, worktreeAt } from './orca-worktrees.ts'
 import type { RepoWorktree } from './orca-worktrees.ts'
 
 const ORCA_TIMEOUT_MS = 120_000
@@ -108,9 +108,10 @@ export function createSpawner(
       const [epic, held] = await Promise.all([epicWorktree(db, bead), heldWorktrees(db, id).catch(() => new Map<string, string>())])
       const base: SpawnChoices = { repo: db.path, worktrees: [], ...(epic ? { epic } : {}) }
       try {
-        const [worktrees, busy] = await Promise.all([
+        const [worktrees, busy, merged] = await Promise.all([
           repoWorktrees(io, db.path),
           claudeWorktreePaths(io).catch(() => new Set<string>()),
+          mergedBranches(io, db.path).catch(() => new Set<string>()),
         ])
         return {
           ...base,
@@ -121,6 +122,7 @@ export function createSpawner(
               path: worktree.path,
               branch: worktree.branch,
               ...(worktree.main ? { main: true } : {}),
+              ...(!worktree.main && merged.has(worktree.branch) ? { merged: true } : {}),
               ...(parent ? { parent: parent.path } : {}),
               ...(heldBy ? { heldBy } : {}),
               ...(busy.has(pathKey(worktree.path)) ? { busy: true } : {}),

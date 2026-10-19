@@ -49,6 +49,7 @@ export const worktreeText = (worktree: SpawnWorktree): string =>
   [
     `${worktree.branch ?? worktree.path} · ${worktree.path}`,
     worktree.main ? 'main checkout' : '',
+    worktree.merged ? 'merged' : '',
     worktree.heldBy ? `held by ${worktree.heldBy}` : '',
     worktree.busy ? 'a Claude session runs here' : '',
   ]

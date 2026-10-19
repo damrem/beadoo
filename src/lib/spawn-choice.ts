@@ -43,7 +43,9 @@ const listed = (choices: SpawnChoices, path: string | undefined): SpawnWorktree 
 const epicWorktree = (choices: SpawnChoices): SpawnWorktree | undefined => listed(choices, choices.epic?.path)
 
 export const defaultTarget = (choices: SpawnChoices): string | undefined =>
-  (epicWorktree(choices) ?? choices.worktrees.find((worktree) => !worktree.main) ?? choices.worktrees[0])?.path
+  [epicWorktree(choices), choices.worktrees.find((worktree) => worktree.main), ...choices.worktrees].find(
+    (worktree) => worktree !== undefined && !worktree.merged,
+  )?.path
 
 export const usableLocations = (request: Pick<SpawnRequest, 'kind' | 'target'>, choices: SpawnChoices): SpawnRequest['location'][] =>
   locationsFor(request.kind).filter((location) => {

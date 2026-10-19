@@ -1,4 +1,4 @@
-import { busyPlace, proposedRequest, readSpawnChoice, sentRequest, spawnChoiceKey, usableLocations, writeSpawnChoice } from '@/lib/spawn-choice'
+import { busyPlace, defaultTarget, proposedRequest, readSpawnChoice, sentRequest, spawnChoiceKey, usableLocations, writeSpawnChoice } from '@/lib/spawn-choice'
 import type { SpawnChoices } from '../../shared/spawn'
 
 const bead = { id: 't-1', title: 'Cart total', issue_type: 'task' }
@@ -59,8 +59,21 @@ describe('the choice that the spawn window proposes', () => {
 
   it('proposes the selected worktree when the proposed worktree has no parent', () => {
     const flat = { repo: MAIN, worktrees: [choices.worktrees[0]!, choices.worktrees[2]!] }
-    expect(proposedRequest(bead, flat, { kind: 'existing', location: 'parent', mode: 'plan' })).toMatchObject({ target: OTHER, location: 'worktree' })
+    expect(proposedRequest(bead, flat, { kind: 'existing', location: 'parent', mode: 'plan' })).toMatchObject({ target: MAIN, location: 'worktree' })
     expect(usableLocations({ kind: 'none' }, noEpic)).toEqual(['worktree'])
+  })
+
+  it('preselects the main checkout as the parent worktree when no epic worktree applies, and not a merged worktree listed first', () => {
+    const dead = { path: '/home/me/wt/chore-memories-migrate', branch: 'chore/memories-migrate', merged: true }
+    const listedFirst: SpawnChoices = { repo: MAIN, worktrees: [dead, choices.worktrees[0]!, choices.worktrees[2]!] }
+    expect(proposedRequest(bead, listedFirst, { kind: 'child', location: 'worktree', mode: 'plan' })).toMatchObject({ kind: 'child', target: MAIN })
+    expect(defaultTarget(listedFirst)).toBe(MAIN)
+  })
+
+  it('never preselects a merged worktree when the repo has no main checkout', () => {
+    const dead = { path: '/home/me/wt/chore-memories-migrate', branch: 'chore/memories-migrate', merged: true }
+    expect(defaultTarget({ repo: MAIN, worktrees: [dead, choices.worktrees[2]!] })).toBe(OTHER)
+    expect(defaultTarget({ repo: MAIN, worktrees: [dead], epic: { id: 'e-9', path: dead.path } })).toBeUndefined()
   })
 
   it('ignores a stored choice that the page cannot read, and a browser that refuses the storage', () => {
