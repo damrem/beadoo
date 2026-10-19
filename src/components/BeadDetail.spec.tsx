@@ -93,4 +93,28 @@ describe('the detail of a bead', () => {
     const dialog = await show({ dependencies: [{ id: 'claude-2', status: 'closed', dependency_type: 'blocks' }] })
     expect(within(dialog).queryByText(/waits on/)).not.toBeInTheDocument()
   })
+
+  it('shows a chip for each metadata key of the bead, with its value', async () => {
+    const dialog = await show({
+      metadata: { branch: 'feat/cart-total', repoPath: '/home/dev/shop', baselineSha: '465ab60' },
+    })
+    const chips = within(within(dialog).getByRole('list', { name: 'Metadata' })).getAllByRole('listitem')
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      'branchfeat/cart-total',
+      'repoPath/home/dev/shop',
+      'baselineSha465ab60',
+    ])
+  })
+
+  it('shows the pull request chip when the bead has a pull request', async () => {
+    const dialog = await show({ metadata: { pr: '42' } })
+    const chips = within(within(dialog).getByRole('list', { name: 'Metadata' })).getAllByRole('listitem')
+    expect(chips.map((chip) => chip.textContent)).toEqual(['pr42'])
+  })
+
+  it('shows no metadata chip when the bead has no metadata', async () => {
+    const dialog = await show({})
+    expect(within(dialog).queryByRole('list', { name: 'Metadata' })).not.toBeInTheDocument()
+    expect(within(dialog).queryByText('Metadata')).not.toBeInTheDocument()
+  })
 })
