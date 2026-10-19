@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { createStore } from './beads-store.ts'
 import { fakeOrca } from './fake-orca.ts'
 import { createHandler } from './http.ts'
+import { createCommits } from './commits.ts'
 import { createSpawner } from './spawner.ts'
 import { createTunnels } from './tunnels.ts'
 
@@ -30,6 +31,7 @@ beforeEach(async () => {
       databases: () => [],
       store,
       spawner: createSpawner(store, fakeOrca('/home/me/shop').io),
+      commits: createCommits(store, async () => ({ status: 1, stdout: '', stderr: 'unexpected' })),
       canSpawn: true,
       tunnels: createTunnels(
         async () => ({ status: 0, stdout: '', stderr: '' }),
