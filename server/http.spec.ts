@@ -4,7 +4,7 @@ import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { RunResult } from '../../../lib/process.ts'
+import type { RunResult } from './process.ts'
 import { createStore } from './beads-store.ts'
 import { createHandler, MAX_BODY_BYTES } from './http.ts'
 import { FAKE_EPIC_WORKTREE, FAKE_WORKTREE, FAKE_WORKTREE_ID, fakeOrca, orcaFailure } from './fake-orca.ts'
@@ -24,6 +24,7 @@ let tunnelUp: boolean
 let launches: string[][]
 let tunnelAnswer: RunResult
 let orca: ReturnType<typeof fakeOrca>
+let orcaOnPath: boolean
 
 beforeEach(async () => {
   const root = mkdtempSync(join(tmpdir(), 'beads-root-'))
@@ -41,6 +42,7 @@ beforeEach(async () => {
   launches = []
   tunnelAnswer = { status: 0, stdout: '', stderr: '' }
   orca = fakeOrca('/home/me/shop')
+  orcaOnPath = true
   const store = createStore(
     async (command, args) => {
       if (command === 'git' && args.includes('config')) return { status: 0, stdout: 'Ann\n', stderr: '' }
@@ -87,6 +89,9 @@ beforeEach(async () => {
       ],
       store,
       spawner: createSpawner(store, orca.io),
+      get canSpawn() {
+        return orcaOnPath
+      },
       tunnels: createTunnels(
         async (command, args) => {
           launches.push([command, ...args])
@@ -116,6 +121,12 @@ describe('the page server', () => {
       { name: 'win', path: '/mnt/c/x', refused: 'Use a WSL path' },
       { name: 'remote', path: '/home/me/remote', hasTunnel: true },
     ])
+  })
+
+  it('tells the page whether Orca is on the PATH, so that the page can offer the spawn', async () => {
+    expect((await (await fetch(`${base}/api/databases`)).json()).spawn).toBe(true)
+    orcaOnPath = false
+    expect((await (await fetch(`${base}/api/databases`)).json()).spawn).toBe(false)
   })
 
   describe('a database on a Dolt server', () => {
@@ -398,6 +409,22 @@ describe('the page server', () => {
       expect(response.status).toBe(502)
       expect(await response.json()).toMatchObject({ code: 'SPAWN_FAILED', error: expect.stringMatching(/Timed out[\s\S]*s-1 is open again/) })
       expect(writes.map((write) => write[2])).toContain('unclaim')
+    })
+
+    it('refuses to start a session when Orca is not on the PATH, and claims nothing', async () => {
+      orcaOnPath = false
+      const response = await spawn(JSON.stringify({ branch: 'feat/s-1-cart' }))
+      expect(response.status).toBe(503)
+      expect(await response.json()).toMatchObject({ code: 'REFUSED', error: 'Orca is not on the PATH, so the page starts no session.' })
+      expect(writes).toEqual([])
+      expect(orca.calls).toEqual([])
+    })
+
+    it('gives no worktree choices when Orca is not on the PATH', async () => {
+      orcaOnPath = false
+      const response = await fetch(`${base}/api/beads/s-1/spawn-choices?db=shop`)
+      expect(response.status).toBe(503)
+      expect(orca.calls).toEqual([])
     })
   })
 

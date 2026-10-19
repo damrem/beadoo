@@ -45,11 +45,11 @@ describe('the card of a bead', () => {
   })
 
   it('shows a label with a colon as a property, with the name and the value apart', () => {
-    show({ labels: ['repo:.claude'] })
-    const chip = screen.getByTitle('repo:.claude')
+    show({ labels: ['repo:.team'] })
+    const chip = screen.getByTitle('repo:.team')
     expect(within(chip).getByText('repo')).toBeInTheDocument()
-    expect(within(chip).getByText('.claude')).toHaveClass('font-semibold')
-    expect(within(chip).queryByText('repo:.claude')).not.toBeInTheDocument()
+    expect(within(chip).getByText('.team')).toHaveClass('font-semibold')
+    expect(within(chip).queryByText('repo:.team')).not.toBeInTheDocument()
   })
 
   it('shows a wave for a handoff bead', () => {

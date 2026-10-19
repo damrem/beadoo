@@ -30,6 +30,7 @@ beforeEach(async () => {
       databases: () => [],
       store,
       spawner: createSpawner(store, fakeOrca('/home/me/shop').io),
+      canSpawn: true,
       tunnels: createTunnels(
         async () => ({ status: 0, stdout: '', stderr: '' }),
         () => ({ status: 0, stdout: '', stderr: '' }),

@@ -5,8 +5,8 @@ import { createServer as createTcpServer, connect } from 'node:net'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { realRun, realRunAsync, runChecked } from '../../../lib/process.ts'
-import type { RunAsync, RunOptions } from '../../../lib/process.ts'
+import { realRun, realRunAsync, runChecked } from './process.ts'
+import type { RunAsync, RunOptions } from './process.ts'
 import type { Bead } from '../shared/contract.ts'
 import { createStore, EXPORT_FILE } from './beads-store.ts'
 import { fakeOrca } from './fake-orca.ts'
@@ -142,6 +142,7 @@ describe.skipIf(!hasTools)('a database on a real Dolt server behind a tunnel', (
         store,
         tunnels,
         spawner: createSpawner(store, fakeOrca(root).io),
+        canSpawn: true,
         distDir,
         origin: base,
         token,

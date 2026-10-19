@@ -1,5 +1,5 @@
-import type { RunResult } from '../../../lib/process.ts'
-import type { SessionIo } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
+import type { RunResult } from './process.ts'
+import type { SessionIo } from './orca.ts'
 
 export const FAKE_WORKTREE = '/home/me/orca/workspaces/shop/feat-s-1-cart'
 

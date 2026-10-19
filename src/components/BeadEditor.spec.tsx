@@ -59,7 +59,7 @@ const open = (overrides: Partial<Bead> = {}) => {
   const onCancel = vi.fn()
   render(
     <BeadEditor
-      db=".claude"
+      db=".team"
       bead={{ ...bead, ...overrides }}
       onSaved={onSaved}
       onPartlySaved={onPartlySaved}
@@ -88,7 +88,7 @@ describe('the edit of a bead', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(sent).toEqual([
       {
-        path: '/api/beads/t-1/edit?db=.claude',
+        path: '/api/beads/t-1/edit?db=.team',
         token: 'page-token',
         body: { version: '2026-10-15T10:00:00Z|41', changes: { title: 'Basket total', priority: 1, issue_type: 'bug' } },
       },

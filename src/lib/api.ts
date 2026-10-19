@@ -26,7 +26,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const query = (db: string) => `db=${encodeURIComponent(db)}`
 
 export const api = {
-  databases: () => request<{ databases: DatabaseEntry[] }>('/api/databases').then((body) => body.databases),
+  databases: () => request<{ databases: DatabaseEntry[]; spawn?: boolean }>('/api/databases'),
   beads: (db: string) => request<BeadList>(`/api/beads?${query(db)}`),
   bead: (db: string, id: string) => request<Bead>(`/api/beads/${encodeURIComponent(id)}?${query(db)}`),
   actor: (db: string) => request<{ actor: string }>(`/api/actor?${query(db)}`).then((body) => body.actor),

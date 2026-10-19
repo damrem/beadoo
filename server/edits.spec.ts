@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { RunAsync, RunResult } from '../../../lib/process.ts'
+import type { RunAsync, RunResult } from './process.ts'
 import { BEADS_DELETED, INVALID, NOT_FOUND, PARTIAL_WRITE, REFUSED, STALE, UNREACHABLE } from '../shared/contract.ts'
 import type { Bead } from '../shared/contract.ts'
 import { versionOf } from '../shared/edit.ts'

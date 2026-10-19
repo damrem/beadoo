@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { realRunAsync } from '../../../lib/process.ts'
-import { createSessionWorktree, startSessionTerminal, WorktreeStepError } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
-import type { SessionIo, SessionWorktree } from '../../../skills/handoffs/scripts/start-handoff-session.ts'
-import { beadSessionCommand, pathKey, releasedMessage, releasedNote, worktreeStays } from '../../../skills/handoffs/scripts/start-handoff-session-rules.ts'
+import { realRunAsync } from './process.ts'
+import { createSessionWorktree, startSessionTerminal, WorktreeStepError } from './orca.ts'
+import type { SessionIo, SessionWorktree } from './orca.ts'
+import { beadSessionCommand, DEFAULT_SESSION_COMMAND, pathKey, releasedMessage, releasedNote, worktreeStays } from './orca-rules.ts'
 import { CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED } from '../shared/contract.ts'
 import type { Bead, DatabaseEntry } from '../shared/contract.ts'
 import { ID, stampOf } from '../shared/edit.ts'
@@ -26,7 +26,13 @@ export const realSpawnIo = (): SessionIo => ({
 
 type Known = { worktrees: RepoWorktree[]; target?: RepoWorktree; epic?: RepoWorktree }
 
-export function createSpawner(store: Store, io: SessionIo, now: () => Date = () => new Date()) {
+export type SpawnerOptions = { now?: () => Date; sessionCommand?: () => string }
+
+export function createSpawner(
+  store: Store,
+  io: SessionIo,
+  { now = () => new Date(), sessionCommand = () => DEFAULT_SESSION_COMMAND }: SpawnerOptions = {},
+) {
   const running = new Set<string>()
 
   const giveBack = async (db: DatabaseEntry, id: string, worktree: SessionWorktree | undefined, reason: string) => {
@@ -170,6 +176,7 @@ export function createSpawner(store: Store, io: SessionIo, now: () => Date = () 
           const command = beadSessionCommand(id, db.path, request.kind === 'none' ? undefined : worktree.path, {
             mode: request.mode,
             sessionPath: session.path,
+            template: sessionCommand(),
           })
           terminal = await startSessionTerminal(io, session, command, made !== undefined && session === made)
         } catch (error) {

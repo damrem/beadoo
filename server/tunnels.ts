@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
-import type { RunResult } from '../../../lib/process.ts'
-import { withoutWarnings } from '../../../lib/process.ts'
+import type { RunResult } from './process.ts'
+import { withoutWarnings } from './process.ts'
 import { INVALID, REFUSED } from '../shared/contract.ts'
 import { StoreError } from './beads-store.ts'
 import type { ConfiguredDatabase, TunnelCommands } from './config-rules.ts'
@@ -86,7 +86,7 @@ export function createTunnels(launch: Launch = realLaunch, launchSync: LaunchSyn
   return {
     start(db: ConfiguredDatabase): Promise<void> {
       if (db.refused) return Promise.reject(new StoreError(REFUSED, db.refused))
-      if (!db.tunnel) return Promise.reject(new StoreError(INVALID, `beadoo.json gives no tunnel for the database "${db.name}".`))
+      if (!db.tunnel) return Promise.reject(new StoreError(INVALID, `The beadoo config gives no tunnel for the database "${db.name}".`))
       const running = pending.get(db.name)
       if (running) return running
       const task = startOnce(db.name, db.tunnel).finally(() => pending.delete(db.name))
