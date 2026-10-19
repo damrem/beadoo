@@ -54,6 +54,15 @@ async function closeOtherTerminals(io: SessionIo, worktreeId: string, keep: stri
   }
 }
 
+export async function focusWorktree(io: SessionIo, path: string): Promise<string> {
+  const worktree = `path:${path}`
+  const listed = await orca<{ terminals?: OrcaTerminal[] }>(io, ['terminal', 'list', '--worktree', worktree])
+  const handle = listed?.terminals?.find((terminal) => terminal.handle)?.handle
+  if (!handle) return terminalHandle(await orca(io, ['terminal', 'create', '--worktree', worktree, '--focus']))
+  await orca(io, ['terminal', 'switch', '--terminal', handle])
+  return handle
+}
+
 export async function createSessionWorktree(
   io: SessionIo,
   repoPath: string,

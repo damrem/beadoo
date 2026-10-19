@@ -51,6 +51,12 @@ export type SpawnedSession = {
   warning?: string
 }
 
+export const OPEN_CHIPS = ['branch', 'repoPath'] as const
+
+export type OpenChip = (typeof OPEN_CHIPS)[number]
+
+export type OpenedWorktree = { path: string; terminal: string }
+
 export const locationsFor = (kind: WorktreeKind): SessionLocation[] => {
   if (kind === 'new') return ['worktree']
   if (kind === 'none') return ['worktree', 'epic']
@@ -137,6 +143,11 @@ export function readSpawnRequest(value: unknown): SpawnRequest | string {
   if (body.target !== undefined) request.target = body.target
   if (body.confirmed === true) request.confirmed = true
   return request
+}
+
+export function readOpenRequest(value: unknown): { chip: OpenChip } | string {
+  const chip = typeof value === 'object' && value !== null ? (value as Record<string, unknown>).chip : undefined
+  return oneOf(OPEN_CHIPS, chip) ? { chip } : `Give the chip as one of: ${OPEN_CHIPS.join(', ')}.`
 }
 
 export function spawnRequestProblem(request: SpawnRequest): string | null {

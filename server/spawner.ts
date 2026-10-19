@@ -1,18 +1,19 @@
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { realRunAsync } from './process.ts'
-import { createSessionWorktree, startSessionTerminal, WorktreeStepError } from './orca.ts'
+import { isAbsolute } from 'node:path'
+import { createSessionWorktree, focusWorktree, startSessionTerminal, WorktreeStepError } from './orca.ts'
 import type { SessionIo, SessionWorktree } from './orca.ts'
 import { beadSessionCommand, DEFAULT_SESSION_COMMAND, pathKey, releasedMessage, releasedNote, worktreeStays } from './orca-rules.ts'
 import { CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED } from '../shared/contract.ts'
 import type { Bead, DatabaseEntry } from '../shared/contract.ts'
 import { ID, stampOf } from '../shared/edit.ts'
 import { spawnRequestProblem } from '../shared/spawn.ts'
-import type { SpawnChoices, SpawnedSession, SpawnRequest } from '../shared/spawn.ts'
+import type { OpenChip, OpenedWorktree, SpawnChoices, SpawnedSession, SpawnRequest } from '../shared/spawn.ts'
 import { lastStarted, startedLine } from '../shared/started-note.ts'
 import { StoreError, writeIsDone } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
-import { claudeWorktreePaths, mergedBranches, parentOf, repoWorktrees, worktreeAt } from './orca-worktrees.ts'
+import { branchWorktree, claudeWorktreePaths, mergedBranches, parentOf, repoWorktrees, worktreeAt } from './orca-worktrees.ts'
 import type { RepoWorktree } from './orca-worktrees.ts'
 
 const ORCA_TIMEOUT_MS = 120_000
@@ -131,6 +132,31 @@ export function createSpawner(
         }
       } catch (error) {
         return { ...base, problem: (error as Error).message }
+      }
+    },
+
+    async open(db: DatabaseEntry, id: string, chip: OpenChip): Promise<OpenedWorktree> {
+      if (db.refused) throw new StoreError(REFUSED, db.refused)
+      if (!ID.test(id)) throw new StoreError(NOT_FOUND, `bd show gave no bead for ${id}`)
+      const { metadata } = await store.showBead(db, id)
+      const repoPath = metadata?.repoPath
+      if (!repoPath || !isAbsolute(repoPath) || !io.exists(repoPath)) {
+        throw new StoreError(INVALID, `The bead ${id} names no repo path that exists.`)
+      }
+      let path = repoPath
+      if (chip === 'branch') {
+        const branch = metadata?.branch
+        if (!branch) throw new StoreError(INVALID, `The bead ${id} names no branch.`)
+        const found = await branchWorktree(io, repoPath, branch).catch((error: Error) => {
+          throw new StoreError(SPAWN_FAILED, `The page could not read the worktrees of the repo ${repoPath}: ${error.message}`)
+        })
+        if (!found) throw new StoreError(INVALID, `No worktree of the repo ${repoPath} holds the branch ${branch}.`)
+        path = found
+      }
+      try {
+        return { path, terminal: await focusWorktree(io, path) }
+      } catch (error) {
+        throw new StoreError(SPAWN_FAILED, `Orca could not show the worktree ${path}: ${(error as Error).message}`)
       }
     },
 

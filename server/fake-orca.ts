@@ -38,6 +38,9 @@ export type OrcaOverrides = {
   send?: RunResult
   rename?: RunResult
   merged?: RunResult
+  gitWorktrees?: RunResult
+  worktreeTerminals?: unknown[]
+  switch?: RunResult
 }
 
 export function fakeOrca(repoPath: string, overrides: OrcaOverrides = {}, events: string[] = []) {
@@ -51,6 +54,9 @@ export function fakeOrca(repoPath: string, overrides: OrcaOverrides = {}, events
       return text('')
     }
     if (command === 'git' && args.includes('--merged')) return overrides.merged ?? text('')
+    if (command === 'git' && args.includes('--porcelain')) {
+      return overrides.gitWorktrees ?? text(`worktree ${repoPath}\nHEAD 1a2b\nbranch refs/heads/main\n\nworktree ${FAKE_EPIC_WORKTREE}\nHEAD 3c4d\nbranch refs/heads/feat/e-1-checkout\n`)
+    }
     if (command === 'git') return text(`${branch}\n`)
     const sub = `${args[0]} ${args[1]}`
     if (sub === 'repo list') return orcaOk({ repos: overrides.repos ?? [{ id: 'repo-1', path: repoPath }] })
@@ -62,7 +68,8 @@ export function fakeOrca(repoPath: string, overrides: OrcaOverrides = {}, events
     if (sub === 'terminal create') return overrides.create ?? orcaOk({ terminal: { handle: 'term_new' } })
     if (sub === 'terminal send') return overrides.send ?? orcaOk({ accepted: true })
     if (sub === 'terminal list' && !args.includes('--worktree')) return orcaOk({ terminals: overrides.terminals ?? [] })
-    if (sub === 'terminal list') return orcaOk({ terminals: [{ handle: 'term_setup' }, { handle: 'term_new' }] })
+    if (sub === 'terminal list') return orcaOk({ terminals: overrides.worktreeTerminals ?? [{ handle: 'term_setup' }, { handle: 'term_new' }] })
+    if (sub === 'terminal switch') return overrides.switch ?? orcaOk({})
     if (sub === 'terminal close') return orcaOk({})
     return { status: 1, stdout: '', stderr: `unexpected ${command} ${args.join(' ')}` }
   }

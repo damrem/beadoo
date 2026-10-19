@@ -428,6 +428,36 @@ describe('the page server', () => {
     })
   })
 
+  describe('the worktree that a chip of the bead shows in Orca', () => {
+    const open = (body: string, headers: Record<string, string> = { origin: base, 'x-beads-token': token }) =>
+      fetch(`${base}/api/beads/s-1/open?db=shop`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body })
+
+    it('refuses a chip that the page does not know, and calls no Orca command', async () => {
+      const response = await open(JSON.stringify({ chip: 'pr' }))
+      expect(response.status).toBe(400)
+      expect(orca.calls).toEqual([])
+    })
+
+    it('refuses the request without the page token', async () => {
+      const response = await open(JSON.stringify({ chip: 'repoPath' }), { origin: base })
+      expect(response.status).toBe(403)
+      expect(orca.calls).toEqual([])
+    })
+
+    it('tells the user that the bead names no repo path', async () => {
+      const response = await open(JSON.stringify({ chip: 'repoPath' }))
+      expect(response.status).toBe(400)
+      expect((await response.json()).error).toBe('The bead s-1 names no repo path that exists.')
+    })
+
+    it('shows nothing in Orca when Orca is not on the PATH', async () => {
+      orcaOnPath = false
+      const response = await open(JSON.stringify({ chip: 'repoPath' }))
+      expect(response.status).toBe(503)
+      expect(orca.calls).toEqual([])
+    })
+  })
+
   describe('the edit of a bead', () => {
     const send = (body: string, headers: Record<string, string> = { origin: base, 'x-beads-token': token }) =>
       fetch(`${base}/api/beads/s-1/edit?db=shop`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body })

@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BeadDetail } from './BeadDetail'
+import { SpawnAllowed } from '@/lib/spawn-allowed'
 import type { Bead } from '../../shared/contract'
 
 const show = async (bead: Partial<Bead>) => {
@@ -116,5 +117,55 @@ describe('the detail of a bead', () => {
     const dialog = await show({})
     expect(within(dialog).queryByRole('list', { name: 'Metadata' })).not.toBeInTheDocument()
     expect(within(dialog).queryByText('Metadata')).not.toBeInTheDocument()
+  })
+
+  describe('with Orca on the PATH', () => {
+    const META = { branch: 'feat/cart-total', repoPath: '/home/dev/shop', baselineSha: '465ab60' }
+
+    const showWithOrca = async (openAnswer: Response) => {
+      const full = { id: 'claude-7', title: 'Cart total', status: 'open', metadata: META }
+      const fetch = vi.fn(async (url: string, init?: RequestInit) =>
+        url.includes('/open?') ? openAnswer : new Response(JSON.stringify(full), { status: 200 }),
+      )
+      vi.stubGlobal('fetch', fetch)
+      render(
+        <SpawnAllowed.Provider value>
+          <BeadDetail db=".team" id="claude-7" actor={null} onClose={() => {}} onOpen={() => {}} onWritten={() => {}} />
+        </SpawnAllowed.Provider>,
+      )
+      const dialog = await screen.findByRole('dialog')
+      await within(dialog).findByText('Cart total')
+      return { dialog, fetch }
+    }
+
+    it('shows the worktree of the branch in Orca when the user clicks the branch chip', async () => {
+      const { dialog, fetch } = await showWithOrca(
+        new Response(JSON.stringify({ path: '/home/dev/wt/cart-total', terminal: 'term_1' }), { status: 200 }),
+      )
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Show the branch feat/cart-total in Orca' }))
+      expect(await within(dialog).findByText('Orca shows /home/dev/wt/cart-total')).toBeInTheDocument()
+      const call = fetch.mock.calls.find(([url]) => url.includes('/open?'))!
+      expect(call[0]).toBe('/api/beads/claude-7/open?db=.team')
+      expect(JSON.parse(call[1]!.body as string)).toEqual({ chip: 'branch' })
+    })
+
+    it('tells the user why Orca could not show the worktree', async () => {
+      const { dialog } = await showWithOrca(
+        new Response(JSON.stringify({ error: 'No worktree of the repo /home/dev/shop holds the branch feat/cart-total.' }), { status: 400 }),
+      )
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Show the repoPath /home/dev/shop in Orca' }))
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('No worktree of the repo /home/dev/shop holds the branch feat/cart-total.')
+    })
+
+    it('gives no Orca action to the sha chip and the pull request chip', async () => {
+      const { dialog } = await showWithOrca(new Response('{}', { status: 200 }))
+      expect(within(dialog).queryByRole('button', { name: /baselineSha/ })).not.toBeInTheDocument()
+      expect(within(dialog).getAllByRole('button', { name: /in Orca$/ })).toHaveLength(2)
+    })
+  })
+
+  it('gives the chips no Orca action when Orca is not on the PATH', async () => {
+    const dialog = await show({ metadata: { branch: 'feat/cart-total', repoPath: '/home/dev/shop' } })
+    expect(within(dialog).queryByRole('button', { name: /in Orca$/ })).not.toBeInTheDocument()
   })
 })

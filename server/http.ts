@@ -4,7 +4,7 @@ import { extname, join, normalize, sep } from 'node:path'
 import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED, STALE, STORE_NOT_OPEN, TUNNEL_ROUTE, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
 import type { ClaimAction } from '../shared/contract.ts'
 import { isEditRequest } from '../shared/edit.ts'
-import { readSpawnRequest } from '../shared/spawn.ts'
+import { readOpenRequest, readSpawnRequest } from '../shared/spawn.ts'
 import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
 import { publicEntry } from './config-rules.ts'
@@ -57,10 +57,10 @@ const WRITE_ROUTE = /^\/api\/beads\/([^/]+)\/([a-z]+)$/
 
 export const MAX_BODY_BYTES = 1024 * 1024
 
-type WriteAction = ClaimAction | 'edit' | 'spawn'
+type WriteAction = ClaimAction | 'edit' | 'spawn' | 'open'
 
 const isWriteAction = (value: string | undefined): value is WriteAction =>
-  value === 'edit' || value === 'spawn' || (CLAIM_ACTIONS as readonly string[]).includes(value ?? '')
+  value === 'edit' || value === 'spawn' || value === 'open' || (CLAIM_ACTIONS as readonly string[]).includes(value ?? '')
 
 const readBody = (req: IncomingMessage): Promise<string | null> =>
   new Promise((resolve, reject) => {
@@ -164,13 +164,23 @@ export function createHandler(deps: AppDeps) {
         sendJson(res, 200, { started: db.name })
         return
       }
-      if (target?.action === 'edit' || target?.action === 'spawn') {
+      if (target?.action === 'edit' || target?.action === 'spawn' || target?.action === 'open') {
         const text = await readBody(req)
         if (text === null) {
           sendJson(res, 413, { error: `The ${target.action} request is larger than ${MAX_BODY_BYTES} bytes`, code: INVALID })
           return
         }
         const request = parsedBody(text)
+        if (target.action === 'open') {
+          if (!deps.canSpawn) throw new StoreError(REFUSED, ORCA_MISSING)
+          const open = readOpenRequest(request)
+          if (typeof open === 'string') {
+            sendJson(res, 400, { error: open, code: INVALID })
+            return
+          }
+          sendJson(res, 200, await deps.spawner.open(db, target.id, open.chip))
+          return
+        }
         if (target.action === 'spawn') {
           if (!deps.canSpawn) throw new StoreError(REFUSED, ORCA_MISSING)
           const spawn = readSpawnRequest(request)

@@ -3,6 +3,7 @@ import { orca } from './orca.ts'
 import type { SessionIo, SessionWorktree } from './orca.ts'
 import { findRepo, pathKey, unknownRepoMessage } from './orca-rules.ts'
 import type { OrcaRepo } from './orca-rules.ts'
+import { checked } from './process.ts'
 
 export type RepoWorktree = SessionWorktree & { parentId?: string; main: boolean }
 
@@ -47,6 +48,16 @@ export async function mergedBranches(io: SessionIo, repoPath: string): Promise<S
     if (result.status === 0) return new Set(result.stdout.split('\n').map((line) => line.trim()).filter(Boolean))
   }
   return new Set()
+}
+
+export async function branchWorktree(io: SessionIo, repoPath: string, branch: string): Promise<string | undefined> {
+  const args = ['-C', repoPath, 'worktree', 'list', '--porcelain']
+  let path: string | undefined
+  for (const line of checked(await io.run('git', args), 'git', args).split('\n')) {
+    if (line.startsWith('worktree ')) path = line.slice('worktree '.length)
+    else if (line === `branch refs/heads/${branch}`) return path
+  }
+  return undefined
 }
 
 export async function claudeWorktreePaths(io: SessionIo): Promise<Set<string>> {

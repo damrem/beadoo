@@ -14,7 +14,7 @@ const text = (stdout: string): RunResult => ({ status: 0, stdout, stderr: '' })
 
 const NEW: SpawnRequest = { kind: 'new', location: 'worktree', mode: 'plan', branch: 'feat/s-1-cart' }
 
-type Bd = { status: string; assignee?: string; notes: string; parent?: string }
+type Bd = { status: string; assignee?: string; notes: string; parent?: string; metadata?: Record<string, string> }
 
 type BdOverrides = {
   claim?: RunResult
@@ -449,5 +449,51 @@ describe('the choices that the page offers for a new session', () => {
   it('tells the user when Orca cannot list the worktrees', async () => {
     const { spawner } = setUp({}, { worktreeList: orcaFailure('Orca is not running') })
     expect(await spawner.choices(db, 's-1')).toMatchObject({ worktrees: [], problem: expect.stringMatching(/Orca is not running/) })
+  })
+})
+
+describe('the worktree that the page shows in Orca from a chip of the bead', () => {
+  const withMetadata = (metadata: Record<string, string>) => ({ bead: { metadata } })
+
+  it('switches to a terminal that the worktree of the repo path already has', async () => {
+    const { spawner, calls } = setUp(withMetadata({ repoPath: shopPath }), { worktreeTerminals: [{ handle: 'term_old' }] })
+    expect(await spawner.open(db, 's-1', 'repoPath')).toEqual({ path: shopPath, terminal: 'term_old' })
+    expect(calls).toContain('orca terminal switch --terminal term_old --json')
+    expect(calls.some((call) => call.startsWith('orca terminal create'))).toBe(false)
+  })
+
+  it('opens a new terminal, and brings it to the front, when the worktree has no terminal', async () => {
+    const { spawner, calls } = setUp(withMetadata({ repoPath: shopPath }), { worktreeTerminals: [] })
+    expect(await spawner.open(db, 's-1', 'repoPath')).toEqual({ path: shopPath, terminal: 'term_new' })
+    expect(calls).toContain(`orca terminal create --worktree path:${shopPath} --focus --json`)
+  })
+
+  it('shows the worktree that holds the branch of the bead, and not the main checkout', async () => {
+    const { spawner } = setUp(withMetadata({ repoPath: shopPath, branch: 'feat/e-1-checkout' }))
+    expect((await spawner.open(db, 's-1', 'branch')).path).toBe(EPIC)
+  })
+
+  it('tells the user when no worktree of the repo holds the branch of the bead', async () => {
+    const { spawner, calls } = setUp(withMetadata({ repoPath: shopPath, branch: 'feat/gone' }))
+    await expect(spawner.open(db, 's-1', 'branch')).rejects.toThrow(
+      expect.objectContaining({ code: INVALID, message: `No worktree of the repo ${shopPath} holds the branch feat/gone.` }),
+    )
+    expect(calls.some((call) => call.startsWith('orca'))).toBe(false)
+  })
+
+  it('refuses a bead that names no repo path, or a repo path that does not exist', async () => {
+    await expect(setUp(withMetadata({ branch: 'main' })).spawner.open(db, 's-1', 'branch')).rejects.toThrow(
+      expect.objectContaining({ code: INVALID }),
+    )
+    const { spawner, io } = setUp(withMetadata({ repoPath: '/home/me/gone' }))
+    io.exists = (path) => path !== '/home/me/gone'
+    await expect(spawner.open(db, 's-1', 'repoPath')).rejects.toThrow(expect.objectContaining({ code: INVALID }))
+  })
+
+  it('names the worktree when Orca cannot show it', async () => {
+    const { spawner } = setUp(withMetadata({ repoPath: shopPath }), { worktreeTerminals: [], create: orcaFailure('selector_not_found') })
+    await expect(spawner.open(db, 's-1', 'repoPath')).rejects.toThrow(
+      expect.objectContaining({ code: SPAWN_FAILED, message: expect.stringMatching(new RegExp(`${shopPath}.*selector_not_found`)) }),
+    )
   })
 })

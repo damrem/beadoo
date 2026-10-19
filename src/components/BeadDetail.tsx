@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LabelTags, StatusTag, Tag, TypeTag, WaitsOn } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
@@ -14,7 +14,9 @@ import { api } from '@/lib/api'
 import { openBlockers } from '@/lib/blockers'
 import { METADATA_KEYS } from '../../shared/contract'
 import type { Bead, ClaimAction } from '../../shared/contract'
-import type { SpawnedSession, SpawnRequest } from '../../shared/spawn'
+import { OPEN_CHIPS } from '../../shared/spawn'
+import type { OpenChip, SpawnedSession, SpawnRequest } from '../../shared/spawn'
+import { SpawnAllowed } from '@/lib/spawn-allowed'
 import { priorityTone } from '@/lib/tones'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
 import { childBeadsOf, dependenciesOf, dependentsOf } from '@/lib/links'
@@ -74,24 +76,52 @@ function LinkedBeads({
   )
 }
 
-function MetadataChips({ bead }: { bead: Bead }) {
+const isOpenChip = (key: string): key is OpenChip => (OPEN_CHIPS as readonly string[]).includes(key)
+
+function MetadataChips({ db, bead }: { db: string; bead: Bead }) {
+  const orca = useContext(SpawnAllowed)
+  const [opened, setOpened] = useState<{ path?: string; error?: string } | null>(null)
   const entries = METADATA_KEYS.flatMap((key) => {
     const value = bead.metadata?.[key]
     return typeof value === 'string' && value ? [{ key, value }] : []
   })
   if (entries.length === 0) return null
+  const open = (chip: OpenChip) => {
+    setOpened(null)
+    api
+      .open(db, bead.id, chip)
+      .then(({ path }) => setOpened({ path }))
+      .catch((error: Error) => setOpened({ error: error.message }))
+  }
   return (
     <Field label="Metadata">
       <ul aria-label="Metadata" className="flex flex-wrap gap-1">
-        {entries.map(({ key, value }) => (
-          <li key={key}>
+        {entries.map(({ key, value }) => {
+          const tag = (
             <Tag title={value}>
               <span>{key}</span>
               <span className="font-mono break-all">{value}</span>
             </Tag>
-          </li>
-        ))}
+          )
+          return (
+            <li key={key}>
+              {orca && isOpenChip(key) ? (
+                <button type="button" className="cursor-pointer" aria-label={`Show the ${key} ${value} in Orca`} onClick={() => open(key)}>
+                  {tag}
+                </button>
+              ) : (
+                tag
+              )}
+            </li>
+          )
+        })}
       </ul>
+      {opened?.path && <p className="mt-1 text-xs text-muted-foreground">Orca shows {opened.path}</p>}
+      {opened?.error && (
+        <p role="alert" className="mt-1 text-xs text-destructive">
+          {opened.error}
+        </p>
+      )}
     </Field>
   )
 }
@@ -292,7 +322,7 @@ export function BeadBody({
             <Field label="Labels">
               <LabelTags labels={bead.labels} />
             </Field>
-            <MetadataChips bead={bead} />
+            <MetadataChips key={bead.id} db={db} bead={bead} />
           </dl>
           <LinkedBeads label="Children" db={db} links={childBeadsOf(beads ?? [], bead.id)} onOpen={onOpen} />
           <LinkedBeads label="Dependencies" db={db} links={dependenciesOf(bead, beads ?? [])} onOpen={onOpen} />

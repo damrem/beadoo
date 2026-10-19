@@ -1,7 +1,7 @@
 import { TUNNEL_ROUTE, UNKNOWN_ERROR } from '../../shared/contract'
 import type { Bead, BeadList, ClaimAction, DatabaseEntry } from '../../shared/contract'
 import type { EditRequest } from '../../shared/edit'
-import type { SpawnChoices, SpawnedSession, SpawnRequest } from '../../shared/spawn'
+import type { OpenChip, OpenedWorktree, SpawnChoices, SpawnedSession, SpawnRequest } from '../../shared/spawn'
 
 export class ApiError extends Error {
   readonly code: string
@@ -46,6 +46,12 @@ export const api = {
       method: 'POST',
       headers: { 'x-beads-token': pageToken(), 'content-type': 'application/json' },
       body: JSON.stringify(spawn),
+    }),
+  open: (db: string, id: string, chip: OpenChip) =>
+    request<OpenedWorktree>(`/api/beads/${encodeURIComponent(id)}/open?${query(db)}`, {
+      method: 'POST',
+      headers: { 'x-beads-token': pageToken(), 'content-type': 'application/json' },
+      body: JSON.stringify({ chip }),
     }),
   edit: (db: string, id: string, edit: EditRequest) =>
     request<Bead>(`/api/beads/${encodeURIComponent(id)}/edit?${query(db)}`, {
