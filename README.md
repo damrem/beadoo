@@ -52,3 +52,7 @@ When Orca is on the `PATH`, a bead that you can claim has a **Spawn** button. Th
 pnpm test
 pnpm typecheck
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
