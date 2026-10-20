@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { existsSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { homedir } from 'node:os'
@@ -38,7 +39,7 @@ const handler = createHandler({
   spawner: createSpawner(store, realSpawnIo(), { sessionCommand: () => loadConfig(place).sessionCommand }),
   commits: createCommits(store, (command, args, options) => realRunAsync(command, args, { timeoutMs: 15_000, ...options })),
   canSpawn: onPath('orca', process.env.PATH, existsSync),
-  distDir: join(import.meta.dirname, '..', 'dist'),
+  distDir: join(import.meta.dirname, import.meta.filename.endsWith('.ts') ? '../dist' : '..'),
   origin,
   token: newToken(),
 })
