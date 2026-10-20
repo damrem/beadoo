@@ -1,0 +1,16 @@
+{
+  "name": "beadoo",
+  "owner": {
+    "name": "Damien Remars"
+  },
+  "metadata": {
+    "description": "The beadoo plugin: a web page for the beads of a local beads database"
+  },
+  "plugins": [
+    {
+      "name": "beadoo",
+      "description": "Show the beads of a local beads database in a web page",
+      "source": "./"
+    }
+  ]
+}
