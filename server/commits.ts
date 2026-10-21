@@ -25,10 +25,14 @@ export function createCommits(store: Store, run: RunAsync) {
       if ((await git(['cat-file', '-e', `${baseline}^{commit}`])).status !== 0) {
         throw new StoreError(INVALID, `The repo ${repoPath} has no commit ${baseline}.`)
       }
-      if ((await git(['merge-base', '--is-ancestor', baseline, 'HEAD'])).status !== 0) {
-        throw new StoreError(INVALID, `The commit ${baseline} is not in the history of the HEAD of ${repoPath}.`)
+      const branch = textOf(metadata?.branch)
+      const onBranch = !!branch && (await git(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`])).status === 0
+      const tip = onBranch ? `refs/heads/${branch}` : 'HEAD'
+      if ((await git(['merge-base', '--is-ancestor', baseline, tip])).status !== 0) {
+        const place = onBranch ? `the branch ${branch}` : 'the HEAD'
+        throw new StoreError(INVALID, `The commit ${baseline} is not in the history of ${place} of ${repoPath}.`)
       }
-      const args = ['-C', repoPath, 'log', `--max-count=${MAX_COMMITS}`, '--format=%H%x09%s', `${baseline}..HEAD`]
+      const args = ['-C', repoPath, 'log', `--max-count=${MAX_COMMITS}`, '--format=%H%x09%s', `${baseline}..${tip}`]
       return checked(await run('git', args), 'git', args)
         .split('\n')
         .filter(Boolean)

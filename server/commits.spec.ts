@@ -7,13 +7,14 @@ const db = { name: 'shop', path: '/home/me/shop' }
 const done = (stdout = ''): RunResult => ({ status: 0, stdout, stderr: '' })
 const failed: RunResult = { status: 128, stdout: '', stderr: 'fatal' }
 
-const listed = (metadata: Bead['metadata'], answers: { gitDir?: RunResult; commit?: RunResult; ancestor?: RunResult; log?: RunResult } = {}) => {
+const listed = (metadata: Bead['metadata'], answers: { gitDir?: RunResult; commit?: RunResult; branch?: RunResult; ancestor?: RunResult; log?: RunResult } = {}) => {
   const calls: string[][] = []
   const store = { showBead: async (_db: unknown, id: string) => ({ id, title: 'Cart', status: 'open', metadata }) } as unknown as Store
   const commits = createCommits(store, async (_command, args) => {
     calls.push([...args])
     if (args.includes('rev-parse')) return answers.gitDir ?? done('.git\n')
     if (args.includes('cat-file')) return answers.commit ?? done()
+    if (args.includes('show-ref')) return answers.branch ?? done()
     if (args.includes('merge-base')) return answers.ancestor ?? done()
     return answers.log ?? done('a1b2c3d4\tAdd the cart total\nb5c6d7e8\tShow the total\twith tax\n')
   })
@@ -64,5 +65,26 @@ describe('the commits since the baseline sha of a bead', () => {
     const { since, calls } = listed({ repoPath: '/home/me/shop', baselineSha: 4567890 })
     expect(await since()).toHaveLength(2)
     expect(calls.at(-1)).toContain('4567890..HEAD')
+  })
+
+  describe('a bead that names its branch', () => {
+    const metadata = { repoPath: '/home/me/shop', baselineSha: '465ab60', branch: 'feat/cart-total' }
+
+    it('lists the commits of the branch of the bead, and not of the checkout', async () => {
+      const { since, calls } = listed(metadata)
+      await since()
+      expect(calls.at(-1)).toContain('465ab60..refs/heads/feat/cart-total')
+    })
+
+    it('lists the commits of the checkout when the repo no longer has the branch', async () => {
+      const { since, calls } = listed(metadata, { branch: failed })
+      await since()
+      expect(calls.at(-1)).toContain('465ab60..HEAD')
+    })
+
+    it('names the branch when the baseline sha is not in its history', async () => {
+      const { since } = listed(metadata, { ancestor: { status: 1, stdout: '', stderr: '' } })
+      await expect(since()).rejects.toThrow('The commit 465ab60 is not in the history of the branch feat/cart-total of /home/me/shop.')
+    })
   })
 })
