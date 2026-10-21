@@ -112,6 +112,12 @@ describe('the detail of a bead', () => {
     expect(chips.map((chip) => chip.textContent)).toEqual(['pr42'])
   })
 
+  it('shows the pull request chip when bd stores the pull request as a number', async () => {
+    const dialog = await show({ metadata: { pr: 456339 } })
+    const chips = within(within(dialog).getByRole('list', { name: 'Metadata' })).getAllByRole('listitem')
+    expect(chips.map((chip) => chip.textContent)).toEqual(['pr456339'])
+  })
+
   it('shows no metadata chip when the bead has no metadata', async () => {
     const dialog = await show({})
     expect(within(dialog).queryByRole('list', { name: 'Metadata' })).not.toBeInTheDocument()

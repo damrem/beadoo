@@ -99,7 +99,7 @@ function MetadataChips({ db, bead }: { db: string; bead: Bead }) {
   const [since, setSince] = useState<CommitList | null>(null)
   const entries = METADATA_KEYS.flatMap((key) => {
     const value = bead.metadata?.[key]
-    return typeof value === 'string' && value ? [{ key, value }] : []
+    return (typeof value === 'string' && value) || typeof value === 'number' ? [{ key, value: String(value) }] : []
   })
   if (entries.length === 0) return null
   const listCommits = () => {

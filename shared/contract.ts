@@ -20,7 +20,7 @@ export type Bead = {
 
 export const METADATA_KEYS = ['branch', 'repoPath', 'baselineSha', 'pr'] as const
 
-export type BeadMetadata = { [key in (typeof METADATA_KEYS)[number]]?: string }
+export type BeadMetadata = { [key in (typeof METADATA_KEYS)[number]]?: string | number }
 
 export type Commit = { sha: string; subject: string }
 
