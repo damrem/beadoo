@@ -109,7 +109,7 @@ function MetadataChips({ db, bead }: { db: string; bead: Bead }) {
       .then((commits) => setSince({ commits }))
       .catch((error: Error) => setSince({ error: error.message }))
   }
-  const baseline = bead.metadata?.baselineSha
+  const baseline = entries.find(({ key }) => key === 'baselineSha')?.value
   return (
     <Field label="Metadata">
       <ul aria-label="Metadata" className="flex flex-wrap gap-1">

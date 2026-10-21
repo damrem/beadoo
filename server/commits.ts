@@ -8,12 +8,14 @@ import type { RunAsync } from './process.ts'
 
 export const MAX_COMMITS = 200
 
+const textOf = (value: string | number | undefined) => (value === undefined ? undefined : String(value))
+
 export function createCommits(store: Store, run: RunAsync) {
   return {
     async since(db: DatabaseEntry, id: string): Promise<Commit[]> {
       const { metadata } = await store.showBead(db, id)
-      const repoPath = metadata?.repoPath
-      const baseline = metadata?.baselineSha
+      const repoPath = textOf(metadata?.repoPath)
+      const baseline = textOf(metadata?.baselineSha)
       if (!repoPath || !isAbsolute(repoPath)) throw new StoreError(INVALID, `The bead ${id} names no repo path.`)
       if (!baseline || !SHA.test(baseline)) throw new StoreError(INVALID, `The baselineSha of the bead ${id} is not a commit sha.`)
       const git = (args: string[]) => run('git', ['-C', repoPath, ...args])

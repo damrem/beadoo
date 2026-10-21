@@ -59,4 +59,10 @@ describe('the commits since the baseline sha of a bead', () => {
     const { since } = listed({ repoPath: '/home/me/shop', baselineSha: '465ab60' }, { ancestor: { status: 1, stdout: '', stderr: '' } })
     await expect(since()).rejects.toThrow('The commit 465ab60 is not in the history of the HEAD of /home/me/shop.')
   })
+
+  it('lists the commits when bd stores an all-digit baseline sha as a number', async () => {
+    const { since, calls } = listed({ repoPath: '/home/me/shop', baselineSha: 4567890 })
+    expect(await since()).toHaveLength(2)
+    expect(calls.at(-1)).toContain('4567890..HEAD')
+  })
 })
