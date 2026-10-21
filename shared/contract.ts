@@ -22,6 +22,10 @@ export const METADATA_KEYS = ['branch', 'repoPath', 'baselineSha', 'pr'] as cons
 
 export type BeadMetadata = { [key in (typeof METADATA_KEYS)[number]]?: string }
 
+export type Commit = { sha: string; subject: string }
+
+export const SHA = /^[0-9a-f]{4,40}$/i
+
 export type BeadList = { beads: Bead[]; readyIds: string[] }
 
 export type DatabaseEntry = { name: string; path: string; refused?: string; hasTunnel?: boolean }

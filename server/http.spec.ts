@@ -8,6 +8,7 @@ import type { RunResult } from './process.ts'
 import { createStore } from './beads-store.ts'
 import { createHandler, MAX_BODY_BYTES } from './http.ts'
 import { FAKE_EPIC_WORKTREE, FAKE_WORKTREE, FAKE_WORKTREE_ID, fakeOrca, orcaFailure } from './fake-orca.ts'
+import { createCommits } from './commits.ts'
 import { createSpawner } from './spawner.ts'
 import { createTunnels } from './tunnels.ts'
 
@@ -25,6 +26,7 @@ let launches: string[][]
 let tunnelAnswer: RunResult
 let orca: ReturnType<typeof fakeOrca>
 let orcaOnPath: boolean
+let gitLog: RunResult
 
 beforeEach(async () => {
   const root = mkdtempSync(join(tmpdir(), 'beads-root-'))
@@ -43,6 +45,7 @@ beforeEach(async () => {
   tunnelAnswer = { status: 0, stdout: '', stderr: '' }
   orca = fakeOrca('/home/me/shop')
   orcaOnPath = true
+  gitLog = { status: 0, stdout: 'a1b2c3d4\tAdd the cart total\n', stderr: '' }
   const store = createStore(
     async (command, args) => {
       if (command === 'git' && args.includes('config')) return { status: 0, stdout: 'Ann\n', stderr: '' }
@@ -67,6 +70,9 @@ beforeEach(async () => {
       }
       if (args[3] === 'list') return listGate.then(() => listAnswer)
       if (args[3] === 'ready') return ok([{ id: 's-1' }])
+      if (args[3] === 'show' && args[4] === 's-3') {
+        return ok([{ id: 's-3', title: 'Cart', status: 'open', metadata: { repoPath: '/home/me/shop', baselineSha: '465ab60' } }])
+      }
       if (args[3] === 'show' && args[4] === 's-9') return { status: 1, stdout: '', stderr: 'Issue s-9 not found' }
       if (args[3] === 'show') {
         const status = claimed.has(args[4]!) ? 'in_progress' : 'open'
@@ -89,6 +95,7 @@ beforeEach(async () => {
       ],
       store,
       spawner: createSpawner(store, orca.io),
+      commits: createCommits(store, async (_command, args) => (args.includes('log') ? gitLog : { status: 0, stdout: '', stderr: '' })),
       get canSpawn() {
         return orcaOnPath
       },
@@ -541,5 +548,26 @@ describe('the page server', () => {
     const response = await fetch(`${base}/%E0%A4%A`)
     expect(response.status).toBe(404)
     expect(await response.json()).toEqual({ error: 'Not found' })
+  })
+
+  describe('the commits since the baseline sha of a bead', () => {
+    it('lists the sha and the subject of each commit since the baseline', async () => {
+      const response = await fetch(`${base}/api/beads/s-3/commits?db=shop`)
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ commits: [{ sha: 'a1b2c3d4', subject: 'Add the cart total' }] })
+    })
+
+    it('tells the user that the bead names no repo path', async () => {
+      const response = await fetch(`${base}/api/beads/s-1/commits?db=shop`)
+      expect(response.status).toBe(400)
+      expect(await response.json()).toMatchObject({ code: 'INVALID', error: 'The bead s-1 names no repo path.' })
+    })
+
+    it('tells the user why git could not list the commits', async () => {
+      gitLog = { status: 128, stdout: '', stderr: 'fatal: bad revision' }
+      const response = await fetch(`${base}/api/beads/s-3/commits?db=shop`)
+      expect(response.status).toBe(500)
+      expect((await response.json()).error).toContain('fatal: bad revision')
+    })
   })
 })

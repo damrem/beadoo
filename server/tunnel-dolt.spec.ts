@@ -10,6 +10,7 @@ import type { RunAsync, RunOptions } from './process.ts'
 import type { Bead } from '../shared/contract.ts'
 import { createStore, EXPORT_FILE } from './beads-store.ts'
 import { fakeOrca } from './fake-orca.ts'
+import { createCommits } from './commits.ts'
 import { createSpawner } from './spawner.ts'
 import type { ConfiguredDatabase } from './config-rules.ts'
 import { createHandler } from './http.ts'
@@ -142,6 +143,7 @@ describe.skipIf(!hasTools)('a database on a real Dolt server behind a tunnel', (
         store,
         tunnels,
         spawner: createSpawner(store, fakeOrca(root).io),
+        commits: createCommits(store, async () => ({ status: 1, stdout: '', stderr: 'unexpected' })),
         canSpawn: true,
         distDir,
         origin: base,

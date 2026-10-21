@@ -117,4 +117,39 @@ describe('the detail of a bead', () => {
     expect(within(dialog).queryByRole('list', { name: 'Metadata' })).not.toBeInTheDocument()
     expect(within(dialog).queryByText('Metadata')).not.toBeInTheDocument()
   })
+
+  describe('the commits since the baseline sha', () => {
+    const metadata = { repoPath: '/home/dev/shop', baselineSha: '465ab60' }
+    const answer = (status: number, body: unknown) => {
+      vi.mocked(fetch).mockImplementationOnce(async () => new Response(JSON.stringify(body), { status }))
+    }
+
+    it('lists the commits since the baseline sha when the user clicks the sha chip', async () => {
+      const dialog = await show({ metadata })
+      answer(200, { commits: [{ sha: 'a1b2c3d4e5f6', subject: 'Add the cart total' }] })
+      await userEvent.click(within(dialog).getByRole('button', { name: 'List the commits since 465ab60' }))
+      const list = await within(dialog).findByRole('list', { name: 'Commits since 465ab60' })
+      expect(within(list).getByRole('listitem')).toHaveTextContent('a1b2c3dAdd the cart total')
+      expect(vi.mocked(fetch)).toHaveBeenLastCalledWith('/api/beads/claude-7/commits?db=.team', undefined)
+    })
+
+    it('tells the user that no commit came after the baseline sha', async () => {
+      const dialog = await show({ metadata })
+      answer(200, { commits: [] })
+      await userEvent.click(within(dialog).getByRole('button', { name: 'List the commits since 465ab60' }))
+      expect(await within(dialog).findByText('No commit since 465ab60.')).toBeInTheDocument()
+    })
+
+    it('tells the user that the repo has no commit with the baseline sha', async () => {
+      const dialog = await show({ metadata })
+      answer(400, { code: 'INVALID', error: 'The repo /home/dev/shop has no commit 465ab60.' })
+      await userEvent.click(within(dialog).getByRole('button', { name: 'List the commits since 465ab60' }))
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('The repo /home/dev/shop has no commit 465ab60.')
+    })
+
+    it('makes only the sha chip a button', async () => {
+      const dialog = await show({ metadata: { ...metadata, branch: 'feat/cart-total' } })
+      expect(within(within(dialog).getByRole('list', { name: 'Metadata' })).getAllByRole('button')).toHaveLength(1)
+    })
+  })
 })

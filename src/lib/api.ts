@@ -1,5 +1,5 @@
 import { TUNNEL_ROUTE, UNKNOWN_ERROR } from '../../shared/contract'
-import type { Bead, BeadList, ClaimAction, DatabaseEntry } from '../../shared/contract'
+import type { Bead, BeadList, ClaimAction, Commit, DatabaseEntry } from '../../shared/contract'
 import type { EditRequest } from '../../shared/edit'
 import type { SpawnChoices, SpawnedSession, SpawnRequest } from '../../shared/spawn'
 
@@ -40,6 +40,8 @@ export const api = {
       method: 'POST',
       headers: { 'x-beads-token': pageToken() },
     }).then(() => undefined),
+  commits: (db: string, id: string) =>
+    request<{ commits: Commit[] }>(`/api/beads/${encodeURIComponent(id)}/commits?${query(db)}`).then((body) => body.commits),
   spawnChoices: (db: string, id: string) => request<SpawnChoices>(`/api/beads/${encodeURIComponent(id)}/spawn-choices?${query(db)}`),
   spawn: (db: string, id: string, spawn: SpawnRequest) =>
     request<SpawnedSession>(`/api/beads/${encodeURIComponent(id)}/spawn?${query(db)}`, {

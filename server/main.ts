@@ -10,6 +10,7 @@ import type { ConfigPlace } from './config.ts'
 import { startMessage } from './config-rules.ts'
 import { newToken } from './guard.ts'
 import { onPath } from './orca-rules.ts'
+import { createCommits } from './commits.ts'
 import { createHandler } from './http.ts'
 import { createSpawner, realSpawnIo } from './spawner.ts'
 import { createTunnels, stopTunnelsOnExit } from './tunnels.ts'
@@ -34,6 +35,7 @@ const handler = createHandler({
   store,
   tunnels,
   spawner: createSpawner(store, realSpawnIo(), { sessionCommand: () => loadConfig(place).sessionCommand }),
+  commits: createCommits(store, (command, args, options) => realRunAsync(command, args, { timeoutMs: 15_000, ...options })),
   canSpawn: onPath('orca', process.env.PATH, existsSync),
   distDir: join(import.meta.dirname, '..', 'dist'),
   origin,

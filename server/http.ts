@@ -10,6 +10,7 @@ import type { Store } from './beads-store.ts'
 import { publicEntry } from './config-rules.ts'
 import { ORCA_MISSING } from './orca-rules.ts'
 import type { ConfiguredDatabase } from './config-rules.ts'
+import type { Commits } from './commits.ts'
 import type { Spawner } from './spawner.ts'
 import type { Tunnels } from './tunnels.ts'
 import { allowsWrite } from './guard.ts'
@@ -19,6 +20,7 @@ export type AppDeps = {
   store: Store
   tunnels: Tunnels
   spawner: Spawner
+  commits: Commits
   canSpawn: boolean
   distDir: string
   origin: string
@@ -205,6 +207,12 @@ export function createHandler(deps: AppDeps) {
       if (choicesId !== null) {
         if (!deps.canSpawn) throw new StoreError(REFUSED, ORCA_MISSING)
         sendJson(res, 200, await deps.spawner.choices(db, choicesId))
+        return
+      }
+      const commits = /^\/api\/beads\/([^/]+)\/commits$/.exec(url.pathname)
+      const commitsId = commits?.[1] ? decoded(commits[1]) : null
+      if (commitsId !== null) {
+        sendJson(res, 200, { commits: await deps.commits.since(db, commitsId) })
         return
       }
       const match = /^\/api\/beads\/([^/]+)$/.exec(url.pathname)

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { GitCommitHorizontalIcon } from 'lucide-react'
 import { LabelTags, StatusTag, Tag, TypeTag, WaitsOn } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { BeadLink, CopyLinkButton } from '@/components/BeadLink'
@@ -13,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import { openBlockers } from '@/lib/blockers'
 import { METADATA_KEYS } from '../../shared/contract'
-import type { Bead, ClaimAction } from '../../shared/contract'
+import type { Bead, ClaimAction, Commit } from '../../shared/contract'
 import type { SpawnedSession, SpawnRequest } from '../../shared/spawn'
 import { priorityTone } from '@/lib/tones'
 import { formatLeaseTime, leaseLabel, leaseState } from '@/lib/lease'
@@ -74,24 +75,72 @@ function LinkedBeads({
   )
 }
 
-function MetadataChips({ bead }: { bead: Bead }) {
+type CommitList = { commits?: Commit[]; error?: string }
+
+function CommitsSince({ sha, list }: { sha: string; list: CommitList }) {
+  if (list.error) return <p role="alert" className="text-sm text-destructive">{list.error}</p>
+  if (!list.commits) return <p className="text-sm text-muted-foreground">Reading the commits since {sha}…</p>
+  if (list.commits.length === 0) return <p className="text-sm text-muted-foreground">No commit since {sha}.</p>
+  return (
+    <ol aria-label={`Commits since ${sha}`} className="mt-2 flex flex-col gap-1 text-sm">
+      {list.commits.map((commit) => (
+        <li key={commit.sha} className="flex gap-2">
+          <span className="font-mono text-muted-foreground" title={commit.sha}>
+            {commit.sha.slice(0, 7)}
+          </span>
+          <span className="min-w-0 break-words">{commit.subject}</span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function MetadataChips({ db, bead }: { db: string; bead: Bead }) {
+  const [since, setSince] = useState<CommitList | null>(null)
   const entries = METADATA_KEYS.flatMap((key) => {
     const value = bead.metadata?.[key]
     return typeof value === 'string' && value ? [{ key, value }] : []
   })
   if (entries.length === 0) return null
+  const listCommits = () => {
+    setSince({})
+    api
+      .commits(db, bead.id)
+      .then((commits) => setSince({ commits }))
+      .catch((error: Error) => setSince({ error: error.message }))
+  }
+  const baseline = bead.metadata?.baselineSha
   return (
     <Field label="Metadata">
       <ul aria-label="Metadata" className="flex flex-wrap gap-1">
-        {entries.map(({ key, value }) => (
-          <li key={key}>
+        {entries.map(({ key, value }) => {
+          const listsCommits = key === 'baselineSha'
+          const chip = (
             <Tag title={value}>
+              {listsCommits && <GitCommitHorizontalIcon aria-hidden className="size-3" />}
               <span>{key}</span>
               <span className="font-mono break-all">{value}</span>
             </Tag>
-          </li>
-        ))}
+          )
+          return (
+            <li key={key}>
+              {listsCommits ? (
+                <button
+                  type="button"
+                  aria-label={`List the commits since ${value}`}
+                  className="cursor-pointer rounded-md outline-none hover:ring-2 hover:ring-ring/50 focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={listCommits}
+                >
+                  {chip}
+                </button>
+              ) : (
+                chip
+              )}
+            </li>
+          )
+        })}
       </ul>
+      {since && baseline && <CommitsSince sha={baseline} list={since} />}
     </Field>
   )
 }
@@ -292,7 +341,7 @@ export function BeadBody({
             <Field label="Labels">
               <LabelTags labels={bead.labels} />
             </Field>
-            <MetadataChips bead={bead} />
+            <MetadataChips key={bead.id} db={db} bead={bead} />
           </dl>
           <LinkedBeads label="Children" db={db} links={childBeadsOf(beads ?? [], bead.id)} onOpen={onOpen} />
           <LinkedBeads label="Dependencies" db={db} links={dependenciesOf(bead, beads ?? [])} onOpen={onOpen} />
