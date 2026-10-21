@@ -77,7 +77,7 @@ function LinkedBeads({
 function MetadataChips({ bead }: { bead: Bead }) {
   const entries = METADATA_KEYS.flatMap((key) => {
     const value = bead.metadata?.[key]
-    return typeof value === 'string' && value ? [{ key, value }] : []
+    return (typeof value === 'string' && value) || typeof value === 'number' ? [{ key, value: String(value) }] : []
   })
   if (entries.length === 0) return null
   return (
