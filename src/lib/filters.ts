@@ -1,5 +1,5 @@
 import type { Bead } from '../../shared/contract'
-import { boardStatusOf } from '@/lib/blockers'
+import { boardStatusOf, isBlocker } from '@/lib/blockers'
 import { mergedLabels } from '@/lib/labels'
 
 export const STATUS_CHOICES = ['ready', 'all'] as const
@@ -7,6 +7,10 @@ export const STATUS_CHOICES = ['ready', 'all'] as const
 export type StatusChoice = (typeof STATUS_CHOICES)[number]
 
 export const STATUS_TOGGLES = ['open', 'in_progress', 'blocked', 'deferred', 'closed']
+
+export const BLOCKER = 'blocker'
+
+export const FILTER_TOGGLES = [...STATUS_TOGGLES, BLOCKER]
 
 export type StatusFilter = StatusChoice | string[]
 
@@ -23,6 +27,7 @@ const STATUS_TITLES: Record<string, string> = {
   in_progress: 'In progress',
   blocked: 'Blocked',
   closed: 'Closed',
+  blocker: 'Blockers',
 }
 
 export const statusTitle = (status: string): string => {
@@ -57,7 +62,7 @@ const isStatusChoice = (value: unknown): value is StatusChoice => STATUS_CHOICES
 
 const readStatus = (value: unknown): StatusFilter | null => {
   const values = Array.isArray(value) ? value : [value]
-  const toggles = STATUS_TOGGLES.filter((status) => values.includes(status))
+  const toggles = FILTER_TOGGLES.filter((status) => values.includes(status))
   if (toggles.length > 0) return toggles
   return STATUS_CHOICES.find((choice) => values.includes(choice)) ?? null
 }
@@ -69,12 +74,22 @@ export function toggleStatus(current: StatusFilter, clicked: string): StatusFilt
   const selected = isStatusChoice(current) ? [] : current
   const next = selected.includes(clicked)
     ? selected.filter((status) => status !== clicked)
-    : STATUS_TOGGLES.filter((status) => status === clicked || selected.includes(status))
+    : FILTER_TOGGLES.filter((status) => status === clicked || selected.includes(status))
   return next.length > 0 ? next : 'all'
 }
 
-export const statusTogglesOf = (beads: Bead[]): string[] =>
-  STATUS_TOGGLES.filter((status) => BOARD_COLUMNS.includes(status) || beads.some((bead) => boardStatusOf(bead) === status))
+export const statusTogglesOf = (beads: Bead[]): string[] => [
+  ...STATUS_TOGGLES.filter((status) => BOARD_COLUMNS.includes(status) || beads.some((bead) => boardStatusOf(bead) === status)),
+  BLOCKER,
+]
+
+const statusesIn = (toggles: string[]): string[] => toggles.filter((toggle) => toggle !== BLOCKER)
+
+const matchesToggles = (bead: Bead, toggles: string[]): boolean => {
+  if (toggles.includes(BLOCKER) && !isBlocker(bead)) return false
+  const statuses = statusesIn(toggles)
+  return statuses.length === 0 || statuses.includes(boardStatusOf(bead))
+}
 
 const isViewMode = (value: string | null | undefined): value is ViewMode => VIEW_MODES.includes(value as ViewMode)
 
@@ -134,7 +149,7 @@ export function filterBeads(beads: Bead[], readyIds: string[], filter: BeadFilte
   const needle = filter.text.trim().toLowerCase()
   return beads.filter((bead) => {
     if (status === 'ready' && !ready.has(bead.id)) return false
-    if (!isStatusChoice(status) && !status.includes(boardStatusOf(bead))) return false
+    if (!isStatusChoice(status) && !matchesToggles(bead, status)) return false
     if (type !== null && typeOf(bead) !== type) return false
     if (priority !== null && bead.priority !== priority) return false
     if (!labels.every((label) => bead.labels?.includes(label))) return false
@@ -224,7 +239,7 @@ export const READY_STATUSES = ['open']
 
 export function columnStatusesOf(beads: Bead[], status: StatusFilter): string[] {
   if (status === 'all') return statusesOf(beads)
-  const allowed = status === 'ready' ? READY_STATUSES : status
+  const allowed = status === 'ready' ? READY_STATUSES : statusesIn(status)
   const held = beads.map(boardStatusOf)
   return inStatusOrder([...allowed, ...held]).filter((value) => allowed.includes(value) || held.includes(value))
 }

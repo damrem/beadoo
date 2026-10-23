@@ -93,6 +93,43 @@ describe('the blockers of a bead', () => {
   })
 })
 
+describe('the beads that a blocker holds back', () => {
+  it('lists each open bead that waits on the blocker, in order', () => {
+    const beads = [
+      { id: 't-1', title: 'Cart total', status: 'open' },
+      { id: 't-3', title: 'Receipt mail', status: 'deferred', dependencies: [blocks('t-3', 't-1')] },
+      { id: 't-2', title: 'Pay button', status: 'in_progress', dependencies: [blocks('t-2', 't-1')] },
+    ] as Bead[]
+    expect(byId(beads, 't-1').blocks).toEqual(['t-2', 't-3'])
+  })
+
+  it('does not count a closed bead as held back', () => {
+    const beads = [
+      { id: 't-1', title: 'Cart total', status: 'open' },
+      { id: 't-2', title: 'Pay button', status: 'closed', dependencies: [blocks('t-2', 't-1')] },
+    ] as Bead[]
+    expect(byId(beads, 't-1').blocks).toBeUndefined()
+  })
+
+  it('does not show a closed bead as a blocker', () => {
+    const beads = [
+      { id: 't-1', title: 'Cart total', status: 'closed' },
+      { id: 't-2', title: 'Pay button', status: 'open', dependencies: [blocks('t-2', 't-1')] },
+    ] as Bead[]
+    expect(byId(beads, 't-1').blocks).toBeUndefined()
+  })
+
+  it('counts only the beads that wait directly on the blocker', () => {
+    const beads = [
+      { id: 't-1', title: 'Cart total', status: 'open' },
+      { id: 't-2', title: 'Pay button', status: 'open', dependencies: [blocks('t-2', 't-1')] },
+      { id: 't-3', title: 'Receipt mail', status: 'open', dependencies: [blocks('t-3', 't-2')] },
+    ] as Bead[]
+    expect(byId(beads, 't-1').blocks).toEqual(['t-2'])
+    expect(byId(beads, 't-2').blocks).toEqual(['t-3'])
+  })
+})
+
 describe('the ready beads', () => {
   const beads: Bead[] = [
     { id: 't-1', title: 'Cart total', status: 'open' },

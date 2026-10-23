@@ -1,5 +1,6 @@
 import { BOARD_COLUMNS, childrenOf, columnsOf, columnStatusesOf, countLabel, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, readViewState, statusesOf, statusTitle, statusTogglesOf, toggleStatus, typesOf, writeViewState } from './filters'
 import type { Bead } from '../../shared/contract'
+import { withBlockers } from './blockers'
 import type { BeadFilter, StatusFilter } from './filters'
 
 const only = (change: Partial<BeadFilter>): BeadFilter => ({
@@ -166,8 +167,48 @@ describe('the filters of the page', () => {
   })
 
   it('offers the deferred status only when a loaded bead is deferred', () => {
-    expect(statusTogglesOf(beads)).toEqual(['open', 'in_progress', 'blocked', 'closed'])
-    expect(statusTogglesOf([...beads, { id: 't-9', title: 'Later', status: 'deferred' }])).toEqual(['open', 'in_progress', 'blocked', 'deferred', 'closed'])
+    expect(statusTogglesOf(beads)).toEqual(['open', 'in_progress', 'blocked', 'closed', 'blocker'])
+    expect(statusTogglesOf([...beads, { id: 't-9', title: 'Later', status: 'deferred' }])).toEqual(['open', 'in_progress', 'blocked', 'deferred', 'closed', 'blocker'])
+  })
+
+  describe('the blockers filter', () => {
+    const chain = withBlockers([
+      { id: 't-1', title: 'Cart total', status: 'open' },
+      { id: 't-2', title: 'Pay button', status: 'in_progress', dependencies: [{ issue_id: 't-2', depends_on_id: 't-1', type: 'blocks' }] },
+      { id: 't-3', title: 'Receipt mail', status: 'open', dependencies: [{ issue_id: 't-3', depends_on_id: 't-2', type: 'blocks' }] },
+      { id: 't-4', title: 'Fix the logo', status: 'open' },
+    ] as Bead[])
+
+    it('shows only the beads that hold back another bead', () => {
+      expect(filterBeads(chain, [], only({ status: ['blocker'] })).map((bead) => bead.id)).toEqual(['t-1', 't-2'])
+    })
+
+    it('shows only the blockers of the selected statuses when the user selects a status too', () => {
+      expect(filterBeads(chain, [], only({ status: ['blocked', 'blocker'] })).map((bead) => bead.id)).toEqual(['t-2'])
+      expect(filterBeads(chain, [], only({ status: ['closed', 'blocker'] }))).toEqual([])
+    })
+
+    it('adds the blockers filter after the statuses, and clears it with the ready filter', () => {
+      expect(toggleStatus('ready', 'blocker')).toEqual(['blocker'])
+      expect(toggleStatus(['blocker'], 'open')).toEqual(['open', 'blocker'])
+      expect(toggleStatus(['open', 'blocker'], 'ready')).toBe('ready')
+    })
+
+    it('always offers the blockers filter, also when no bead blocks another', () => {
+      expect(statusTogglesOf(beads)).toEqual(['open', 'in_progress', 'blocked', 'closed', 'blocker'])
+    })
+
+    it('opens a link that holds the blockers filter, and puts it in the link again', () => {
+      const state = readViewState('?status=blocker&status=open', {})
+      expect(state.status).toEqual(['open', 'blocker'])
+      expect(new URLSearchParams(writeViewState(state)).getAll('status')).toEqual(['open', 'blocker'])
+      expect(readViewState('', { status: ['blocker'] }).status).toEqual(['blocker'])
+    })
+
+    it('shows only the columns that hold a blocker', () => {
+      const shown = filterBeads(chain, [], only({ status: ['blocker'] }))
+      expect(columnStatusesOf(shown, ['blocker'])).toEqual(['open', 'blocked'])
+    })
   })
 
   it('finds the beads whose title holds the text that the user types, in any case', () => {
