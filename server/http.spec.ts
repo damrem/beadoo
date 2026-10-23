@@ -27,6 +27,7 @@ let tunnelAnswer: RunResult
 let orca: ReturnType<typeof fakeOrca>
 let orcaOnPath: boolean
 let gitLog: RunResult
+let added: { name: string; path: string }[]
 
 beforeEach(async () => {
   const root = mkdtempSync(join(tmpdir(), 'beads-root-'))
@@ -46,6 +47,7 @@ beforeEach(async () => {
   orca = fakeOrca('/home/me/shop')
   orcaOnPath = true
   gitLog = { status: 0, stdout: 'a1b2c3d4\tAdd the cart total\n', stderr: '' }
+  added = []
   const store = createStore(
     async (command, args) => {
       if (command === 'git' && args.includes('config')) return { status: 0, stdout: 'Ann\n', stderr: '' }
@@ -93,6 +95,11 @@ beforeEach(async () => {
         { name: 'win', path: '/mnt/c/x', refused: 'Use a WSL path' },
         { name: 'remote', path: '/home/me/remote', tunnel: { start: ['ssh', '-fN', 'db-host'], stop: ['pkill', 'ssh'] } },
       ],
+      addDatabase: (entry) => {
+        if (entry.path === '/home/me/empty') return 'The folder /home/me/empty holds no .beads folder'
+        added.push(entry)
+        return [{ name: 'shop', path: '/home/me/shop' }, entry]
+      },
       store,
       spawner: createSpawner(store, orca.io),
       commits: createCommits(store, async (_command, args) => (args.includes('log') ? gitLog : { status: 0, stdout: '', stderr: '' })),
@@ -134,6 +141,42 @@ describe('the page server', () => {
     expect((await (await fetch(`${base}/api/databases`)).json()).spawn).toBe(true)
     orcaOnPath = false
     expect((await (await fetch(`${base}/api/databases`)).json()).spawn).toBe(false)
+  })
+
+  describe('a repo that the user adds from the page', () => {
+    const add = (body: unknown, headers: Record<string, string> = { origin: base, 'x-beads-token': token }) =>
+      fetch(`${base}/api/databases`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(body) })
+
+    it('adds the repo, and names it after its folder when the user gives no name', async () => {
+      const response = await add({ path: '/home/me/cart/' })
+      expect(response.status).toBe(200)
+      expect((await response.json()).databases).toEqual([
+        { name: 'shop', path: '/home/me/shop' },
+        { name: 'cart', path: '/home/me/cart' },
+      ])
+      expect(added).toEqual([{ name: 'cart', path: '/home/me/cart' }])
+    })
+
+    it('keeps the name that the user gives', async () => {
+      await add({ path: '/home/me/cart', name: ' Cart ' })
+      expect(added).toEqual([{ name: 'Cart', path: '/home/me/cart' }])
+    })
+
+    it('tells the user why the config refuses the repo', async () => {
+      const response = await add({ path: '/home/me/empty' })
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'The folder /home/me/empty holds no .beads folder', code: 'INVALID' })
+    })
+
+    it('refuses a request with no folder', async () => {
+      expect((await add({ name: 'cart' })).status).toBe(400)
+      expect(added).toEqual([])
+    })
+
+    it('refuses a request without the page token', async () => {
+      expect((await add({ path: '/home/me/cart' }, { origin: base })).status).toBe(403)
+      expect(added).toEqual([])
+    })
   })
 
   describe('a database on a Dolt server', () => {

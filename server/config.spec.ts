@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { MOUNT_REFUSAL, publicEntry, startMessage } from './config-rules.ts'
-import { configPath, legacyConfigPaths, loadConfig, loadDatabases } from './config.ts'
+import { addDatabase, configPath, legacyConfigPaths, loadConfig, loadDatabases } from './config.ts'
 import type { ConfigPlace } from './config.ts'
 
 const tempHome = () => mkdtempSync(join(tmpdir(), 'beadoo-'))
@@ -166,5 +166,65 @@ describe('the start message of beadoo', () => {
     expect(startMessage('http://127.0.0.1:4747', [], '/home/me/.config/beadoo/config.json')).toContain(
       'start beadoo in a folder that holds .beads, or list the databases in /home/me/.config/beadoo/config.json',
     )
+  })
+})
+
+describe('a repo that the user adds from the page', () => {
+  const repoIn = (home: string, name: string) => {
+    const path = join(home, name)
+    mkdirSync(join(path, '.beads'), { recursive: true })
+    return path
+  }
+
+  it('keeps the repo in the config file, so that the repo stays in the list at the next start', () => {
+    const home = tempHome()
+    const place = placeIn(home)
+    const tunnel = { start: ['ssh', 'up'], stop: ['ssh', 'down'] }
+    writeJson(configPath(place), { databases: [{ name: 'mill', path: '/home/me/mill', tunnel }], sessionCommand: 'claude {prompt}' })
+    const shop = repoIn(home, 'shop')
+    expect(addDatabase(place, { name: 'shop', path: shop })).toEqual([
+      { name: 'mill', path: '/home/me/mill', tunnel },
+      { name: 'shop', path: shop },
+    ])
+    expect(JSON.parse(readFileSync(configPath(place), 'utf8'))).toEqual({
+      databases: [
+        { name: 'mill', path: '/home/me/mill', tunnel },
+        { name: 'shop', path: shop },
+      ],
+      sessionCommand: 'claude {prompt}',
+    })
+  })
+
+  it('keeps the repo of the current folder when the user had no config', () => {
+    const home = tempHome()
+    const place = placeIn(home)
+    mkdirSync(join(place.cwd, '.beads'), { recursive: true })
+    const shop = repoIn(home, 'shop')
+    addDatabase(place, { name: 'shop', path: shop })
+    expect(loadDatabases(place)).toEqual([
+      { name: 'work', path: place.cwd },
+      { name: 'shop', path: shop },
+    ])
+  })
+
+  it('reads a folder that starts with ~ from the home folder of the user', () => {
+    const home = tempHome()
+    const place = placeIn(home)
+    const shop = repoIn(home, 'shop')
+    expect(addDatabase(place, { name: 'shop', path: '~/shop' })).toEqual([{ name: 'shop', path: shop }])
+  })
+
+  it.each([
+    ['a folder with no .beads folder', (home: string) => ({ name: 'empty', path: home }), 'holds no .beads folder'],
+    ['a relative path', () => ({ name: 'rel', path: 'shop' }), 'is not an absolute path'],
+    ['a name that the config holds', (home: string) => ({ name: 'shop', path: repoIn(home, 'other') }), 'already holds a database named "shop"'],
+    ['a folder that the config holds', (home: string) => ({ name: 'again', path: join(home, 'shop') }), 'already holds the folder'],
+  ])('refuses %s, and does not change the config', (_case, entryOf, message) => {
+    const home = tempHome()
+    const place = placeIn(home)
+    const config = { databases: [{ name: 'shop', path: repoIn(home, 'shop') }] }
+    writeJson(configPath(place), config)
+    expect(addDatabase(place, entryOf(home))).toContain(message)
+    expect(JSON.parse(readFileSync(configPath(place), 'utf8'))).toEqual(config)
   })
 })

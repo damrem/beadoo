@@ -1,4 +1,4 @@
-import { basename } from 'node:path'
+import { basename, isAbsolute } from 'node:path'
 import type { DatabaseEntry } from '../shared/contract.ts'
 import { DEFAULT_SESSION_COMMAND } from './orca-rules.ts'
 
@@ -73,3 +73,22 @@ export const publicEntry = ({ name, path, refused, tunnel }: ConfiguredDatabase)
   ...(refused ? { refused } : {}),
   ...(tunnel ? { hasTunnel: true } : {}),
 })
+
+export type NewDatabase = { name: string; path: string }
+
+export function readDatabaseRequest(body: unknown): NewDatabase | string {
+  const { name, path } = (body ?? {}) as { name?: unknown; path?: unknown }
+  if (typeof path !== 'string' || path.trim() === '') return 'The new database needs a "path"'
+  if (name !== undefined && typeof name !== 'string') return 'The "name" of the new database must be a text'
+  const folder = path.trim().replace(/\/+$/, '') || '/'
+  return { name: name?.trim() || basename(folder) || folder, path: folder }
+}
+
+export function newDatabaseProblem(entry: NewDatabase, databases: readonly DatabaseEntry[], hasBeads: boolean): string | null {
+  if (!isAbsolute(entry.path)) return `The path "${entry.path}" is not an absolute path`
+  if (databases.some((db) => db.name === entry.name)) return `The beadoo config already holds a database named "${entry.name}"`
+  const twin = databases.find((db) => db.path === entry.path)
+  if (twin) return `The beadoo config already holds the folder ${entry.path}, as "${twin.name}"`
+  if (!hasBeads) return `The folder ${entry.path} holds no .beads folder`
+  return null
+}

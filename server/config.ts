@@ -1,7 +1,7 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join } from 'node:path'
-import { checkConfig, defaultDatabases } from './config-rules.ts'
-import type { BeadooConfig, ConfiguredDatabase } from './config-rules.ts'
+import { checkConfig, defaultDatabases, newDatabaseProblem } from './config-rules.ts'
+import type { BeadooConfig, ConfiguredDatabase, NewDatabase } from './config-rules.ts'
 import { DEFAULT_SESSION_COMMAND } from './orca-rules.ts'
 import { parseJson } from './process.ts'
 
@@ -34,3 +34,18 @@ export function loadConfig(place: ConfigPlace, path = configPath(place)): Beadoo
 }
 
 export const loadDatabases = (place: ConfigPlace, path = configPath(place)): ConfiguredDatabase[] => loadConfig(place, path).databases
+
+const expandHome = (path: string, home: string): string => (path === '~' || path.startsWith('~/') ? join(home, path.slice(1)) : path)
+
+export function addDatabase(place: ConfigPlace, request: NewDatabase, path = configPath(place)): ConfiguredDatabase[] | string {
+  const entry = { name: request.name, path: expandHome(request.path, place.home) }
+  const { databases } = loadConfig(place, path)
+  const problem = newDatabaseProblem(entry, databases, existsSync(join(entry.path, '.beads')))
+  if (problem) return problem
+  const config = existsSync(path) ? (parseJson(readFileSync(path, 'utf8'), path) as { databases: unknown[] }) : { databases }
+  config.databases = [...config.databases, entry]
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`)
+  place.log?.(`beadoo added the database "${entry.name}" to ${path}.`)
+  return loadDatabases(place, path)
+}

@@ -1,4 +1,4 @@
-import { TUNNEL_ROUTE, UNKNOWN_ERROR } from '../../shared/contract'
+import { DATABASES_ROUTE, TUNNEL_ROUTE, UNKNOWN_ERROR } from '../../shared/contract'
 import type { Bead, BeadList, ClaimAction, Commit, DatabaseEntry } from '../../shared/contract'
 import type { EditRequest } from '../../shared/edit'
 import type { SpawnChoices, SpawnedSession, SpawnRequest } from '../../shared/spawn'
@@ -26,7 +26,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const query = (db: string) => `db=${encodeURIComponent(db)}`
 
 export const api = {
-  databases: () => request<{ databases: DatabaseEntry[]; spawn?: boolean }>('/api/databases'),
+  databases: () => request<{ databases: DatabaseEntry[]; spawn?: boolean }>(DATABASES_ROUTE),
+  addDatabase: (path: string, name: string) =>
+    request<{ databases: DatabaseEntry[]; spawn?: boolean }>(DATABASES_ROUTE, {
+      method: 'POST',
+      headers: { 'x-beads-token': pageToken(), 'content-type': 'application/json' },
+      body: JSON.stringify({ path, ...(name.trim() ? { name } : {}) }),
+    }),
   beads: (db: string) => request<BeadList>(`/api/beads?${query(db)}`),
   bead: (db: string, id: string) => request<Bead>(`/api/beads/${encodeURIComponent(id)}?${query(db)}`),
   actor: (db: string) => request<{ actor: string }>(`/api/actor?${query(db)}`).then((body) => body.actor),

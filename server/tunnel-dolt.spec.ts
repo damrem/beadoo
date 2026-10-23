@@ -140,6 +140,7 @@ describe.skipIf(!hasTools)('a database on a real Dolt server behind a tunnel', (
       'request',
       createHandler({
         databases: () => [db],
+        addDatabase: () => 'The test adds no database',
         store,
         tunnels,
         spawner: createSpawner(store, fakeOrca(root).io),

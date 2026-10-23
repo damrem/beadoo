@@ -1282,6 +1282,46 @@ describe('the beadoo page', () => {
     })
   })
 
+  describe('a repo that the user adds', () => {
+    withPageToken()
+
+    const openForm = async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Add a repo' }))
+      return screen.findByRole('dialog')
+    }
+
+    it('shows the beads of the new repo after the user adds it', async () => {
+      render(<App />)
+      await screen.findByText('Cart total')
+      answers['POST /api/databases'] = json({
+        databases: [
+          { name: '.team', path: '/home/me/.team' },
+          { name: 'shop', path: '/home/me/shop' },
+        ],
+      })
+      answers['/api/beads?db=shop'] = json({ beads: [{ id: 's-1', title: 'Shop search', status: 'open' }], readyIds: ['s-1'] })
+      const dialog = await openForm()
+      await userEvent.type(within(dialog).getByLabelText('Folder'), '~/shop')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
+      expect(await screen.findByText('Shop search')).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Database' })).toHaveTextContent('shop')
+      expect(window.location.search).toContain('db=shop')
+      expect(writes).toEqual([{ path: '/api/databases', token: 'page-token' }])
+    })
+
+    it('tells the user why beadoo refuses the repo, and keeps the form open', async () => {
+      render(<App />)
+      await screen.findByText('Cart total')
+      answers['POST /api/databases'] = json({ error: 'The folder /home/me/empty holds no .beads folder', code: 'INVALID' }, 400)
+      const dialog = await openForm()
+      await userEvent.type(within(dialog).getByLabelText('Folder'), '/home/me/empty')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('holds no .beads folder')
+      expect(within(dialog).getByLabelText('Folder')).toHaveValue('/home/me/empty')
+    })
+  })
+
   describe('a database on a Dolt server that does not answer', () => {
     const down = json(
       {

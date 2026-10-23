@@ -1,15 +1,15 @@
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, join, normalize, sep } from 'node:path'
-import { CLAIM_ACTIONS, CONFLICT, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED, STALE, STORE_NOT_OPEN, TUNNEL_ROUTE, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
+import { CLAIM_ACTIONS, CONFLICT, DATABASES_ROUTE, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED, STALE, STORE_NOT_OPEN, TUNNEL_ROUTE, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
 import type { ClaimAction } from '../shared/contract.ts'
 import { isEditRequest } from '../shared/edit.ts'
 import { readSpawnRequest } from '../shared/spawn.ts'
 import { StoreError } from './beads-store.ts'
 import type { Store } from './beads-store.ts'
-import { publicEntry } from './config-rules.ts'
+import { publicEntry, readDatabaseRequest } from './config-rules.ts'
 import { ORCA_MISSING } from './orca-rules.ts'
-import type { ConfiguredDatabase } from './config-rules.ts'
+import type { ConfiguredDatabase, NewDatabase } from './config-rules.ts'
 import type { Commits } from './commits.ts'
 import type { Spawner } from './spawner.ts'
 import type { Tunnels } from './tunnels.ts'
@@ -17,6 +17,7 @@ import { allowsWrite } from './guard.ts'
 
 export type AppDeps = {
   databases: () => ConfiguredDatabase[]
+  addDatabase: (entry: NewDatabase) => ConfiguredDatabase[] | string
   store: Store
   tunnels: Tunnels
   spawner: Spawner
@@ -138,8 +139,9 @@ export function createHandler(deps: AppDeps) {
       return
     }
     const tunnelStart = write && req.method === 'POST' && url.pathname === TUNNEL_ROUTE
+    const databaseAdd = write && req.method === 'POST' && url.pathname === DATABASES_ROUTE
     const target = write && req.method === 'POST' ? writeRoute(url.pathname) : null
-    if (write && !target && !tunnelStart) {
+    if (write && !target && !tunnelStart && !databaseAdd) {
       sendJson(res, 404, { error: 'Not found' })
       return
     }
@@ -150,8 +152,19 @@ export function createHandler(deps: AppDeps) {
     }
 
     try {
+      if (databaseAdd) {
+        const text = await readBody(req)
+        const entry = text === null ? `The request is larger than ${MAX_BODY_BYTES} bytes` : readDatabaseRequest(parsedBody(text))
+        const added = typeof entry === 'string' ? entry : deps.addDatabase(entry)
+        if (typeof added === 'string') {
+          sendJson(res, 400, { error: added, code: INVALID })
+          return
+        }
+        sendJson(res, 200, { databases: added.map(publicEntry), spawn: deps.canSpawn })
+        return
+      }
       const databases = deps.databases()
-      if (url.pathname === '/api/databases') {
+      if (url.pathname === DATABASES_ROUTE) {
         sendJson(res, 200, { databases: databases.map(publicEntry), spawn: deps.canSpawn })
         return
       }
