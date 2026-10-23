@@ -37,10 +37,18 @@ export const realRunAsync: RunAsync = (command, args, options = {}) =>
     if (options.input !== undefined) child.stdin?.end(options.input)
   })
 
+const WARNING_LINE = /^warning:/i
+
+const INDENTED_LINE = /^[ \t]/
+
 export function withoutWarnings(stderr: string): string {
+  let inWarning = false
   return stderr
     .split(/\r?\n/)
-    .filter((line) => line.trim() !== '' && !line.startsWith('WARNING:'))
+    .filter((line) => {
+      inWarning = WARNING_LINE.test(line) || (inWarning && INDENTED_LINE.test(line))
+      return line.trim() !== '' && !inWarning
+    })
     .join('\n')
 }
 
