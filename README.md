@@ -46,6 +46,15 @@ When the file does not exist, beadoo shows the `.beads` database of the folder w
 
 When Orca is on the `PATH`, a bead that you can claim has a **Spawn** button. The button claims the bead, makes or chooses an Orca worktree, and starts the session command in a new terminal of that worktree.
 
+## Claude Code plugin
+
+The repo is also a Claude Code plugin. Its `beadoo` skill starts beadoo with `npx beadoo`, and opens the page in an Orca browser tab when `orca` is on the `PATH`.
+
+```bash
+claude plugin marketplace add damrem/beadoo
+claude plugin install beadoo@beadoo
+```
+
 ## Development
 
 ```bash

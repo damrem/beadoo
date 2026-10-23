@@ -1,0 +1,11 @@
+{
+  "name": "beadoo",
+  "version": "0.1.0",
+  "description": "Show the beads of a local beads database in a web page",
+  "author": {
+    "name": "Damien Remars"
+  },
+  "homepage": "https://github.com/damrem/beadoo",
+  "repository": "https://github.com/damrem/beadoo",
+  "license": "MIT"
+}
