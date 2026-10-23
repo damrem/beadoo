@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { LabelTags, Tag } from '@/components/BeadCard'
+import { BlockerCount, Blocks, LabelTags, Tag, WaitsOn } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { OpenEpicButton } from '@/components/EpicHeader'
 import { NoMatch } from '@/components/NoMatch'
@@ -48,6 +48,7 @@ export function EpicTable({
                   <OpenEpicButton epic={lane.epic} onOpen={onOpen} />
                   <LabelTags labels={lane.epic.labels} />
                   <span className="ml-auto flex items-center gap-3">
+                    <BlockerCount count={lane.epic.blockers} />
                     <StatusBar title={lane.epic.title} counts={lane.epic.counts} />
                     <span className="text-xs text-muted-foreground">{countLabel(lane.epic.counts)}</span>
                   </span>
@@ -74,6 +75,8 @@ export function EpicTable({
                     <Emoji emoji={statusEmoji(bead.status)} />
                     {statusTitle(bead.status)}
                   </span>
+                  {bead.blockers?.length ? <WaitsOn blockers={bead.blockers} /> : null}
+                  {bead.blocks?.length ? <Blocks beads={bead.blocks} /> : null}
                 </td>
                 <td className="px-3 py-2 font-mono text-xs">
                   {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}

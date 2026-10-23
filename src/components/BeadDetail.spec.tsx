@@ -2,14 +2,15 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BeadDetail } from './BeadDetail'
 import type { Bead } from '../../shared/contract'
+import { useVisibleBeads } from '@/lib/visible'
 
-const show = async (bead: Partial<Bead>) => {
+const show = async (bead: Partial<Bead>, beads?: Bead[]) => {
   const full = { id: 'claude-7', title: 'Cart total', status: 'open', ...bead }
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => new Response(JSON.stringify(full), { status: 200 })),
   )
-  render(<BeadDetail db=".team" id={full.id} actor={null} onClose={() => {}} onOpen={() => {}} onWritten={() => {}} />)
+  render(<BeadDetail db=".team" id={full.id} actor={null} beads={beads} onClose={() => {}} onOpen={() => {}} onWritten={() => {}} />)
   const dialog = await screen.findByRole('dialog')
   await within(dialog).findByText('Cart total')
   return dialog
@@ -92,6 +93,34 @@ describe('the detail of a bead', () => {
   it('shows no wait line when all the blockers of the bead are closed', async () => {
     const dialog = await show({ dependencies: [{ id: 'claude-2', status: 'closed', dependency_type: 'blocks' }] })
     expect(within(dialog).queryByText(/waits on/)).not.toBeInTheDocument()
+  })
+
+  describe('the beads that the bead holds back', () => {
+    const waiting = (id: string, status: string): Bead => ({
+      id,
+      title: 'Pay button',
+      status,
+      dependencies: [{ id: 'claude-7', dependency_type: 'blocks' }],
+    })
+    const listed = [{ id: 'claude-7', title: 'Cart total', status: 'open' }, waiting('claude-8', 'open'), waiting('claude-9', 'in_progress'), waiting('claude-10', 'closed')]
+
+    afterEach(() => useVisibleBeads.getState().show(null))
+
+    it('shows how many open beads the bead blocks, and their ids', async () => {
+      const dialog = await show({}, listed)
+      expect(within(dialog).getByText(/^blocks \d/)).toHaveTextContent('blocks 2: 8, 9')
+    })
+
+    it('shows how many of them the filters show, out of all the open ones', async () => {
+      useVisibleBeads.getState().show(['claude-9'])
+      const dialog = await show({}, listed)
+      expect(within(dialog).getByText(/^blocks \d/)).toHaveTextContent('blocks 1/2: 8, 9')
+    })
+
+    it('shows no block line for a closed bead', async () => {
+      const dialog = await show({ status: 'closed' }, listed)
+      expect(within(dialog).queryByText(/^blocks \d/)).not.toBeInTheDocument()
+    })
   })
 
   it('shows a chip for each metadata key of the bead, with its value', async () => {

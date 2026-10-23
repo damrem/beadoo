@@ -211,6 +211,19 @@ describe('the filters of the page', () => {
     })
   })
 
+  it('counts the blockers of each epic', () => {
+    const list = withBlockers([
+      { id: 'e-1', title: 'Checkout', status: 'open', issue_type: 'epic' },
+      { id: 't-1', title: 'Cart total', status: 'open', parent: 'e-1' },
+      { id: 't-2', title: 'Pay button', status: 'open', parent: 'e-1', dependencies: [{ issue_id: 't-2', depends_on_id: 't-1', type: 'blocks' }] },
+      { id: 't-3', title: 'Fix the logo', status: 'open', dependencies: [{ issue_id: 't-3', depends_on_id: 't-2', type: 'blocks' }] },
+    ] as Bead[])
+    expect(epicsIn(list, 'all').map((epic) => [epic.id, epic.blockers])).toEqual([
+      ['e-1', 2],
+      [NO_EPIC, 0],
+    ])
+  })
+
   it('finds the beads whose title holds the text that the user types, in any case', () => {
     expect(filterBeads(beads, [], only({ text: 'PAY' })).map((bead) => bead.id)).toEqual(['t-2'])
   })
@@ -257,8 +270,8 @@ describe('the filters of the page', () => {
 
   it('counts the children of each epic by status', () => {
     expect(epicsIn(beads, 'ready')).toEqual([
-      { id: 'e-1', title: 'Checkout', status: 'open', counts: { open: 1, in_progress: 1, closed: 1 }, labels: [] },
-      { id: NO_EPIC, title: 'No epic', status: 'open', counts: { open: 1 }, labels: [] },
+      { id: 'e-1', title: 'Checkout', status: 'open', counts: { open: 1, in_progress: 1, closed: 1 }, labels: [], blockers: 0 },
+      { id: NO_EPIC, title: 'No epic', status: 'open', counts: { open: 1 }, labels: [], blockers: 0 },
     ])
   })
 

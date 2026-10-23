@@ -23,6 +23,7 @@ import { api, ApiError } from '@/lib/api'
 import { SpawnAllowed } from '@/lib/spawn-allowed'
 import { beadAddressOf } from '@/lib/urls'
 import { withBlockers } from '@/lib/blockers'
+import { useVisibleBeads } from '@/lib/visible'
 import { UNREACHABLE } from '../shared/contract'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
 import {
@@ -201,6 +202,15 @@ function Beads() {
     () => (data && epic ? filterBeads(childrenOf(groups, epic), data.readyIds, filter) : []),
     [data, groups, epic, filter],
   )
+
+  const visibleIds = useMemo(
+    () => (view.mode === 'epic' ? boardBeads : lanes.flatMap((lane) => lane.beads)).map((bead) => bead.id),
+    [view.mode, boardBeads, lanes],
+  )
+
+  const showVisible = useVisibleBeads((state) => state.show)
+
+  useEffect(() => showVisible(visibleIds), [showVisible, visibleIds])
 
   const open = (id: string) => update({ bead: id })
 

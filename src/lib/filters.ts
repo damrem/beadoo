@@ -1,5 +1,6 @@
 import type { Bead } from '../../shared/contract'
 import { boardStatusOf, isBlocker } from '@/lib/blockers'
+import type { BoardBead } from '@/lib/blockers'
 import { mergedLabels } from '@/lib/labels'
 
 export const STATUS_CHOICES = ['ready', 'all'] as const
@@ -143,7 +144,7 @@ export function writeViewState(state: ViewState): string {
   return `?${params.toString()}`
 }
 
-export function filterBeads(beads: Bead[], readyIds: string[], filter: BeadFilter): Bead[] {
+export function filterBeads<T extends BoardBead>(beads: T[], readyIds: string[], filter: BeadFilter): T[] {
   const { status, labels, type, priority } = filter
   const ready = new Set(readyIds)
   const needle = filter.text.trim().toLowerCase()
@@ -190,7 +191,14 @@ export const childrenOf = (groups: Groups, epic: string): Bead[] => groups.get(e
 const byPriorityThenId = (a: Bead, b: Bead): number =>
   (a.priority ?? 9) - (b.priority ?? 9) || a.id.localeCompare(b.id)
 
-export type EpicEntry = { id: string; title: string; status: string; counts: Record<string, number>; labels: string[] }
+export type EpicEntry = {
+  id: string
+  title: string
+  status: string
+  counts: Record<string, number>
+  labels: string[]
+  blockers?: number
+}
 
 const inStatusOrder = (statuses: string[]): string[] => [...new Set([...BOARD_COLUMNS, ...statuses])]
 
@@ -225,11 +233,19 @@ export function epicsOf(beads: Bead[], groups: Groups, status: StatusFilter): Ep
       title: epic.title,
       status: epic.status,
       counts: countByStatus(childrenOf(groups, epic.id)),
+      blockers: childrenOf(groups, epic.id).filter(isBlocker).length,
       labels: mergedLabels(epic.labels, ...childrenOf(groups, epic.id).map((child) => child.labels)),
     }))
   return [
     ...epics,
-    { id: NO_EPIC, title: 'No epic', status: 'open', counts: countByStatus(childrenOf(groups, NO_EPIC)), labels: [] },
+    {
+      id: NO_EPIC,
+      title: 'No epic',
+      status: 'open',
+      counts: countByStatus(childrenOf(groups, NO_EPIC)),
+      labels: [],
+      blockers: childrenOf(groups, NO_EPIC).filter(isBlocker).length,
+    },
   ]
 }
 
@@ -253,7 +269,7 @@ export function columnsOf(beads: Bead[], statuses: string[] = statusesOf(beads))
   }))
 }
 
-export type Lane = { epic: EpicEntry; beads: Bead[] }
+export type Lane = { epic: EpicEntry; beads: BoardBead[] }
 
 export function lanesOf(
   epics: EpicEntry[],

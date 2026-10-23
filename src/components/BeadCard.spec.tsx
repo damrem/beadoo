@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BeadCard } from './BeadCard'
 import type { BoardBead } from '@/lib/blockers'
+import { useVisibleBeads } from '@/lib/visible'
 
 const toneOf = (element: Element | null) => (element as HTMLElement | null)?.style.getPropertyValue('--tone')
 
@@ -61,6 +62,36 @@ describe('the card of a bead', () => {
     const waits = screen.getByText(/waits on 2/)
     expect(waits).toHaveTextContent('waits on 2: 0fo.3, 0fo.5')
     expect(waits).toHaveAttribute('title', 'claude-0fo.3, claude-0fo.5')
+  })
+
+  it('shows how many open beads the bead holds back, and their ids, in amber', () => {
+    show({ status: 'open', blocks: ['claude-0fo.3', 'claude-0fo.5'] })
+    const holds = screen.getByText(/blocks 2/)
+    expect(holds).toHaveTextContent('blocks 2: 0fo.3, 0fo.5')
+    expect(holds).toHaveAttribute('title', 'claude-0fo.3, claude-0fo.5')
+    expect(toneOf(holds)).toBe('var(--ctp-peach)')
+  })
+
+  it('shows no block line for a bead that holds back no open bead', () => {
+    show({ status: 'open' })
+    expect(screen.queryByText(/blocks/)).not.toBeInTheDocument()
+  })
+
+  describe('when the filters hide some related beads', () => {
+    afterEach(() => useVisibleBeads.getState().show(null))
+
+    it('shows how many related beads the filters show, out of all the open ones', () => {
+      useVisibleBeads.getState().show(['claude-0fo.3', 'claude-0fo.7'])
+      show({ status: 'open', blockers: ['claude-0fo.3', 'claude-0fo.5'], blocks: ['claude-0fo.7', 'claude-0fo.8', 'claude-0fo.9'] })
+      expect(screen.getByText(/waits on/)).toHaveTextContent('waits on 1/2: 0fo.3, 0fo.5')
+      expect(screen.getByText(/blocks/)).toHaveTextContent('blocks 1/3: 0fo.7, 0fo.8, 0fo.9')
+    })
+
+    it('shows the short count when the filters show all the related beads', () => {
+      useVisibleBeads.getState().show(['claude-0fo.3', 'claude-0fo.5'])
+      show({ status: 'open', blocks: ['claude-0fo.3', 'claude-0fo.5'] })
+      expect(screen.getByText(/blocks/)).toHaveTextContent('blocks 2: 0fo.3, 0fo.5')
+    })
   })
 
   it('shows no wait line for a bead with no open blocker', () => {

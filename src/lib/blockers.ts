@@ -55,5 +55,3 @@ export const isBlocker = (bead: BoardBead): boolean => (bead.blocks?.length ?? 0
 export const isReady = (bead: BoardBead): boolean => bead.ready === true
 
 export const boardStatusOf = (bead: BoardBead): string => (isBlocked(bead) ? BLOCKED : bead.status)
-
-export const waitsOnLabel = (count: number): string => `waits on ${count}`
