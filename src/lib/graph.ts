@@ -160,9 +160,10 @@ function layoutZone<T extends Bead>(sorted: T[], edges: GraphEdge[]): Zone<T> {
       y: (slots.get(bead.id)! - top) * step,
     })),
   )
+  const roots = new Set((columns[0] ?? []).map((bead) => bead.id))
   return {
     nodes,
-    edges,
+    edges: edges.filter((edge) => edge.kind !== 'parent' || !roots.has(edge.from)),
     width: Math.max(0, columns.length * (NODE_WIDTH + COLUMN_GAP) - COLUMN_GAP),
     height: columns.length === 0 ? 0 : (bottom - top) * step + NODE_HEIGHT,
   }

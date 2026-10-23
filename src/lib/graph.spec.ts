@@ -102,6 +102,19 @@ describe('the layout of the bead graph', () => {
     expect(zones.map((zone) => zone.nodes.find((node) => node.column === 0)?.bead.id)).toEqual(['e-1', 't-2'])
   })
 
+  it('shows no parent link from the root bead of a zone, and keeps the deeper parent links', () => {
+    const beads = [
+      { id: 'e-1', title: 'Checkout', status: 'open', issue_type: 'epic' },
+      { id: 'e-1.1', title: 'Payment', status: 'open', issue_type: 'epic', parent: 'e-1' },
+      { id: 't-1', title: 'Pay button', status: 'open', parent: 'e-1.1' },
+      { id: 't-2', title: 'Cart total', status: 'open', parent: 'e-1' },
+    ] as Bead[]
+    const [zone] = layoutGraph(beads).zones
+    expect(zone.edges).toEqual([{ from: 'e-1.1', to: 't-1', kind: 'parent' }])
+    expect(zone.nodes.find((node) => node.bead.id === 'e-1')?.column).toBe(0)
+    expect(zone.nodes.find((node) => node.bead.id === 't-2')?.column).toBe(1)
+  })
+
   it('leaves no empty band at the top of a zone', () => {
     const beads = [
       { id: 't-1', title: 'Cart total', status: 'open', priority: 0 },
