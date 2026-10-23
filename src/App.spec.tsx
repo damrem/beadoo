@@ -61,6 +61,12 @@ afterEach(() => {
 
 const column = (name: string) => screen.getByRole('region', { name })
 
+const boardFilters = () => screen.getByRole('search', { name: 'Board filters' })
+
+const epicFilters = () => screen.getByRole('search', { name: 'Epic filters' })
+
+const headerFilters = () => screen.getByRole('search', { name: 'Filters' })
+
 const withPageToken = () => {
   beforeEach(() => {
     const meta = document.createElement('meta')
@@ -83,11 +89,10 @@ describe('the beadoo page', () => {
     expect(screen.queryByRole('region', { name: 'Closed' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'In progress' })).not.toBeInTheDocument()
     expect(window.location.search).toContain('db=.team')
-    expect(window.location.search).toContain('status=ready')
+    expect(new URLSearchParams(window.location.search).get('board.status')).toBe('ready')
   })
 
-  it('lists the epics with the count of their children for each status', async () => {
-    window.history.replaceState(null, '', '/?db=.team&status=all')
+  it('lists the epics with the count of all their children for each status, also under the ready filter of the board', async () => {
     render(<App />)
     const epics = await screen.findByRole('navigation', { name: 'Epics' })
     expect(within(epics).getByRole('button', { name: /Checkout.*2 Open · 1 Closed/ })).toBeInTheDocument()
@@ -106,47 +111,100 @@ describe('the beadoo page', () => {
       })
     })
 
-    it('lists only the epics with a child that matches the filters, and counts only the matching children', async () => {
+    it('lists the open epics when the page opens, also an epic whose children are all closed', async () => {
+      render(<App />)
+      const epics = await screen.findByRole('navigation', { name: 'Epics' })
+      const listed = within(epics).getAllByRole('button')
+      expect(listed.map((button) => button.textContent)).toEqual([
+        expect.stringMatching(/^Old search.*1 Closed$/),
+        expect.stringMatching(/^Checkout.*2 Open · 1 Closed$/),
+        'No epic1 Open',
+      ])
+    })
+
+    it('lists only the epics whose title holds the text that the user typed in the epic filters', async () => {
+      render(<App />)
+      await screen.findByRole('navigation', { name: 'Epics' })
+      await userEvent.type(within(epicFilters()).getByRole('textbox', { name: 'Find in the titles' }), 'check')
+      const epics = screen.getByRole('navigation', { name: 'Epics' })
+      expect(within(epics).queryByRole('button', { name: /Old search/ })).not.toBeInTheDocument()
+      expect(within(epics).getByRole('button', { current: true })).toHaveTextContent('Checkout')
+      expect(new URLSearchParams(window.location.search).get('epics.q')).toBe('check')
+    })
+
+    it('hides the closed epics until the user selects the closed status in the epic filters', async () => {
+      answers['/api/beads?db=.team'] = json({
+        beads: [
+          { id: 'e-0', title: 'Old search', status: 'closed', issue_type: 'epic', priority: 0 },
+          { id: 't-0', title: 'Search index', status: 'closed', parent: 'e-0' },
+          ...beads,
+        ],
+        readyIds: ['t-1', 't-4'],
+      })
       render(<App />)
       const epics = await screen.findByRole('navigation', { name: 'Epics' })
       expect(within(epics).queryByRole('button', { name: /Old search/ })).not.toBeInTheDocument()
-      expect(within(epics).getByRole('button', { name: /Checkout/ })).toHaveTextContent(/1 Open$/)
-      expect(within(epics).getByRole('button', { current: true })).toHaveTextContent('Checkout')
-      expect(within(column('Open')).getByText('Cart total')).toBeInTheDocument()
+      await userEvent.click(within(epicFilters()).getByRole('button', { name: 'All' }))
+      expect(within(epics).getByRole('button', { name: /Old search/ })).toBeInTheDocument()
     })
 
-    it('lists only the epics with a child whose title holds the text that the user typed', async () => {
-      window.history.replaceState(null, '', '/?db=.team&status=all&q=logo')
-      render(<App />)
-      const epics = await screen.findByRole('navigation', { name: 'Epics' })
-      expect(within(epics).getAllByRole('button').map((button) => button.textContent)).toEqual(['No epic1 Open'])
-      expect(within(column('Open')).getByText('Fix the logo')).toBeInTheDocument()
-    })
-
-    it('selects the first listed epic when the filters remove the selected epic', async () => {
-      window.history.replaceState(null, '', '/?db=.team&status=closed&epic=e-0')
+    it('selects the first listed epic when the epic filters remove the selected epic', async () => {
+      window.history.replaceState(null, '', '/?db=.team&board.status=closed&epic=e-0')
       render(<App />)
       expect(await screen.findByText('Search index')).toBeInTheDocument()
-      await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+      await userEvent.type(within(epicFilters()).getByRole('textbox', { name: 'Find in the titles' }), 'check')
       const epics = screen.getByRole('navigation', { name: 'Epics' })
       expect(within(epics).getByRole('button', { current: true })).toHaveTextContent('Checkout')
-      expect(within(column('Open')).getByText('Cart total')).toBeInTheDocument()
+      expect(within(column('Closed')).getByText('Receipt mail')).toBeInTheDocument()
     })
 
-    it('tells the user when no bead matches the filters, and shows no empty column', async () => {
-      window.history.replaceState(null, '', '/?db=.team&q=nothing-like-this')
+    it('tells the user when no bead of the epic matches the board filters, and shows no empty column', async () => {
+      window.history.replaceState(null, '', '/?db=.team&board.q=nothing-like-this')
       render(<App />)
       expect(await screen.findByText('No bead matches the filters.')).toBeInTheDocument()
       expect(screen.queryByRole('region')).not.toBeInTheDocument()
+    })
+
+    it('disables the header filters in the epic view, and does not apply them to the epics or to the board', async () => {
+      window.history.replaceState(null, '', '/?db=.team&q=logo&type=bug&epic=e-1')
+      render(<App />)
+      expect(await screen.findByText('Cart total')).toBeInTheDocument()
+      expect(within(headerFilters()).getByRole('textbox', { name: 'Find in the titles' })).toBeDisabled()
+      expect(within(headerFilters()).getByRole('combobox', { name: 'Type filter' })).toBeDisabled()
+      expect(within(headerFilters()).getByRole('button', { name: 'All' })).toBeDisabled()
+      expect(within(screen.getByRole('navigation', { name: 'Epics' })).getByRole('button', { name: /Old search/ })).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Lanes' }))
+      expect(within(headerFilters()).getByRole('textbox', { name: 'Find in the titles' })).toBeEnabled()
+    })
+
+    it('keeps the epic filters and the board filters apart, in the link and for the next visit', async () => {
+      render(<App />)
+      await screen.findByRole('navigation', { name: 'Epics' })
+      await userEvent.type(within(epicFilters()).getByRole('textbox', { name: 'Find in the titles' }), 'check')
+      await userEvent.click(within(boardFilters()).getByRole('button', { name: 'All' }))
+      await userEvent.type(within(boardFilters()).getByRole('textbox', { name: 'Find in the titles' }), 'pay')
+      expect(within(epicFilters()).getByRole('textbox', { name: 'Find in the titles' })).toHaveValue('check')
+      expect(screen.getByText('Pay button')).toBeInTheDocument()
+      expect(screen.queryByText('Cart total')).not.toBeInTheDocument()
+      const params = new URLSearchParams(window.location.search)
+      expect(params.get('epics.q')).toBe('check')
+      expect(params.get('board.q')).toBe('pay')
+      expect(params.getAll('board.status')).toEqual(['all'])
+      expect(params.get('q')).toBeNull()
+      expect(JSON.parse(window.localStorage.getItem('beadoo:filters') ?? '{}')).toMatchObject({
+        text: '',
+        epics: { text: 'check' },
+        board: { text: 'pay', status: 'all' },
+      })
     })
   })
 
   it('shows all the children of the epic when the user selects the all filter', async () => {
     render(<App />)
     await screen.findByText('Cart total')
-    await userEvent.click(screen.getByRole('button', { name: 'All' }))
+    await userEvent.click(within(boardFilters()).getByRole('button', { name: 'All' }))
     expect(within(column('Closed')).getByText('Receipt mail')).toBeInTheDocument()
-    expect(window.location.search).toContain('status=all')
+    expect(window.location.search).toContain('board.status=all')
   })
 
   it('shows on each epic lane the count of the closed children over all the children, also under the ready filter', async () => {
@@ -157,12 +215,12 @@ describe('the beadoo page', () => {
   })
 
   it('marks only the ready beads, and the ready filter shows only them', async () => {
-    window.history.replaceState(null, '', '/?db=.team&status=all')
+    window.history.replaceState(null, '', '/?db=.team&board.status=all')
     render(<App />)
     const cart = await screen.findByRole('button', { name: 't-1 Cart total' })
     expect(within(cart).getByText('ready')).toBeInTheDocument()
     expect(within(screen.getByRole('button', { name: 't-2 Pay button' })).queryByText('ready')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+    await userEvent.click(within(boardFilters()).getByRole('button', { name: 'Ready' }))
     expect(screen.queryByRole('button', { name: 't-2 Pay button' })).not.toBeInTheDocument()
     expect(within(screen.getByRole('button', { name: 't-1 Cart total' })).getByText('ready')).toBeInTheDocument()
   })
@@ -174,7 +232,7 @@ describe('the beadoo page', () => {
       ),
       readyIds: ['t-1', 't-4'],
     })
-    window.history.replaceState(null, '', '/?db=.team&status=all')
+    window.history.replaceState(null, '', '/?db=.team&board.status=all')
     render(<App />)
     const card = await within(await screen.findByRole('region', { name: 'Blocked' })).findByRole('button', { name: 't-2 Pay button' })
     expect(card).toHaveTextContent('waits on 1: 1')
@@ -198,7 +256,7 @@ describe('the beadoo page', () => {
       ],
       readyIds: ['t-1', 't-4'],
     })
-    window.history.replaceState(null, '', '/?db=.team&status=all')
+    window.history.replaceState(null, '', '/?db=.team&epics.status=all&board.status=all')
     render(<App />)
     const epics = await screen.findByRole('navigation', { name: 'Epics' })
     await userEvent.click(within(epics).getByRole('button', { name: /Tidy the repo/ }))
@@ -221,8 +279,8 @@ describe('the beadoo page', () => {
   it('finds the beads whose title holds the text that the user types', async () => {
     render(<App />)
     await screen.findByText('Cart total')
-    await userEvent.click(screen.getByRole('button', { name: 'All' }))
-    await userEvent.type(screen.getByRole('textbox', { name: 'Find in the titles' }), 'receipt')
+    await userEvent.click(within(boardFilters()).getByRole('button', { name: 'All' }))
+    await userEvent.type(within(boardFilters()).getByRole('textbox', { name: 'Find in the titles' }), 'receipt')
     expect(screen.queryByText('Cart total')).not.toBeInTheDocument()
     expect(screen.getByText('Receipt mail')).toBeInTheDocument()
   })
@@ -441,6 +499,7 @@ describe('the beadoo page', () => {
   })
 
   it('keeps the last filter of the user for the next visit', async () => {
+    window.history.replaceState(null, '', '/?view=lanes')
     render(<App />)
     await screen.findByText('Cart total')
     await userEvent.click(screen.getByRole('button', { name: 'Closed' }))
@@ -527,7 +586,8 @@ describe('the beadoo page', () => {
       expect(window.location.search).toContain('view=graph')
     })
 
-    it('shows the same beads in the three views when the user changes the filters', async () => {
+    it('shows the same beads in the lanes and the table when the user changes the filters', async () => {
+      window.history.replaceState(null, '', '/?view=lanes')
       render(<App />)
       await screen.findByText('Cart total')
       await userEvent.click(screen.getByRole('button', { name: 'All' }))
@@ -535,7 +595,6 @@ describe('the beadoo page', () => {
       const expected = ['t-1 Cart total', 't-3 Receipt mail']
       expect(await shownIn('Lanes')).toEqual(expected)
       expect(await shownIn('Table')).toEqual(expected)
-      expect(await shownInEpicBoards()).toEqual(expected)
     })
 
     describe('the label, type and priority filters', () => {
@@ -554,8 +613,8 @@ describe('the beadoo page', () => {
 
       const select = (name: string) => screen.getByRole('combobox', { name })
 
-      it('shows the same beads in the three views when the user selects labels and a type', async () => {
-        window.history.replaceState(null, '', '/?db=.team&status=all')
+      it('shows the same beads in the lanes and the table when the user selects labels and a type', async () => {
+        window.history.replaceState(null, '', '/?db=.team&status=all&view=lanes')
         render(<App />)
         await screen.findByText('Cart total')
         await userEvent.selectOptions(select('Label filter'), 'front')
@@ -563,12 +622,10 @@ describe('the beadoo page', () => {
         const allLabels = ['t-1 Cart total', 't-3 Receipt mail', 't-4 Fix the logo']
         expect(await shownIn('Lanes')).toEqual(allLabels)
         expect(await shownIn('Table')).toEqual(allLabels)
-        expect(await shownInEpicBoards()).toEqual(allLabels)
         await userEvent.selectOptions(select('Type filter'), 'bug')
         const bugs = ['t-3 Receipt mail', 't-4 Fix the logo']
         expect(await shownIn('Lanes')).toEqual(bugs)
         expect(await shownIn('Table')).toEqual(bugs)
-        expect(await shownInEpicBoards()).toEqual(bugs)
       })
 
       it('shows a bead again when the user removes a label filter that the bead does not hold', async () => {
@@ -582,6 +639,7 @@ describe('the beadoo page', () => {
       })
 
       it('offers the labels, the types and the priorities that the loaded beads hold', async () => {
+        window.history.replaceState(null, '', '/?view=lanes')
         render(<App />)
         await screen.findByText('Cart total')
         const values = (name: string) =>
@@ -594,6 +652,7 @@ describe('the beadoo page', () => {
       })
 
       it('keeps the label, type and priority filters in the link and for the next visit', async () => {
+        window.history.replaceState(null, '', '/?view=lanes')
         render(<App />)
         await screen.findByText('Cart total')
         await userEvent.selectOptions(select('Label filter'), 'front')
@@ -664,17 +723,6 @@ describe('the beadoo page', () => {
       expect(screen.queryByRole('region', { name: 'Checkout' })).not.toBeInTheDocument()
     })
 
-    it('opens the epic board on the first epic of the lanes view', async () => {
-      window.history.replaceState(null, '', '/?db=.team&view=lanes&q=logo')
-      render(<App />)
-      const [firstLane] = await screen.findAllByRole('region', { name: /./ })
-      expect(firstLane).toHaveAccessibleName('No epic')
-      await userEvent.click(screen.getByRole('button', { name: 'Epic board' }))
-      const epics = screen.getByRole('navigation', { name: 'Epics' })
-      expect(within(epics).getByRole('button', { current: true })).toHaveTextContent('No epic')
-      expect(cardNames(screen.getByRole('main'))).toEqual(['t-4 Fix the logo'])
-    })
-
     it('tells the user when no bead matches the filters', async () => {
       window.history.replaceState(null, '', '/?db=.team&view=lanes&q=nothing-like-this')
       render(<App />)
@@ -740,7 +788,7 @@ describe('the beadoo page', () => {
     })
 
     it('shows on the card that the claim lease of a bead expired', async () => {
-      window.history.replaceState(null, '', '/?db=.team&status=all')
+      window.history.replaceState(null, '', '/?db=.team&board.status=all')
       render(<App />)
       const card = await screen.findByRole('button', { name: 't-5 Ship the order' })
       expect(within(card).getByText('lease expired at 23:31')).toBeInTheDocument()
@@ -1003,7 +1051,7 @@ describe('the beadoo page', () => {
     const reads = () => calls.filter((call) => call.startsWith('/api/beads?')).length
 
     it.each([
-      ['the epic board', '/?db=.team&status=all&view=epic'],
+      ['the epic board', '/?db=.team&board.status=all&view=epic'],
       ['the lanes', '/?db=.team&status=all&view=lanes'],
       ['the table', '/?db=.team&status=all&view=table'],
     ])('claims a bead from its card in %s, and does not open the detail of the bead', async (_view, search) => {
@@ -1017,7 +1065,7 @@ describe('the beadoo page', () => {
     })
 
     it.each([
-      ['the epic board', '/?db=.team&status=all&view=epic'],
+      ['the epic board', '/?db=.team&board.status=all&view=epic'],
       ['the lanes', '/?db=.team&status=all&view=lanes'],
       ['the table', '/?db=.team&status=all&view=table'],
     ])('starts a session from the card in %s through the spawn window', async (_view, search) => {
@@ -1045,7 +1093,7 @@ describe('the beadoo page', () => {
         beads: [...beads, { ...claimed, id: 't-5', title: 'Ship the order' }, { ...claimed, id: 't-6', title: 'Mail the bill', assignee: 'Bob' }],
         readyIds: ['t-1', 't-4'],
       })
-      window.history.replaceState(null, '', '/?db=.team&status=all&view=epic')
+      window.history.replaceState(null, '', '/?db=.team&board.status=all&view=epic')
       render(<App />)
       const mine = await actionsOf('t-5')
       expect(within(mine).getByRole('button', { name: 'Renew' })).toBeInTheDocument()
@@ -1353,7 +1401,7 @@ describe('the beadoo page', () => {
     withPageToken()
 
     it('shows that the database does not answer, and opens it after the user starts its tunnel', async () => {
-      window.history.replaceState(null, '', '/?db=remote&status=all')
+      window.history.replaceState(null, '', '/?db=remote&board.status=all')
       render(<App />)
       const alert = await screen.findByRole('alert')
       expect(within(alert).getByText('The database "remote" does not answer')).toBeInTheDocument()

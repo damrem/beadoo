@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AddDatabase } from '@/components/AddDatabase'
-import { AttributeFilters } from '@/components/AttributeFilters'
 import { BeadDetail } from '@/components/BeadDetail'
+import { BeadFilters } from '@/components/BeadFilters'
 import { BeadGraph } from '@/components/BeadGraph'
 import { BeadPage } from '@/components/BeadPage'
 import { Board } from '@/components/Board'
@@ -11,7 +11,6 @@ import { EpicHeader } from '@/components/EpicHeader'
 import { EpicLanes } from '@/components/EpicLanes'
 import { EpicSidebar } from '@/components/EpicSidebar'
 import { EpicTable } from '@/components/EpicTable'
-import { FilterBar } from '@/components/FilterBar'
 import { Logo } from '@/components/Logo'
 import { NoMatch } from '@/components/NoMatch'
 import { RefreshButton } from '@/components/RefreshButton'
@@ -28,15 +27,14 @@ import { UNREACHABLE } from '../shared/contract'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
 import {
   childrenOf,
+  epicListOf,
   epicsOf,
   filterBeads,
   groupByParent,
-  labelsOf,
+  headerFilterOf,
+  isEpic,
   lanesOf,
-  prioritiesOf,
   readViewState,
-  statusTogglesOf,
-  typesOf,
   writeViewState,
 } from '@/lib/filters'
 import type { BeadFilter, StoredFilters, ViewState } from '@/lib/filters'
@@ -82,6 +80,9 @@ function Beads() {
 
   const update = (change: Partial<ViewState>) => setView((current) => ({ ...current, ...change }))
 
+  const updateFilter = (key: 'epicFilter' | 'boardFilter') => (change: Partial<BeadFilter>) =>
+    setView((current) => ({ ...current, [key]: { ...current[key], ...change } }))
+
   useEffect(() => {
     window.history.replaceState(null, '', writeViewState(view))
     writeStored({
@@ -91,6 +92,8 @@ function Beads() {
       labels: view.labels,
       type: view.type,
       priority: view.priority,
+      epics: view.epicFilter,
+      board: view.boardFilter,
     })
   }, [view])
 
@@ -171,18 +174,8 @@ function Beads() {
 
   const epics = useMemo(() => (data ? epicsOf(beads, groups, view.status) : []), [data, beads, groups, view.status])
 
-  const options = useMemo(
-    () => ({
-      labels: labelsOf(beads),
-      types: typesOf(beads),
-      priorities: prioritiesOf(beads),
-      statuses: statusTogglesOf(beads),
-    }),
-    [beads],
-  )
-
   const filter = useMemo<BeadFilter>(
-    () => ({ status: view.status, text: view.text, labels: view.labels, type: view.type, priority: view.priority }),
+    () => headerFilterOf(view),
     [view.status, view.text, view.labels, view.type, view.priority],
   )
 
@@ -191,16 +184,25 @@ function Beads() {
     [data, beads, groups, epics, filter],
   )
 
-  const epic = useMemo(() => {
-    if (view.epic && lanes.some((lane) => lane.epic.id === view.epic)) return view.epic
-    return lanes[0]?.epic.id ?? null
-  }, [lanes, view.epic])
+  const parents = useMemo(() => beads.filter((bead) => isEpic(bead) || groups.has(bead.id)), [beads, groups])
 
-  const selectedEpic = lanes.find((lane) => lane.epic.id === epic)?.epic
+  const epicList = useMemo(
+    () => (data ? epicListOf(beads, groups, data.readyIds, view.epicFilter) : []),
+    [data, beads, groups, view.epicFilter],
+  )
+
+  const epic = useMemo(() => {
+    if (view.epic && epicList.some((lane) => lane.epic.id === view.epic)) return view.epic
+    return epicList[0]?.epic.id ?? null
+  }, [epicList, view.epic])
+
+  const selectedEpic = epicList.find((lane) => lane.epic.id === epic)?.epic
+
+  const epicChildren = useMemo(() => (epic ? childrenOf(groups, epic) : []), [groups, epic])
 
   const boardBeads = useMemo(
-    () => (data && epic ? filterBeads(childrenOf(groups, epic), data.readyIds, filter) : []),
-    [data, groups, epic, filter],
+    () => (data ? filterBeads(epicChildren, data.readyIds, view.boardFilter) : []),
+    [data, epicChildren, view.boardFilter],
   )
 
   const open = (id: string) => update({ bead: id })
@@ -224,23 +226,12 @@ function Beads() {
             onChange={(db) => update({ db, epic: null, bead: null })}
           />
           <AddDatabase onAdd={addDatabase} />
-          <FilterBar
-            status={view.status}
-            statuses={options.statuses}
-            text={view.text}
-            onStatus={(status) => update({ status })}
-            onText={(text) => update({ text })}
-          />
-          <AttributeFilters
-            labels={view.labels}
-            type={view.type}
-            priority={view.priority}
-            labelOptions={options.labels}
-            typeOptions={options.types}
-            priorityOptions={options.priorities}
-            onLabels={(labels) => update({ labels })}
-            onType={(type) => update({ type })}
-            onPriority={(priority) => update({ priority })}
+          <BeadFilters
+            label="Filters"
+            filter={filter}
+            beads={beads}
+            disabled={view.mode === 'epic'}
+            onChange={update}
           />
           <div className="ml-auto flex items-center gap-2">
             <ThemeSwitch />
@@ -275,10 +266,34 @@ function Beads() {
           <div className="flex min-h-0 flex-1">
             {data && view.mode === 'epic' ? (
               <>
-                <EpicSidebar lanes={lanes} selected={epic} onSelect={(id) => update({ epic: id })} />
+                <EpicSidebar
+                  lanes={epicList}
+                  selected={epic}
+                  onSelect={(id) => update({ epic: id })}
+                  filters={
+                    <BeadFilters
+                      label="Epic filters"
+                      filter={view.epicFilter}
+                      beads={parents}
+                      onChange={updateFilter('epicFilter')}
+                    />
+                  }
+                />
                 <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
                   {selectedEpic && <EpicHeader epic={selectedEpic} onOpen={open} />}
-                  {epic ? <Board beads={boardBeads} status={view.status} onOpen={open} cardActions={cardActions} /> : <NoMatch />}
+                  {epic && (
+                    <BeadFilters
+                      label="Board filters"
+                      filter={view.boardFilter}
+                      beads={epicChildren}
+                      onChange={updateFilter('boardFilter')}
+                    />
+                  )}
+                  {boardBeads.length > 0 ? (
+                    <Board beads={boardBeads} status={view.boardFilter.status} onOpen={open} cardActions={cardActions} />
+                  ) : (
+                    <NoMatch />
+                  )}
                 </main>
               </>
             ) : data ? (

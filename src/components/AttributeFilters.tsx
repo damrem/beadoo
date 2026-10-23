@@ -15,6 +15,7 @@ export function AttributeFilters({
   onLabels,
   onType,
   onPriority,
+  disabled = false,
 }: {
   labels: string[]
   type: string | null
@@ -25,6 +26,7 @@ export function AttributeFilters({
   onLabels: (labels: string[]) => void
   onType: (type: string | null) => void
   onPriority: (priority: number | null) => void
+  disabled?: boolean
 }) {
   const freeLabels = labelOptions.filter((label) => !labels.includes(label))
   return (
@@ -32,6 +34,7 @@ export function AttributeFilters({
       <NativeSelect
         aria-label="Type filter"
         className="h-7 w-auto"
+        disabled={disabled}
         value={type ?? ''}
         onChange={(event) => onType(event.target.value || null)}
       >
@@ -45,6 +48,7 @@ export function AttributeFilters({
       <NativeSelect
         aria-label="Priority filter"
         className="h-7 w-auto"
+        disabled={disabled}
         value={priority ?? ''}
         onChange={(event) => onPriority(event.target.value === '' ? null : Number(event.target.value))}
       >
@@ -59,7 +63,7 @@ export function AttributeFilters({
         aria-label="Label filter"
         className="h-7 w-auto"
         value=""
-        disabled={freeLabels.length === 0}
+        disabled={disabled || freeLabels.length === 0}
         onChange={(event) => event.target.value && onLabels([...labels, event.target.value])}
       >
         <option value="">Add a label</option>
@@ -75,6 +79,7 @@ export function AttributeFilters({
           type="button"
           variant="secondary"
           size="xs"
+          disabled={disabled}
           aria-label={`Remove the label filter ${label}`}
           onClick={() => onLabels(labels.filter((other) => other !== label))}
         >

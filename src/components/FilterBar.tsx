@@ -16,12 +16,14 @@ export function FilterBar({
   text,
   onStatus,
   onText,
+  disabled = false,
 }: {
   status: StatusFilter
   statuses: string[]
   text: string
   onStatus: (status: StatusFilter) => void
   onText: (text: string) => void
+  disabled?: boolean
 }) {
   const pressed = statusValues(status)
   const toggles = STATUS_TOGGLES.filter((value) => statuses.includes(value) || pressed.includes(value))
@@ -33,6 +35,7 @@ export function FilterBar({
         size="sm"
         spacing={0}
         multiple
+        disabled={disabled}
         value={pressed}
         onValueChange={(values: unknown[]) => {
           const clicked =
@@ -63,6 +66,7 @@ export function FilterBar({
         placeholder="Find in the titles"
         className="h-7 w-32"
         value={text}
+        disabled={disabled}
         onChange={(event) => onText(event.target.value)}
       />
     </div>
