@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { GitCommitHorizontalIcon } from 'lucide-react'
-import { LabelTags, StatusTag, Tag, TypeTag, WaitsOn } from '@/components/BeadCard'
+import { Blocks, LabelTags, StatusTag, Tag, TypeTag, WaitsOn } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { BeadLink, CopyLinkButton } from '@/components/BeadLink'
 import { BeadEditor } from '@/components/BeadEditor'
@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import { openBlockers } from '@/lib/blockers'
+import { openBlockers, withBlockers } from '@/lib/blockers'
 import { METADATA_KEYS } from '../../shared/contract'
 import type { Bead, ClaimAction, Commit } from '../../shared/contract'
 import type { SpawnedSession, SpawnRequest } from '../../shared/spawn'
@@ -256,6 +256,7 @@ export function BeadBody({
 }) {
   const { bead, error, writing, writeError, failed, session, released, editing, setEditing, runClaim, runSpawn, show, saved } = state
   const waits = bead ? openBlockers(bead) : []
+  const holds = bead && bead.status !== 'closed' ? (withBlockers(beads ?? []).find((entry) => entry.id === bead.id)?.blocks ?? []) : []
   const now = new Date()
   const leaseText = bead && leaseLabel(leaseState(bead, now), now)
   const heartbeat = bead?.heartbeat_at ? new Date(bead.heartbeat_at) : undefined
@@ -325,6 +326,11 @@ export function BeadBody({
             {waits.length > 0 && (
               <Field label="Blocked">
                 <WaitsOn blockers={waits} />
+              </Field>
+            )}
+            {holds.length > 0 && (
+              <Field label="Blocks">
+                <Blocks beads={holds} />
               </Field>
             )}
             {bead.status === 'closed' && bead.close_reason && <Field label="Close reason">{bead.close_reason}</Field>}

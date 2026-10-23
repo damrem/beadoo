@@ -20,6 +20,14 @@ describe('the table of the beads', () => {
     expect(status).toHaveTextContent('⛔Blocked')
   })
 
+  it('shows in the status cell the beads that the bead waits on and the beads that it holds back', () => {
+    const related = [{ ...lanes[0], beads: [{ ...lanes[0].beads[0], blockers: ['b-3'], blocks: ['b-2', 'b-4'] }] }]
+    render(<EpicTable lanes={related} onOpen={() => {}} />)
+    const row = screen.getByRole('button', { name: 'b-1 Pay button' }).closest('tr')!
+    expect(within(row).getByText(/waits on/)).toHaveTextContent('waits on 1: 3')
+    expect(within(row).getByText(/blocks/)).toHaveTextContent('blocks 2: 2, 4')
+  })
+
   it('shows the priority and each label in a coloured chip, with the full label text as a hint', () => {
     render(<EpicTable lanes={lanes} onOpen={() => {}} />)
     const row = screen.getByRole('button', { name: 'b-1 Pay button' }).closest('tr')!
@@ -33,6 +41,11 @@ describe('the table of the beads', () => {
     const epicRow = screen.getByRole('rowheader', { name: /Checkout/ })
     expect(Array.from(epicRow.querySelectorAll<HTMLElement>('.tone-chip[title]'), (chip) => chip.title)).toEqual(['repo:shop', 'front'])
     expect(within(epicRow).getByText('shop')).toHaveClass('font-semibold')
+  })
+
+  it('shows in the epic row how many beads of the epic hold back another bead', () => {
+    render(<EpicTable lanes={[{ ...lanes[0], epic: { ...lanes[0].epic, blockers: 1 } }]} onOpen={() => {}} />)
+    expect(within(screen.getByRole('rowheader', { name: /Checkout/ })).getByText('1 blocker')).toBeInTheDocument()
   })
 
   it('shows the actions of each bead in an actions column, and a click on an action does not open the bead', async () => {

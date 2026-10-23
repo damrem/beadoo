@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BeadCard, LabelTags } from '@/components/BeadCard'
+import { BeadCard, BlockerCount, LabelTags } from '@/components/BeadCard'
 import { BeadId } from '@/components/BeadId'
 import { NoMatch } from '@/components/NoMatch'
 import { Emoji } from '@/components/Emoji'
@@ -58,6 +58,7 @@ export function EpicLanes({
               <span className="text-xs text-muted-foreground">
                 {lane.beads.length === 1 ? '1 bead' : `${lane.beads.length} beads`}
               </span>
+              <BlockerCount count={lane.epic.blockers} />
               {lane.epic.id !== NO_EPIC && (
                 <>
                   <EpicProgress title={lane.epic.title} counts={lane.epic.counts} />

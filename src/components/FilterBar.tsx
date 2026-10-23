@@ -2,7 +2,7 @@ import { Emoji } from '@/components/Emoji'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { statusEmoji } from '@/lib/emojis'
-import { STATUS_CHOICES, STATUS_TOGGLES, statusTitle, statusValues, toggleStatus } from '@/lib/filters'
+import { FILTER_TOGGLES, STATUS_CHOICES, statusTitle, statusValues, toggleStatus } from '@/lib/filters'
 import type { StatusFilter } from '@/lib/filters'
 
 const CHOICE_TITLES: Record<string, string> = {
@@ -26,7 +26,7 @@ export function FilterBar({
   disabled?: boolean
 }) {
   const pressed = statusValues(status)
-  const toggles = STATUS_TOGGLES.filter((value) => statuses.includes(value) || pressed.includes(value))
+  const toggles = FILTER_TOGGLES.filter((value) => statuses.includes(value) || pressed.includes(value))
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <ToggleGroup

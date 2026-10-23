@@ -24,6 +24,17 @@ describe('the lanes view', () => {
     ])
   })
 
+  it('shows in the lane header how many beads of the epic hold back another bead', () => {
+    render(<EpicLanes lanes={[{ ...lanes[0], epic: { ...lanes[0].epic, blockers: 2 } }]} onOpen={() => {}} />)
+    const lane = screen.getByRole('region', { name: 'Checkout' })
+    expect(within(lane).getByText('2 blockers')).toBeInTheDocument()
+  })
+
+  it('shows no blocker count in the lane header when no bead of the epic holds back another', () => {
+    render(<EpicLanes lanes={lanes} onOpen={() => {}} />)
+    expect(screen.queryByText(/blocker/)).not.toBeInTheDocument()
+  })
+
   it('opens the epic when the user clicks the button in the lane header', async () => {
     const onOpen = vi.fn()
     render(<EpicLanes lanes={lanes} onOpen={onOpen} />)

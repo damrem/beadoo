@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BeadId } from '@/components/BeadId'
 import { Emoji } from '@/components/Emoji'
-import { isReady, waitsOnLabel } from '@/lib/blockers'
+import { isReady } from '@/lib/blockers'
 import type { BoardBead } from '@/lib/blockers'
 import { labelEmoji, statusEmoji, typeEmoji } from '@/lib/emojis'
 import { statusTitle } from '@/lib/filters'
@@ -11,6 +11,7 @@ import { leaseLabel, leaseState } from '@/lib/lease'
 import type { Tone } from '@/lib/palette'
 import { labelTone, priorityTone, toneStyle, typeStyle } from '@/lib/tones'
 import { cn } from '@/lib/utils'
+import { shownCount, useVisibleBeads } from '@/lib/visible'
 
 const PATTERN_CLASSES = {
   none: '',
@@ -81,16 +82,34 @@ export function LabelTags({ labels }: { labels?: string[] }) {
   )
 }
 
-export function WaitsOn({ blockers }: { blockers: string[] }) {
+function Relation({ verb, ids, className, style }: { verb: string; ids: string[]; className: string; style?: CSSProperties }) {
+  const visible = useVisibleBeads((state) => state.ids)
   return (
-    <span className="text-xs text-destructive" title={blockers.join(', ')}>
-      {waitsOnLabel(blockers.length)}:{' '}
-      {blockers.map((id, index) => (
+    <span className={cn('text-xs', className)} style={style} title={ids.join(', ')}>
+      {verb} {shownCount(ids, visible)}:{' '}
+      {ids.map((id, index) => (
         <span key={id} className="font-mono">
           {index > 0 && ', '}
           <BeadId id={id} />
         </span>
       ))}
+    </span>
+  )
+}
+
+export function WaitsOn({ blockers }: { blockers: string[] }) {
+  return <Relation verb="waits on" ids={blockers} className="text-destructive" />
+}
+
+export function Blocks({ beads }: { beads: string[] }) {
+  return <Relation verb="blocks" ids={beads} className="text-(color:--tone)" style={toneStyle('peach')} />
+}
+
+export function BlockerCount({ count }: { count?: number }) {
+  if (!count) return null
+  return (
+    <span className="text-xs text-(color:--tone)" style={toneStyle('peach')}>
+      {count === 1 ? '1 blocker' : `${count} blockers`}
     </span>
   )
 }
@@ -101,6 +120,7 @@ export function BeadCard({ bead, onOpen, actions }: { bead: BoardBead; onOpen: (
   const leaseText = leaseLabel(lease, now)
   const type = typeStyle(bead.issue_type)
   const blockers = bead.blockers ?? []
+  const blocks = bead.blocks ?? []
   const button = (
     <button
       type="button"
@@ -133,9 +153,10 @@ export function BeadCard({ bead, onOpen, actions }: { bead: BoardBead; onOpen: (
           </div>
           <CardTitle className="text-sm">{bead.title}</CardTitle>
         </CardHeader>
-        {(blockers.length > 0 || bead.assignee || leaseText || (bead.labels?.length ?? 0) > 0) && (
+        {(blockers.length > 0 || blocks.length > 0 || bead.assignee || leaseText || (bead.labels?.length ?? 0) > 0) && (
           <CardContent className="flex flex-wrap gap-1">
             {blockers.length > 0 && <WaitsOn blockers={blockers} />}
+            {blocks.length > 0 && <Blocks beads={blocks} />}
             {bead.assignee && <span className="text-xs text-muted-foreground">@{bead.assignee}</span>}
             {leaseText && (
               <span className={lease.kind === 'expired' ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>

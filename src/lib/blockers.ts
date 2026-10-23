@@ -8,7 +8,7 @@ const CLOSED = 'closed'
 
 export type Link = { id?: string; depends_on_id?: string; status?: string; type?: string; dependency_type?: string }
 
-export type BoardBead = Bead & { blockers?: string[]; ready?: boolean }
+export type BoardBead = Bead & { blockers?: string[]; blocks?: string[]; ready?: boolean }
 
 export type StatusOf = (id: string) => string | undefined
 
@@ -31,11 +31,18 @@ export function openBlockers(bead: Bead, statusOf: StatusOf = () => undefined): 
 export function withBlockers(beads: Bead[], readyIds: string[] = []): BoardBead[] {
   const statuses = new Map(beads.map((bead) => [bead.id, bead.status]))
   const ready = new Set(readyIds)
+  const blockersOf = new Map(beads.map((bead) => [bead.id, openBlockers(bead, (id) => statuses.get(id))]))
+  const heldBack = new Map<string, string[]>()
+  for (const [id, blockers] of blockersOf) {
+    for (const blocker of blockers) heldBack.set(blocker, [...(heldBack.get(blocker) ?? []), id])
+  }
   return beads.map((bead) => {
-    const blockers = openBlockers(bead, (id) => statuses.get(id))
+    const blockers = blockersOf.get(bead.id) ?? []
+    const blocks = bead.status === CLOSED ? [] : (heldBack.get(bead.id) ?? []).sort()
     return {
       ...bead,
       ...(blockers.length > 0 && { blockers }),
+      ...(blocks.length > 0 && { blocks }),
       ...(ready.has(bead.id) && { ready: true }),
     }
   })
@@ -43,8 +50,8 @@ export function withBlockers(beads: Bead[], readyIds: string[] = []): BoardBead[
 
 export const isBlocked = (bead: BoardBead): boolean => (bead.blockers?.length ?? 0) > 0
 
+export const isBlocker = (bead: BoardBead): boolean => (bead.blocks?.length ?? 0) > 0
+
 export const isReady = (bead: BoardBead): boolean => bead.ready === true
 
 export const boardStatusOf = (bead: BoardBead): string => (isBlocked(bead) ? BLOCKED : bead.status)
-
-export const waitsOnLabel = (count: number): string => `waits on ${count}`
