@@ -7,14 +7,29 @@ import { NoMatch } from '@/components/NoMatch'
 import type { BoardBead } from '@/lib/blockers'
 import { statusEmoji } from '@/lib/emojis'
 import { statusTitle } from '@/lib/filters'
-import { edgePath, layoutGraph, NODE_HEIGHT, NODE_WIDTH } from '@/lib/graph'
-import type { GraphEdge, PlacedNode, Zone } from '@/lib/graph'
-import { priorityTone, toneStyle, typeStyle } from '@/lib/tones'
+import type { Lane } from '@/lib/filters'
+import { edgePath, FRAME_HEADER, FRAME_PADDING, layoutGraph, NODE_HEIGHT, NODE_WIDTH } from '@/lib/graph'
+import type { Box, Frame, GraphEdge } from '@/lib/graph'
+import { NEUTRAL, priorityTone, toneStyle, typeStyle } from '@/lib/tones'
 import { cn } from '@/lib/utils'
 
 const OPEN_MARKER = 'graph-arrow-open'
 
 const DONE_MARKER = 'graph-arrow-done'
+
+type IsOpen = (edge: GraphEdge) => boolean
+
+function StatusAndId({ bead }: { bead: BoardBead }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs">
+      <span title={statusTitle(bead.status)}>
+        <Emoji emoji={statusEmoji(bead.status)} />
+      </span>
+      <BeadId id={bead.id} />
+      {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}
+    </span>
+  )
+}
 
 function GraphNode({ bead, onOpen, style }: { bead: BoardBead; onOpen: (id: string) => void; style?: CSSProperties }) {
   return (
@@ -28,23 +43,13 @@ function GraphNode({ bead, onOpen, style }: { bead: BoardBead; onOpen: (id: stri
       )}
       style={{ ...toneStyle(typeStyle(bead.issue_type).tone), width: NODE_WIDTH, height: NODE_HEIGHT, ...style }}
     >
-      <span className="flex items-center gap-1.5 font-mono text-xs">
-        <span title={statusTitle(bead.status)}>
-          <Emoji emoji={statusEmoji(bead.status)} />
-        </span>
-        <BeadId id={bead.id} />
-        {bead.priority !== undefined && <Tag tone={priorityTone(bead.priority)}>P{bead.priority}</Tag>}
-      </span>
+      <StatusAndId bead={bead} />
       <span className="line-clamp-2 text-xs leading-snug">{bead.title}</span>
     </button>
   )
 }
 
-const isOpenBlock = (edge: GraphEdge, target: BoardBead): boolean =>
-  edge.kind === 'blocks' && (target.blockers ?? []).includes(edge.from)
-
-function GraphEdgePath({ edge, from, to }: { edge: GraphEdge; from: PlacedNode<BoardBead>; to: PlacedNode<BoardBead> }) {
-  const open = isOpenBlock(edge, to.bead)
+function Arrow({ edge, from, to, open }: { edge: GraphEdge; from: Box; to: Box; open: boolean }) {
   return (
     <path
       data-from={edge.from}
@@ -99,20 +104,63 @@ function Markers() {
   )
 }
 
-function GraphZone({ zone, onOpen }: { zone: Zone<BoardBead>; onOpen: (id: string) => void }) {
+function FrameHeader({ frame, onOpen }: { frame: Frame<BoardBead>; onOpen: (id: string) => void }) {
+  const { epic } = frame
+  if (!epic) {
+    return (
+      <div className="flex items-center text-sm font-semibold text-muted-foreground" style={{ height: FRAME_HEADER }}>
+        {frame.title}
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      aria-label={`${epic.id} ${epic.title}`}
+      onClick={() => onOpen(epic.id)}
+      className="flex w-full min-w-0 items-center gap-2 rounded-md text-left hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      style={{ height: FRAME_HEADER }}
+    >
+      <StatusAndId bead={epic} />
+      <span className="truncate text-sm font-semibold">{epic.title}</span>
+    </button>
+  )
+}
+
+function GraphFrame({
+  frame,
+  isOpen,
+  onOpen,
+  style,
+}: {
+  frame: Frame<BoardBead>
+  isOpen: IsOpen
+  onOpen: (id: string) => void
+  style?: CSSProperties
+}) {
+  const { zone } = frame
   const placed = new Map(zone.nodes.map((node) => [node.bead.id, node]))
   return (
     <div
       role="group"
-      aria-label={`Group of ${zone.nodes[0].bead.title}`}
-      className="shrink-0 rounded-xl border border-dashed bg-muted/30 p-3"
+      aria-label={frame.title}
+      className="shrink-0 rounded-xl bg-muted/40 ring-2 ring-(color:--tone)/50"
+      style={{
+        ...toneStyle(frame.epic ? typeStyle(frame.epic.issue_type).tone : NEUTRAL),
+        width: frame.width,
+        height: frame.height,
+        padding: FRAME_PADDING,
+        ...style,
+      }}
     >
+      <FrameHeader frame={frame} onOpen={onOpen} />
       <div className="relative" style={{ width: zone.width, height: zone.height }}>
         <svg aria-hidden="true" width={zone.width} height={zone.height} className="absolute inset-0 overflow-visible">
           {zone.edges.map((edge) => {
             const from = placed.get(edge.from)
             const to = placed.get(edge.to)
-            return from && to ? <GraphEdgePath key={`${edge.from} ${edge.to}`} edge={edge} from={from} to={to} /> : null
+            if (!from || !to) return null
+            return <Arrow key={`${edge.from} ${edge.to}`} from={from} to={to} edge={edge} open={isOpen(edge)} />
           })}
         </svg>
         {zone.nodes.map((node) => (
@@ -128,32 +176,48 @@ function GraphZone({ zone, onOpen }: { zone: Zone<BoardBead>; onOpen: (id: strin
   )
 }
 
-export function BeadGraph({ beads, onOpen }: { beads: BoardBead[]; onOpen: (id: string) => void }) {
-  const graph = useMemo(() => layoutGraph(beads), [beads])
-  if (beads.length === 0) return <NoMatch />
+export function BeadGraph({ lanes, beads, onOpen }: { lanes: Lane[]; beads: BoardBead[]; onOpen: (id: string) => void }) {
+  const graph = useMemo(() => layoutGraph(lanes, beads), [lanes, beads])
+  if (lanes.length === 0) return <NoMatch />
+  const byId = new Map(beads.map((bead) => [bead.id, bead]))
+  const isOpen: IsOpen = (edge) => edge.kind === 'blocks' && (byId.get(edge.to)?.blockers ?? []).includes(edge.from)
+  const placed = new Map(graph.frames.map((frame) => [frame.id, frame]))
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto rounded-xl border bg-card p-4">
-      {graph.zones.length > 0 && (
-        <section aria-label="Bead graph" className="flex flex-col gap-3">
-          <Legend />
-          <Markers />
+    <div className="flex min-h-0 flex-1 flex-col overflow-auto rounded-xl border bg-card p-4">
+      <section aria-label="Bead graph" className="flex flex-col gap-4">
+        <Legend />
+        <Markers />
+        {graph.frames.length > 0 && (
+          <div className="relative shrink-0" style={{ width: graph.width, height: graph.height }}>
+            <svg aria-hidden="true" width={graph.width} height={graph.height} className="absolute inset-0 overflow-visible">
+              {graph.edges.map((edge) => {
+                const from = placed.get(edge.from)
+                const to = placed.get(edge.to)
+                if (!from || !to) return null
+                return (
+                  <Arrow key={`${edge.from} ${edge.to}`} edge={edge} from={from} to={to} open={edge.links.some(isOpen)} />
+                )
+              })}
+            </svg>
+            {graph.frames.map((frame) => (
+              <GraphFrame
+                key={frame.id}
+                frame={frame}
+                isOpen={isOpen}
+                onOpen={onOpen}
+                style={{ position: 'absolute', left: frame.x, top: frame.y }}
+              />
+            ))}
+          </div>
+        )}
+        {graph.apart.length > 0 && (
           <div className="flex flex-wrap items-start gap-4">
-            {graph.zones.map((zone) => (
-              <GraphZone key={zone.nodes[0].bead.id} zone={zone} onOpen={onOpen} />
+            {graph.apart.map((frame) => (
+              <GraphFrame key={frame.id} frame={frame} isOpen={isOpen} onOpen={onOpen} />
             ))}
           </div>
-        </section>
-      )}
-      {graph.loose.length > 0 && (
-        <section aria-label="Beads with no link" className="flex flex-col gap-2">
-          <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">No link</h2>
-          <div className="flex flex-wrap gap-3 p-0.5">
-            {graph.loose.map((bead) => (
-              <GraphNode key={bead.id} bead={bead} onOpen={onOpen} />
-            ))}
-          </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   )
 }

@@ -24,7 +24,6 @@ import { api, ApiError } from '@/lib/api'
 import { SpawnAllowed } from '@/lib/spawn-allowed'
 import { beadAddressOf } from '@/lib/urls'
 import { withBlockers } from '@/lib/blockers'
-import { graphBeadsOf } from '@/lib/graph'
 import { UNREACHABLE } from '../shared/contract'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
 import {
@@ -204,8 +203,6 @@ function Beads() {
     [data, groups, epic, filter],
   )
 
-  const graphBeads = useMemo(() => graphBeadsOf(lanes, beads), [lanes, beads])
-
   const open = (id: string) => update({ bead: id })
 
   const writes = useCardWrites(selectedDb && !selectedDb.refused ? selectedDb.name : null, refresh)
@@ -289,7 +286,7 @@ function Beads() {
                 {view.mode === 'lanes' ? (
                   <EpicLanes lanes={lanes} status={view.status} onOpen={open} cardActions={cardActions} />
                 ) : view.mode === 'graph' ? (
-                  <BeadGraph beads={graphBeads} onOpen={open} />
+                  <BeadGraph lanes={lanes} beads={beads} onOpen={open} />
                 ) : (
                   <EpicTable lanes={lanes} onOpen={open} cardActions={cardActions} />
                 )}
