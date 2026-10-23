@@ -69,6 +69,8 @@ export type StoreErrorCode =
 
 export const TUNNEL_ROUTE = '/api/tunnel/start'
 
+export const DATABASES_ROUTE = '/api/databases'
+
 export const CLAIM_ACTIONS = ['claim', 'unclaim', 'renew'] as const
 
 export type ClaimAction = (typeof CLAIM_ACTIONS)[number]

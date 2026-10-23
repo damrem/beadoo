@@ -29,6 +29,7 @@ beforeEach(async () => {
     'request',
     createHandler({
       databases: () => [],
+      addDatabase: () => 'The test adds no database',
       store,
       spawner: createSpawner(store, fakeOrca('/home/me/shop').io),
       commits: createCommits(store, async () => ({ status: 1, stdout: '', stderr: 'unexpected' })),

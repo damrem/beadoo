@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { realRun, realRunAsync } from './process.ts'
 import { bdVersionProblem } from './bd-version.ts'
 import { createStore } from './beads-store.ts'
-import { configPath, loadConfig, loadDatabases } from './config.ts'
+import { addDatabase, configPath, loadConfig, loadDatabases } from './config.ts'
 import type { ConfigPlace } from './config.ts'
 import { startMessage } from './config-rules.ts'
 import { newToken } from './guard.ts'
@@ -32,6 +32,7 @@ stopTunnelsOnExit(tunnels, process, (line) => console.error(line))
 
 const handler = createHandler({
   databases: () => loadDatabases(place),
+  addDatabase: (entry) => addDatabase(place, entry),
   store,
   tunnels,
   spawner: createSpawner(store, realSpawnIo(), { sessionCommand: () => loadConfig(place).sessionCommand }),

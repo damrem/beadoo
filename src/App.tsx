@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AddDatabase } from '@/components/AddDatabase'
 import { AttributeFilters } from '@/components/AttributeFilters'
 import { BeadDetail } from '@/components/BeadDetail'
 import { BeadPage } from '@/components/BeadPage'
@@ -109,6 +110,14 @@ function Beads() {
 
   const selectedDb = databases?.find((db) => db.name === view.db) ?? null
 
+  const addDatabase = (path: string, name: string) =>
+    api.addDatabase(path, name).then(({ databases: list }) => {
+      const added = list.find((db) => !databases?.some((known) => known.name === db.name))
+      setDatabases(list)
+      if (added) update({ db: added.name, epic: null, bead: null })
+      return list
+    })
+
   const refresh = useCallback(() => {
     if (!selectedDb || selectedDb.refused) return
     const name = selectedDb.name
@@ -213,6 +222,7 @@ function Beads() {
             value={view.db}
             onChange={(db) => update({ db, epic: null, bead: null })}
           />
+          <AddDatabase onAdd={addDatabase} />
           <FilterBar
             status={view.status}
             statuses={options.statuses}
