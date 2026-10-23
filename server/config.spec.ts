@@ -42,6 +42,37 @@ describe('the database list of the page', () => {
     expect(existsSync(configPath(place))).toBe(false)
   })
 
+  it('offers the beads database of the start folder first, also when the config lists other databases', () => {
+    const home = tempHome()
+    const place = placeIn(home)
+    mkdirSync(join(place.cwd, '.beads'), { recursive: true })
+    writeJson(configPath(place), { databases: [{ name: 'shop', path: '/home/me/shop' }] })
+    expect(loadDatabases(place)).toEqual([
+      { name: 'work', path: place.cwd },
+      { name: 'shop', path: '/home/me/shop' },
+    ])
+    expect(JSON.parse(readFileSync(configPath(place), 'utf8'))).toEqual({ databases: [{ name: 'shop', path: '/home/me/shop' }] })
+  })
+
+  it('offers the start folder once when the config already lists it', () => {
+    const home = tempHome()
+    const place = placeIn(home)
+    mkdirSync(join(place.cwd, '.beads'), { recursive: true })
+    writeJson(configPath(place), { databases: [{ name: 'main', path: place.cwd }] })
+    expect(loadDatabases(place)).toEqual([{ name: 'main', path: place.cwd }])
+  })
+
+  it('names the start folder by its full path when a database of the config has the same name', () => {
+    const home = tempHome()
+    const place = placeIn(home)
+    mkdirSync(join(place.cwd, '.beads'), { recursive: true })
+    writeJson(configPath(place), { databases: [{ name: 'work', path: '/home/me/work' }] })
+    expect(loadDatabases(place)).toEqual([
+      { name: place.cwd, path: place.cwd },
+      { name: 'work', path: '/home/me/work' },
+    ])
+  })
+
   it('offers no database when the current folder has no .beads and no config exists', () => {
     expect(loadDatabases(placeIn(tempHome()))).toEqual([])
   })
@@ -195,16 +226,24 @@ describe('a repo that the user adds from the page', () => {
     })
   })
 
-  it('keeps the repo of the current folder when the user had no config', () => {
+  it('saves only the added repo, and still shows the repo of the start folder', () => {
     const home = tempHome()
     const place = placeIn(home)
     mkdirSync(join(place.cwd, '.beads'), { recursive: true })
     const shop = repoIn(home, 'shop')
-    addDatabase(place, { name: 'shop', path: shop })
-    expect(loadDatabases(place)).toEqual([
+    expect(addDatabase(place, { name: 'shop', path: shop })).toEqual([
       { name: 'work', path: place.cwd },
       { name: 'shop', path: shop },
     ])
+    expect(JSON.parse(readFileSync(configPath(place), 'utf8'))).toEqual({ databases: [{ name: 'shop', path: shop }] })
+  })
+
+  it('saves the repo of the start folder when the user adds it', () => {
+    const home = tempHome()
+    const place = placeIn(home)
+    mkdirSync(join(place.cwd, '.beads'), { recursive: true })
+    expect(addDatabase(place, { name: 'work', path: place.cwd })).toEqual([{ name: 'work', path: place.cwd }])
+    expect(JSON.parse(readFileSync(configPath(place), 'utf8'))).toEqual({ databases: [{ name: 'work', path: place.cwd }] })
   })
 
   it('reads a folder that starts with ~ from the home folder of the user', () => {

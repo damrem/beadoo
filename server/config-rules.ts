@@ -10,8 +10,11 @@ export type BeadooConfig = { databases: ConfiguredDatabase[]; sessionCommand: st
 
 export const MOUNT_REFUSAL = 'Use a WSL path: the /mnt/c clone has a store that diverged.'
 
-export const defaultDatabases = (cwd: string, hasBeads: boolean): ConfiguredDatabase[] =>
-  hasBeads ? [{ name: basename(cwd) || cwd, path: cwd }] : []
+export function withStartFolder(databases: ConfiguredDatabase[], cwd: string, hasBeads: boolean): ConfiguredDatabase[] {
+  if (!hasBeads || databases.some((db) => db.path === cwd)) return databases
+  const name = basename(cwd) || cwd
+  return [{ name: databases.some((db) => db.name === name) ? cwd : name, path: cwd }, ...databases]
+}
 
 export function startMessage(origin: string, databases: readonly DatabaseEntry[], configFile: string): string {
   const first = databases[0]
