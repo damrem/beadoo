@@ -14,7 +14,7 @@ export const BOARD_COLUMNS = ['open', 'in_progress', 'blocked', 'closed']
 
 export const NO_EPIC = 'none'
 
-export const VIEW_MODES = ['lanes', 'table', 'epic'] as const
+export const VIEW_MODES = ['lanes', 'table', 'epic', 'graph'] as const
 
 export type ViewMode = (typeof VIEW_MODES)[number]
 
@@ -172,7 +172,7 @@ export function groupByParent(beads: Bead[]): Groups {
 
 export const childrenOf = (groups: Groups, epic: string): Bead[] => groups.get(epic) ?? []
 
-const byPriorityThenId = (a: Bead, b: Bead): number =>
+export const byPriorityThenId = (a: Bead, b: Bead): number =>
   (a.priority ?? 9) - (b.priority ?? 9) || a.id.localeCompare(b.id)
 
 export type EpicEntry = { id: string; title: string; status: string; counts: Record<string, number>; labels: string[] }

@@ -6,15 +6,15 @@ export const BLOCKED = 'blocked'
 
 const CLOSED = 'closed'
 
-type Link = { id?: string; depends_on_id?: string; status?: string; type?: string; dependency_type?: string }
+export type Link = { id?: string; depends_on_id?: string; status?: string; type?: string; dependency_type?: string }
 
 export type BoardBead = Bead & { blockers?: string[]; ready?: boolean }
 
 export type StatusOf = (id: string) => string | undefined
 
-const targetOf = (link: Link): string | undefined => link.depends_on_id ?? link.id
+export const targetOf = (link: Link): string | undefined => link.depends_on_id ?? link.id
 
-const typeOfLink = (link: Link): string | undefined => link.type ?? link.dependency_type
+export const typeOfLink = (link: Link): string | undefined => link.type ?? link.dependency_type
 
 export function openBlockers(bead: Bead, statusOf: StatusOf = () => undefined): string[] {
   if (bead.status === CLOSED) return []

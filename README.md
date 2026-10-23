@@ -1,6 +1,6 @@
 # beadoo
 
-beadoo shows the beads of a local [beads](https://github.com/steveyegge/beads) database in a web page. It has three views: the epic lanes, a table grouped by epic, and the board of one epic. The detail panel claims, edits and releases a bead.
+beadoo shows the beads of a local [beads](https://github.com/steveyegge/beads) database in a web page. It has four views: the epic lanes, a table grouped by epic, the board of one epic, and a dependency graph. The detail panel claims, edits and releases a bead.
 
 ## Requirements
 

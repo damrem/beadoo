@@ -1,6 +1,6 @@
 ---
 name: beadoo
-description: Show the beads of a local beads database in beadoo, a web page. `page` starts beadoo on 127.0.0.1:4747 with `npx beadoo`, and opens it in an Orca browser tab when Orca is installed. The page has three views (epic lanes, a table grouped by epic, the board of one epic) and a detail panel that claims and edits a bead. Use it when the user asks "open beadoo", "open the beads page", "show my beads in the browser", "ouvre beadoo", "ouvre la page des beads", "montre mes beads dans le navigateur".
+description: Show the beads of a local beads database in beadoo, a web page. `page` starts beadoo on 127.0.0.1:4747 with `npx beadoo`, and opens it in an Orca browser tab when Orca is installed. The page has four views (epic lanes, a table grouped by epic, the board of one epic, a dependency graph) and a detail panel that claims and edits a bead. Use it when the user asks "open beadoo", "open the beads page", "show my beads in the browser", "ouvre beadoo", "ouvre la page des beads", "montre mes beads dans le navigateur".
 argument-hint: "page"
 ---
 

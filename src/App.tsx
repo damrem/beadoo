@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AddDatabase } from '@/components/AddDatabase'
 import { AttributeFilters } from '@/components/AttributeFilters'
 import { BeadDetail } from '@/components/BeadDetail'
+import { BeadGraph } from '@/components/BeadGraph'
 import { BeadPage } from '@/components/BeadPage'
 import { Board } from '@/components/Board'
 import { cardActionsOf, CardNotice, useCardWrites } from '@/components/CardActions'
@@ -284,6 +285,8 @@ function Beads() {
               <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
                 {view.mode === 'lanes' ? (
                   <EpicLanes lanes={lanes} status={view.status} onOpen={open} cardActions={cardActions} />
+                ) : view.mode === 'graph' ? (
+                  <BeadGraph lanes={lanes} beads={beads} onOpen={open} />
                 ) : (
                   <EpicTable lanes={lanes} onOpen={open} cardActions={cardActions} />
                 )}

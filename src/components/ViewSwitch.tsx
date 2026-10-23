@@ -6,6 +6,7 @@ const VIEW_TITLES: Record<ViewMode, string> = {
   lanes: 'Lanes',
   table: 'Table',
   epic: 'Epic board',
+  graph: 'Graph',
 }
 
 export function ViewSwitch({ mode, onMode }: { mode: ViewMode; onMode: (mode: ViewMode) => void }) {
