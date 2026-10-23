@@ -1,11 +1,13 @@
 import type { Bead } from '../../shared/contract'
-import { edgesOf, graphBeadsOf, layoutGraph } from '@/lib/graph'
+import { edgesOf, graphBeadsOf, layoutGraph, NODE_HEIGHT } from '@/lib/graph'
 import type { Lane } from '@/lib/filters'
 
 const blocks = (issue: string, target: string) =>
   ({ issue_id: issue, depends_on_id: target, type: 'blocks' }) as unknown as NonNullable<Bead['dependencies']>[number]
 
-const columnOf = (beads: Bead[], id: string) => layoutGraph(beads).nodes.find((node) => node.bead.id === id)?.column
+const nodesOf = (beads: Bead[]) => layoutGraph(beads).zones.flatMap((zone) => zone.nodes)
+
+const columnOf = (beads: Bead[], id: string) => nodesOf(beads).find((node) => node.bead.id === id)?.column
 
 describe('the links of the bead graph', () => {
   it('links a blocker to the bead that waits on it', () => {
@@ -47,7 +49,7 @@ describe('the layout of the bead graph', () => {
       { id: 't-4', title: 'Fix the logo', status: 'open' },
     ] as Bead[]
     const graph = layoutGraph(beads)
-    expect(graph.nodes.map((node) => node.bead.id)).toEqual(['t-1', 't-2'])
+    expect(graph.zones.flatMap((zone) => zone.nodes).map((node) => node.bead.id)).toEqual(['t-1', 't-2'])
     expect(graph.loose.map((bead) => bead.id)).toEqual(['t-4'])
   })
 
@@ -56,7 +58,7 @@ describe('the layout of the bead graph', () => {
       { id: 't-1', title: 'Cart total', status: 'open', dependencies: [blocks('t-1', 't-2')] },
       { id: 't-2', title: 'Pay button', status: 'open', dependencies: [blocks('t-2', 't-1')] },
     ] as Bead[]
-    expect(layoutGraph(beads).nodes.map((node) => node.bead.id).sort()).toEqual(['t-1', 't-2'])
+    expect(nodesOf(beads).map((node) => node.bead.id).sort()).toEqual(['t-1', 't-2'])
   })
 
   it('shows each epic at the middle height of its children', () => {
@@ -68,7 +70,7 @@ describe('the layout of the bead graph', () => {
       { id: 't-3', title: 'Pay button', status: 'open', parent: 'e-2' },
       { id: 't-4', title: 'Receipt mail', status: 'open', parent: 'e-2' },
     ] as Bead[]
-    const heights = new Map(layoutGraph(beads).nodes.map((node) => [node.bead.id, node.y]))
+    const heights = new Map(nodesOf(beads).map((node) => [node.bead.id, node.y]))
     expect(heights.get('e-1')).toBe(heights.get('t-1'))
     expect(heights.get('e-2')).toBe(heights.get('t-3'))
   })
@@ -80,8 +82,37 @@ describe('the layout of the bead graph', () => {
       { id: 't-2', title: 'Pay button', status: 'open', parent: 'e-1' },
       { id: 't-3', title: 'Receipt mail', status: 'open', parent: 'e-1', dependencies: [blocks('t-3', 't-2')] },
     ] as Bead[]
-    const places = layoutGraph(beads).nodes.map((node) => `${node.x},${node.y}`)
+    const places = nodesOf(beads).map((node) => `${node.x},${node.y}`)
     expect(new Set(places).size).toBe(places.length)
+  })
+
+  it('shows each group of linked beads in its own zone', () => {
+    const beads = [
+      { id: 'e-1', title: 'Search', status: 'open', issue_type: 'epic', priority: 0 },
+      { id: 't-1', title: 'Search box', status: 'open', parent: 'e-1' },
+      { id: 't-2', title: 'Cart total', status: 'open', priority: 1 },
+      { id: 't-3', title: 'Pay button', status: 'open', dependencies: [blocks('t-3', 't-2')] },
+      { id: 't-4', title: 'Receipt mail', status: 'open', dependencies: [blocks('t-4', 't-3')] },
+    ] as Bead[]
+    const zones = layoutGraph(beads).zones
+    expect(zones.map((zone) => zone.nodes.map((node) => node.bead.id).sort())).toEqual([
+      ['e-1', 't-1'],
+      ['t-2', 't-3', 't-4'],
+    ])
+    expect(zones.map((zone) => zone.nodes.find((node) => node.column === 0)?.bead.id)).toEqual(['e-1', 't-2'])
+  })
+
+  it('leaves no empty band at the top of a zone', () => {
+    const beads = [
+      { id: 't-1', title: 'Cart total', status: 'open', priority: 0 },
+      { id: 't-2', title: 'Tax rules', status: 'open', priority: 1 },
+      { id: 't-3', title: 'Pay button', status: 'open', dependencies: [blocks('t-3', 't-1'), blocks('t-3', 't-2')] },
+      { id: 't-4', title: 'Receipt mail', status: 'open', dependencies: [blocks('t-4', 't-2')] },
+    ] as Bead[]
+    for (const zone of layoutGraph(beads).zones) {
+      expect(Math.min(...zone.nodes.map((node) => node.y))).toBe(0)
+      expect(Math.max(...zone.nodes.map((node) => node.y + NODE_HEIGHT))).toBe(zone.height)
+    }
   })
 })
 

@@ -37,6 +37,15 @@ describe('the bead graph', () => {
     expect(linkOf(container, 't-0', 't-3')?.getAttribute('class')).not.toContain('stroke-destructive')
   })
 
+  it('shows each group of linked beads in its own zone', () => {
+    render(<BeadGraph beads={beads} onOpen={() => {}} />)
+    const zones = screen.getAllByRole('group')
+    expect(zones.map((zone) => within(zone).getAllByRole('button').map((node) => node.getAttribute('aria-label')))).toEqual([
+      ['t-0 Mail server', 't-3 Receipt mail'],
+      ['t-1 Cart total', 't-2 Pay button'],
+    ])
+  })
+
   it('opens a bead when the user clicks it in the graph', async () => {
     const onOpen = vi.fn()
     render(<BeadGraph beads={beads} onOpen={onOpen} />)

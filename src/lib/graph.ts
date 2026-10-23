@@ -18,13 +18,14 @@ export type GraphEdge = { from: string; to: string; kind: EdgeKind }
 
 export type PlacedNode<T extends Bead = Bead> = { bead: T; x: number; y: number; column: number }
 
-export type Graph<T extends Bead = Bead> = {
+export type Zone<T extends Bead = Bead> = {
   nodes: PlacedNode<T>[]
   edges: GraphEdge[]
-  loose: T[]
   width: number
   height: number
 }
+
+export type Graph<T extends Bead = Bead> = { zones: Zone<T>[]; loose: T[] }
 
 export function graphBeadsOf<T extends Bead>(lanes: Lane[], beads: T[]): T[] {
   const byId = new Map(beads.map((bead) => [bead.id, bead]))
@@ -95,20 +96,46 @@ function settle<T extends Bead>(column: T[], neighbours: Neighbours, slots: Map<
   return ordered
 }
 
+function groupsOf<T extends Bead>(sorted: T[], edges: GraphEdge[]): T[][] {
+  const roots = new Map(sorted.map((bead) => [bead.id, bead.id]))
+  const rootOf = (id: string): string => {
+    const parent = roots.get(id)!
+    if (parent === id) return id
+    const root = rootOf(parent)
+    roots.set(id, root)
+    return root
+  }
+  for (const edge of edges) roots.set(rootOf(edge.from), rootOf(edge.to))
+  const groups = new Map<string, T[]>()
+  for (const bead of sorted) {
+    const root = rootOf(bead.id)
+    groups.set(root, [...(groups.get(root) ?? []), bead])
+  }
+  return [...groups.values()]
+}
+
 export function layoutGraph<T extends Bead>(beads: T[]): Graph<T> {
   const edges = edgesOf(beads)
   const linked = new Set(edges.flatMap((edge) => [edge.from, edge.to]))
   const sorted = [...beads].sort(byPriorityThenId)
+  const groups = groupsOf(sorted.filter((bead) => linked.has(bead.id)), edges)
+  return {
+    zones: groups.map((group) => {
+      const ids = new Set(group.map((bead) => bead.id))
+      return layoutZone(group, edges.filter((edge) => ids.has(edge.from)))
+    }),
+    loose: sorted.filter((bead) => !linked.has(bead.id)),
+  }
+}
+
+function layoutZone<T extends Bead>(sorted: T[], edges: GraphEdge[]): Zone<T> {
   const incoming: Neighbours = new Map()
   const outgoing: Neighbours = new Map()
   for (const edge of edges) {
     incoming.set(edge.to, [...(incoming.get(edge.to) ?? []), edge.from])
     outgoing.set(edge.from, [...(outgoing.get(edge.from) ?? []), edge.to])
   }
-  const indexes = columnIndexes(
-    sorted.filter((bead) => linked.has(bead.id)).map((bead) => bead.id),
-    incoming,
-  )
+  const indexes = columnIndexes(sorted.map((bead) => bead.id), incoming)
 
   const columns: T[][] = []
   for (const bead of sorted) {
@@ -122,8 +149,8 @@ export function layoutGraph<T extends Bead>(beads: T[]): Graph<T> {
   for (let index = 1; index < columns.length; index++) columns[index] = settle(columns[index], incoming, slots)
   for (let index = columns.length - 2; index >= 0; index--) columns[index] = settle(columns[index], outgoing, slots)
 
-  const top = Math.min(0, ...slots.values())
-  const bottom = Math.max(0, ...slots.values())
+  const top = Math.min(...slots.values())
+  const bottom = Math.max(...slots.values())
   const step = NODE_HEIGHT + ROW_GAP
   const nodes = columns.flatMap((column, index) =>
     column.map((bead) => ({
@@ -136,7 +163,6 @@ export function layoutGraph<T extends Bead>(beads: T[]): Graph<T> {
   return {
     nodes,
     edges,
-    loose: sorted.filter((bead) => !linked.has(bead.id)),
     width: Math.max(0, columns.length * (NODE_WIDTH + COLUMN_GAP) - COLUMN_GAP),
     height: columns.length === 0 ? 0 : (bottom - top) * step + NODE_HEIGHT,
   }

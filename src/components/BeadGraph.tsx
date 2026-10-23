@@ -8,7 +8,7 @@ import type { BoardBead } from '@/lib/blockers'
 import { statusEmoji } from '@/lib/emojis'
 import { statusTitle } from '@/lib/filters'
 import { edgePath, layoutGraph, NODE_HEIGHT, NODE_WIDTH } from '@/lib/graph'
-import type { GraphEdge, PlacedNode } from '@/lib/graph'
+import type { GraphEdge, PlacedNode, Zone } from '@/lib/graph'
 import { priorityTone, toneStyle, typeStyle } from '@/lib/tones'
 import { cn } from '@/lib/utils'
 
@@ -84,38 +84,62 @@ function Legend() {
   )
 }
 
+function Markers() {
+  return (
+    <svg aria-hidden="true" width="0" height="0" className="absolute">
+      <defs>
+        <marker id={OPEN_MARKER} viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" className="fill-destructive" />
+        </marker>
+        <marker id={DONE_MARKER} viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" className="fill-muted-foreground/60" />
+        </marker>
+      </defs>
+    </svg>
+  )
+}
+
+function GraphZone({ zone, onOpen }: { zone: Zone<BoardBead>; onOpen: (id: string) => void }) {
+  const placed = new Map(zone.nodes.map((node) => [node.bead.id, node]))
+  return (
+    <div
+      role="group"
+      aria-label={`Group of ${zone.nodes[0].bead.title}`}
+      className="shrink-0 rounded-xl border border-dashed bg-muted/30 p-3"
+    >
+      <div className="relative" style={{ width: zone.width, height: zone.height }}>
+        <svg aria-hidden="true" width={zone.width} height={zone.height} className="absolute inset-0 overflow-visible">
+          {zone.edges.map((edge) => {
+            const from = placed.get(edge.from)
+            const to = placed.get(edge.to)
+            return from && to ? <GraphEdgePath key={`${edge.from} ${edge.to}`} edge={edge} from={from} to={to} /> : null
+          })}
+        </svg>
+        {zone.nodes.map((node) => (
+          <GraphNode
+            key={node.bead.id}
+            bead={node.bead}
+            onOpen={onOpen}
+            style={{ position: 'absolute', left: node.x, top: node.y }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function BeadGraph({ beads, onOpen }: { beads: BoardBead[]; onOpen: (id: string) => void }) {
   const graph = useMemo(() => layoutGraph(beads), [beads])
   if (beads.length === 0) return <NoMatch />
-  const placed = new Map(graph.nodes.map((node) => [node.bead.id, node]))
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto rounded-xl border bg-card p-4">
-      {graph.nodes.length > 0 && (
+      {graph.zones.length > 0 && (
         <section aria-label="Bead graph" className="flex flex-col gap-3">
           <Legend />
-          <div className="relative shrink-0" style={{ width: graph.width, height: graph.height }}>
-            <svg aria-hidden="true" width={graph.width} height={graph.height} className="absolute inset-0 overflow-visible">
-              <defs>
-                <marker id={OPEN_MARKER} viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" orient="auto">
-                  <path d="M0,0 L8,4 L0,8 z" className="fill-destructive" />
-                </marker>
-                <marker id={DONE_MARKER} viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" orient="auto">
-                  <path d="M0,0 L8,4 L0,8 z" className="fill-muted-foreground/60" />
-                </marker>
-              </defs>
-              {graph.edges.map((edge) => {
-                const from = placed.get(edge.from)
-                const to = placed.get(edge.to)
-                return from && to ? <GraphEdgePath key={`${edge.from} ${edge.to}`} edge={edge} from={from} to={to} /> : null
-              })}
-            </svg>
-            {graph.nodes.map((node) => (
-              <GraphNode
-                key={node.bead.id}
-                bead={node.bead}
-                onOpen={onOpen}
-                style={{ position: 'absolute', left: node.x, top: node.y }}
-              />
+          <Markers />
+          <div className="flex flex-wrap items-start gap-4">
+            {graph.zones.map((zone) => (
+              <GraphZone key={zone.nodes[0].bead.id} zone={zone} onOpen={onOpen} />
             ))}
           </div>
         </section>
