@@ -40,18 +40,37 @@ export type ViewState = {
   labels: string[]
   type: string | null
   priority: number | null
+  epicFilter: BeadFilter
+  boardFilter: BeadFilter
 }
 
-export type BeadFilter = Pick<ViewState, 'status' | 'text' | 'labels' | 'type' | 'priority'>
+export type BeadFilter = {
+  status: StatusFilter
+  text: string
+  labels: string[]
+  type: string | null
+  priority: number | null
+}
 
-export type StoredFilters = {
+export type StoredFilter = {
   status?: unknown
   text?: string
-  view?: string
   labels?: unknown
   type?: unknown
   priority?: unknown
 }
+
+export type StoredFilters = StoredFilter & {
+  view?: string
+  epics?: StoredFilter
+  board?: StoredFilter
+}
+
+export const EPIC_PREFIX = 'epics.'
+
+export const BOARD_PREFIX = 'board.'
+
+export const EPIC_STATUS: StatusFilter = STATUS_TOGGLES.filter((status) => status !== 'closed')
 
 const isStatusChoice = (value: unknown): value is StatusChoice => STATUS_CHOICES.includes(value as StatusChoice)
 
@@ -94,11 +113,38 @@ const isLabel = (value: unknown): value is string => typeof value === 'string' &
 
 const readLabels = (value: unknown): string[] => (Array.isArray(value) ? [...new Set(value.filter(isLabel))] : [])
 
+function readFilter(params: URLSearchParams, prefix: string, stored: StoredFilter, status: StatusFilter): BeadFilter {
+  const key = (name: string) => `${prefix}${name}`
+  return {
+    status: readStatus(params.getAll(key('status'))) ?? readStatus(stored.status) ?? status,
+    text: params.get(key('q')) ?? stored.text ?? '',
+    labels: params.has(key('label')) ? readLabels(params.getAll(key('label'))) : readLabels(stored.labels),
+    type: params.has(key('type')) ? readType(params.get(key('type'))) : readType(stored.type),
+    priority: params.has(key('priority')) ? readPriority(params.get(key('priority'))) : readPriority(stored.priority),
+  }
+}
+
+function writeFilter(params: URLSearchParams, prefix: string, filter: BeadFilter) {
+  const key = (name: string) => `${prefix}${name}`
+  for (const status of statusValues(filter.status)) params.append(key('status'), status)
+  if (filter.text) params.set(key('q'), filter.text)
+  for (const label of filter.labels) params.append(key('label'), label)
+  if (filter.type) params.set(key('type'), filter.type)
+  if (filter.priority !== null) params.set(key('priority'), String(filter.priority))
+}
+
+export const headerFilterOf = (state: ViewState): BeadFilter => ({
+  status: state.status,
+  text: state.text,
+  labels: state.labels,
+  type: state.type,
+  priority: state.priority,
+})
+
 export function readViewState(search: string, lastVisit: StoredFilters): ViewState {
   const params = new URLSearchParams(search)
   const namesSettings = [...params.keys()].some((key) => key !== 'db')
   const stored: StoredFilters = namesSettings ? {} : lastVisit
-  const status = readStatus(params.getAll('status')) ?? readStatus(stored.status) ?? 'ready'
   const urlMode = params.get('view')
   const mode = isViewMode(urlMode) ? urlMode : isViewMode(stored.view) ? stored.view : 'epic'
   return {
@@ -106,11 +152,9 @@ export function readViewState(search: string, lastVisit: StoredFilters): ViewSta
     db: params.get('db'),
     epic: params.get('epic'),
     bead: params.get('bead'),
-    status,
-    text: params.get('q') ?? stored.text ?? '',
-    labels: params.has('label') ? readLabels(params.getAll('label')) : readLabels(stored.labels),
-    type: params.has('type') ? readType(params.get('type')) : readType(stored.type),
-    priority: params.has('priority') ? readPriority(params.get('priority')) : readPriority(stored.priority),
+    ...readFilter(params, '', stored, 'ready'),
+    epicFilter: readFilter(params, EPIC_PREFIX, stored.epics ?? {}, EPIC_STATUS),
+    boardFilter: readFilter(params, BOARD_PREFIX, stored.board ?? {}, 'ready'),
   }
 }
 
@@ -120,11 +164,9 @@ export function writeViewState(state: ViewState): string {
   if (state.db) params.set('db', state.db)
   if (state.epic) params.set('epic', state.epic)
   if (state.bead) params.set('bead', state.bead)
-  for (const status of statusValues(state.status)) params.append('status', status)
-  if (state.text) params.set('q', state.text)
-  for (const label of state.labels) params.append('label', label)
-  if (state.type) params.set('type', state.type)
-  if (state.priority !== null) params.set('priority', String(state.priority))
+  writeFilter(params, '', headerFilterOf(state))
+  writeFilter(params, EPIC_PREFIX, state.epicFilter)
+  writeFilter(params, BOARD_PREFIX, state.boardFilter)
   return `?${params.toString()}`
 }
 
@@ -239,6 +281,19 @@ export function columnsOf(beads: Bead[], statuses: string[] = statusesOf(beads))
 }
 
 export type Lane = { epic: EpicEntry; beads: Bead[] }
+
+const asParent = (bead: Bead, children: Bead[]): Bead =>
+  bead.status === 'closed' && children.some((child) => child.status !== 'closed') ? { ...bead, status: 'open' } : bead
+
+export function epicListOf(beads: Bead[], groups: Groups, readyIds: string[], filter: BeadFilter): Lane[] {
+  const parents = beads.filter((bead) => isEpic(bead) || groups.has(bead.id))
+  const matching = new Set(
+    filterBeads(parents.map((bead) => asParent(bead, childrenOf(groups, bead.id))), readyIds, filter).map((bead) => bead.id),
+  )
+  return epicsOf(beads, groups, 'all')
+    .filter((epic) => (epic.id === NO_EPIC ? groups.has(NO_EPIC) : matching.has(epic.id)))
+    .map((epic) => ({ epic, beads: childrenOf(groups, epic.id) }))
+}
 
 export function lanesOf(
   epics: EpicEntry[],

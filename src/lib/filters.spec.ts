@@ -1,4 +1,4 @@
-import { BOARD_COLUMNS, childrenOf, columnsOf, columnStatusesOf, countLabel, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, readViewState, statusesOf, statusTitle, statusTogglesOf, toggleStatus, typesOf, writeViewState } from './filters'
+import { BOARD_COLUMNS, childrenOf, columnsOf, columnStatusesOf, countLabel, epicListOf, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, readViewState, statusesOf, statusTitle, statusTogglesOf, toggleStatus, typesOf, writeViewState } from './filters'
 import type { Bead } from '../../shared/contract'
 import type { BeadFilter, StatusFilter } from './filters'
 
@@ -99,8 +99,34 @@ describe('the filters of the page', () => {
       labels: ['front', 'urgent'],
       type: 'bug',
       priority: 0,
+      epicFilter: only({ status: ['open'], text: 'check', labels: ['back'] }),
+      boardFilter: only({ status: 'ready', type: 'task', priority: 1 }),
     }
     expect(readViewState(writeViewState(state), {})).toEqual(state)
+  })
+
+  it('lists the epics that are not closed, and shows the ready beads on the board, when the user chose no filter', () => {
+    expect(readViewState('', {})).toMatchObject({
+      epicFilter: only({ status: ['open', 'in_progress', 'blocked', 'deferred'] }),
+      boardFilter: only({ status: 'ready' }),
+    })
+  })
+
+  it('keeps the last epic filters and board filters of the user apart from the header filters', () => {
+    const lastVisit = { text: 'cart', epics: { text: 'check' }, board: { status: 'closed', labels: ['front'] } }
+    expect(readViewState('', lastVisit)).toMatchObject({
+      text: 'cart',
+      epicFilter: { text: 'check' },
+      boardFilter: { status: ['closed'], labels: ['front'], text: '' },
+    })
+  })
+
+  it('follows the epic filters and the board filters of the link', () => {
+    expect(readViewState('?epics.q=check&board.status=all&board.priority=2', {})).toMatchObject({
+      text: '',
+      epicFilter: { text: 'check' },
+      boardFilter: { status: 'all', priority: 2 },
+    })
   })
 
   it('shows all the labels, all the types and all the priorities when the user chose none', () => {
@@ -259,6 +285,32 @@ describe('the filters of the page', () => {
   it('keeps a closed epic in the list while one of its children is still open', () => {
     const withOpenChild: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
     expect(epicsIn(withOpenChild, 'ready').map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
+  })
+
+  describe('the epic list of the epic view', () => {
+    const listed = (list: Bead[], filter: Partial<BeadFilter>, readyIds: string[] = []) =>
+      epicListOf(list, groupByParent(list), readyIds, only(filter)).map((lane) => lane.epic.id)
+
+    it('filters the epics on their own title, and not on the titles of their children', () => {
+      expect(listed(beads, { text: 'check' })).toEqual(['e-1', NO_EPIC])
+      expect(listed(beads, { text: 'cart' })).toEqual([NO_EPIC])
+    })
+
+    it('hides a closed epic under the open statuses, and keeps a closed epic while one of its children is still open', () => {
+      expect(listed(beads, { status: ['open'] })).toEqual(['e-1', NO_EPIC])
+      const withOpenChild: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
+      expect(listed(withOpenChild, { status: ['open'] })).toEqual(['e-2', 'e-1', NO_EPIC])
+    })
+
+    it('puts all the children of each listed epic in its entry, whatever the board filters', () => {
+      const lanes = epicListOf(beads, groupByParent(beads), [], only({}))
+      expect(lanes.find((lane) => lane.epic.id === 'e-1')?.beads.map((bead) => bead.id)).toEqual(['t-1', 't-2', 't-3'])
+    })
+
+    it('lists "No epic" only when a bead has no epic', () => {
+      const withEpicsOnly = beads.filter((bead) => bead.id !== 't-4')
+      expect(listed(withEpicsOnly, {})).toEqual(['e-2', 'e-1'])
+    })
   })
 
   it('shows a bead whose parent is not in the database under "No epic"', () => {
