@@ -1,0 +1,100 @@
+import type { Bead } from '../../shared/contract'
+import { edgesOf, graphBeadsOf, layoutGraph } from '@/lib/graph'
+import type { Lane } from '@/lib/filters'
+
+const blocks = (issue: string, target: string) =>
+  ({ issue_id: issue, depends_on_id: target, type: 'blocks' }) as unknown as NonNullable<Bead['dependencies']>[number]
+
+const columnOf = (beads: Bead[], id: string) => layoutGraph(beads).nodes.find((node) => node.bead.id === id)?.column
+
+describe('the links of the bead graph', () => {
+  it('links a blocker to the bead that waits on it', () => {
+    const beads = [
+      { id: 't-1', title: 'Cart total', status: 'open' },
+      { id: 't-2', title: 'Pay button', status: 'open', dependencies: [blocks('t-2', 't-1')] },
+    ] as Bead[]
+    expect(edgesOf(beads)).toEqual([{ from: 't-1', to: 't-2', kind: 'blocks' }])
+  })
+
+  it('links an epic to each of its children', () => {
+    const beads = [
+      { id: 'e-1', title: 'Checkout', status: 'open', issue_type: 'epic' },
+      { id: 't-1', title: 'Cart total', status: 'open', parent: 'e-1' },
+    ]
+    expect(edgesOf(beads)).toEqual([{ from: 'e-1', to: 't-1', kind: 'parent' }])
+  })
+
+  it('shows no link to a bead that the filters hide', () => {
+    const beads = [{ id: 't-2', title: 'Pay button', status: 'open', parent: 'e-1', dependencies: [blocks('t-2', 't-1')] }] as Bead[]
+    expect(edgesOf(beads)).toEqual([])
+  })
+})
+
+describe('the layout of the bead graph', () => {
+  it('shows each bead to the right of the beads that block it', () => {
+    const beads = [
+      { id: 't-3', title: 'Receipt mail', status: 'open', dependencies: [blocks('t-3', 't-2')] },
+      { id: 't-2', title: 'Pay button', status: 'open', dependencies: [blocks('t-2', 't-1')] },
+      { id: 't-1', title: 'Cart total', status: 'open' },
+    ] as Bead[]
+    expect(['t-1', 't-2', 't-3'].map((id) => columnOf(beads, id))).toEqual([0, 1, 2])
+  })
+
+  it('shows the beads with no link apart from the graph', () => {
+    const beads = [
+      { id: 't-1', title: 'Cart total', status: 'open' },
+      { id: 't-2', title: 'Pay button', status: 'open', dependencies: [blocks('t-2', 't-1')] },
+      { id: 't-4', title: 'Fix the logo', status: 'open' },
+    ] as Bead[]
+    const graph = layoutGraph(beads)
+    expect(graph.nodes.map((node) => node.bead.id)).toEqual(['t-1', 't-2'])
+    expect(graph.loose.map((bead) => bead.id)).toEqual(['t-4'])
+  })
+
+  it('shows all the beads of a dependency cycle', () => {
+    const beads = [
+      { id: 't-1', title: 'Cart total', status: 'open', dependencies: [blocks('t-1', 't-2')] },
+      { id: 't-2', title: 'Pay button', status: 'open', dependencies: [blocks('t-2', 't-1')] },
+    ] as Bead[]
+    expect(layoutGraph(beads).nodes.map((node) => node.bead.id).sort()).toEqual(['t-1', 't-2'])
+  })
+
+  it('shows each epic at the middle height of its children', () => {
+    const beads = [
+      { id: 'e-1', title: 'Search', status: 'open', issue_type: 'epic', priority: 0 },
+      { id: 'e-2', title: 'Checkout', status: 'open', issue_type: 'epic', priority: 1 },
+      { id: 't-1', title: 'Search box', status: 'open', parent: 'e-1' },
+      { id: 't-2', title: 'Cart total', status: 'open', parent: 'e-2' },
+      { id: 't-3', title: 'Pay button', status: 'open', parent: 'e-2' },
+      { id: 't-4', title: 'Receipt mail', status: 'open', parent: 'e-2' },
+    ] as Bead[]
+    const heights = new Map(layoutGraph(beads).nodes.map((node) => [node.bead.id, node.y]))
+    expect(heights.get('e-1')).toBe(heights.get('t-1'))
+    expect(heights.get('e-2')).toBe(heights.get('t-3'))
+  })
+
+  it('puts no two beads at the same place', () => {
+    const beads = [
+      { id: 'e-1', title: 'Checkout', status: 'open', issue_type: 'epic' },
+      { id: 't-1', title: 'Cart total', status: 'open', parent: 'e-1' },
+      { id: 't-2', title: 'Pay button', status: 'open', parent: 'e-1' },
+      { id: 't-3', title: 'Receipt mail', status: 'open', parent: 'e-1', dependencies: [blocks('t-3', 't-2')] },
+    ] as Bead[]
+    const places = layoutGraph(beads).nodes.map((node) => `${node.x},${node.y}`)
+    expect(new Set(places).size).toBe(places.length)
+  })
+})
+
+describe('the beads that the graph shows', () => {
+  it('shows the beads that pass the filters and their epics', () => {
+    const beads = [
+      { id: 'e-1', title: 'Checkout', status: 'open', issue_type: 'epic' },
+      { id: 't-1', title: 'Cart total', status: 'open', parent: 'e-1' },
+      { id: 't-2', title: 'Pay button', status: 'closed', parent: 'e-1' },
+    ]
+    const lanes = [
+      { epic: { id: 'e-1', title: 'Checkout', status: 'open', counts: {}, labels: [] }, beads: [beads[1]] },
+    ] as Lane[]
+    expect(graphBeadsOf(lanes, beads).map((bead) => bead.id)).toEqual(['e-1', 't-1'])
+  })
+})

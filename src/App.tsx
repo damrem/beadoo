@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AddDatabase } from '@/components/AddDatabase'
 import { AttributeFilters } from '@/components/AttributeFilters'
 import { BeadDetail } from '@/components/BeadDetail'
+import { BeadGraph } from '@/components/BeadGraph'
 import { BeadPage } from '@/components/BeadPage'
 import { Board } from '@/components/Board'
 import { cardActionsOf, CardNotice, useCardWrites } from '@/components/CardActions'
@@ -23,6 +24,7 @@ import { api, ApiError } from '@/lib/api'
 import { SpawnAllowed } from '@/lib/spawn-allowed'
 import { beadAddressOf } from '@/lib/urls'
 import { withBlockers } from '@/lib/blockers'
+import { graphBeadsOf } from '@/lib/graph'
 import { UNREACHABLE } from '../shared/contract'
 import type { BeadList, DatabaseEntry } from '../shared/contract'
 import {
@@ -202,6 +204,8 @@ function Beads() {
     [data, groups, epic, filter],
   )
 
+  const graphBeads = useMemo(() => graphBeadsOf(lanes, beads), [lanes, beads])
+
   const open = (id: string) => update({ bead: id })
 
   const writes = useCardWrites(selectedDb && !selectedDb.refused ? selectedDb.name : null, refresh)
@@ -284,6 +288,8 @@ function Beads() {
               <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
                 {view.mode === 'lanes' ? (
                   <EpicLanes lanes={lanes} status={view.status} onOpen={open} cardActions={cardActions} />
+                ) : view.mode === 'graph' ? (
+                  <BeadGraph beads={graphBeads} onOpen={open} />
                 ) : (
                   <EpicTable lanes={lanes} onOpen={open} cardActions={cardActions} />
                 )}

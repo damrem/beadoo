@@ -519,6 +519,14 @@ describe('the beadoo page', () => {
       expect(await shownInEpicBoards()).toEqual(expected)
     })
 
+    it('shows the ready beads and their epic in the graph', async () => {
+      render(<App />)
+      await screen.findByText('Cart total')
+      expect(await shownIn('Graph')).toEqual(['t-1 Cart total', 't-4 Fix the logo'])
+      expect(screen.getByRole('button', { name: 'e-1 Checkout' })).toBeInTheDocument()
+      expect(window.location.search).toContain('view=graph')
+    })
+
     it('shows the same beads in the three views when the user changes the filters', async () => {
       render(<App />)
       await screen.findByText('Cart total')
