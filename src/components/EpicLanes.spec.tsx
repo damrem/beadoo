@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EpicLanes } from './EpicLanes'
+import { ANY_STATUS, anyOf, READY_ONLY } from '@/lib/filters'
 
 const lanes = [
   {
@@ -43,13 +44,13 @@ describe('the lanes view', () => {
   })
 
   it('shows only the open column when the user shows the ready beads', () => {
-    render(<EpicLanes lanes={[{ ...lanes[0], beads: lanes[0].beads.slice(0, 1) }]} status="ready" onOpen={() => {}} />)
+    render(<EpicLanes lanes={[{ ...lanes[0], beads: lanes[0].beads.slice(0, 1) }]} status={READY_ONLY} onOpen={() => {}} />)
     const lane = screen.getByRole('region', { name: 'Checkout' })
     expect(within(lane).getAllByRole('group').map((cell) => cell.getAttribute('aria-label'))).toEqual(['Checkout: Open'])
   })
 
   it('shows only the columns of the statuses that the user selected', () => {
-    render(<EpicLanes lanes={lanes} status={['open', 'blocked']} onOpen={() => {}} />)
+    render(<EpicLanes lanes={lanes} status={anyOf('open', 'blocked')} onOpen={() => {}} />)
     const lane = screen.getByRole('region', { name: 'Checkout' })
     expect(within(lane).getAllByRole('group').map((cell) => cell.getAttribute('aria-label'))).toEqual([
       'Checkout: Blocked',
@@ -65,7 +66,7 @@ describe('the lanes view', () => {
     'shares the free width between %i status columns, and keeps a minimum width for each column',
     (_count, status, columns, minWidth) => {
       const shown = status === 'all' ? lanes : [{ ...lanes[0], beads: lanes[0].beads.filter((bead) => bead.status === 'blocked') }]
-      render(<EpicLanes lanes={shown} status={status === 'all' ? status : [...status]} onOpen={() => {}} />)
+      render(<EpicLanes lanes={shown} status={status === 'all' ? ANY_STATUS : anyOf(...status)} onOpen={() => {}} />)
       const lane = screen.getByRole('region', { name: 'Checkout' })
       expect(lane.style.gridTemplateColumns).toBe(columns)
       expect(lane.parentElement?.style.minWidth).toBe(minWidth)

@@ -2,14 +2,14 @@ import type { ReactNode } from 'react'
 import { BeadCard } from '@/components/BeadCard'
 import { Emoji } from '@/components/Emoji'
 import { statusEmoji } from '@/lib/emojis'
-import { columnsOf, columnStatusesOf, statusTitle } from '@/lib/filters'
+import { ANY_STATUS, columnsOf, columnStatusesOf, statusTitle } from '@/lib/filters'
 import type { StatusFilter } from '@/lib/filters'
 import { blockedFirst, statusTone, toneStyle } from '@/lib/tones'
 import type { Bead } from '../../shared/contract'
 
 export function Board({
   beads,
-  status = 'all',
+  status = ANY_STATUS,
   onOpen,
   cardActions,
 }: {

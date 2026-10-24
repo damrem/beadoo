@@ -10,6 +10,7 @@ import { EpicHeader } from '@/components/EpicHeader'
 import { EpicLanes } from '@/components/EpicLanes'
 import { EpicSidebar } from '@/components/EpicSidebar'
 import { EpicTable } from '@/components/EpicTable'
+import { TitleSearch } from '@/components/FilterBar'
 import { Logo } from '@/components/Logo'
 import { NoMatch } from '@/components/NoMatch'
 import { RefreshButton } from '@/components/RefreshButton'
@@ -35,6 +36,8 @@ import {
   isEpic,
   lanesOf,
   readViewState,
+  statusValues,
+  storedFilterOf,
   writeViewState,
 } from '@/lib/filters'
 import type { BeadFilter, StoredFilters, ViewState } from '@/lib/filters'
@@ -86,14 +89,14 @@ function Beads() {
   useEffect(() => {
     window.history.replaceState(null, '', writeViewState(view))
     writeStored({
-      status: view.status,
+      status: statusValues(view.status),
       text: view.text,
       view: view.mode,
       labels: view.labels,
       types: view.types,
       priorities: view.priorities,
-      epics: view.epicFilter,
-      board: view.boardFilter,
+      epics: storedFilterOf(view.epicFilter),
+      board: storedFilterOf(view.boardFilter),
     })
   }, [view])
 
@@ -223,9 +226,9 @@ function Beads() {
   return (
     <SpawnAllowed.Provider value={spawn}>
       <div className="flex h-dvh flex-col">
-        <header className="flex items-start gap-1.5 border-b px-4 py-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-            <h1 className="flex items-center gap-1.5 font-heading text-base font-semibold">
+        <header className="flex flex-col gap-1.5 border-b px-4 py-2">
+          <div className="flex items-center gap-1.5">
+            <h1 className="flex shrink-0 items-center gap-1.5 font-heading text-base font-semibold">
               <Logo />
               beadoo
             </h1>
@@ -236,18 +239,25 @@ function Beads() {
               onAdd={addDatabase}
             />
             <ViewSwitch mode={view.mode} onMode={(mode) => update({ mode })} />
-            <BeadFilters
-              label="Filters"
-              filter={filter}
-              beads={beads}
+            <TitleSearch
+              text={view.text}
               disabled={view.mode === 'epic'}
-              onChange={update}
+              onText={(text) => update({ text })}
+              className="w-auto min-w-24 flex-1"
             />
+            <div className="flex shrink-0 items-center gap-2">
+              <RefreshButton lastRead={lastRead} loading={loading} onRefresh={refresh} />
+              <ThemeSwitch />
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <RefreshButton lastRead={lastRead} loading={loading} onRefresh={refresh} />
-            <ThemeSwitch />
-          </div>
+          <BeadFilters
+            label="Filters"
+            filter={filter}
+            beads={beads}
+            disabled={view.mode === 'epic'}
+            search={false}
+            onChange={update}
+          />
         </header>
 
         {selectedDb?.refused && (

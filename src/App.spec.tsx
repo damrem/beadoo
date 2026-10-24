@@ -144,7 +144,7 @@ describe('the beadoo page', () => {
       render(<App />)
       const epics = await screen.findByRole('navigation', { name: 'Epics' })
       expect(within(epics).queryByRole('button', { name: /Old search/ })).not.toBeInTheDocument()
-      await userEvent.click(within(epicFilters()).getByRole('button', { name: 'All' }))
+      await userEvent.selectOptions(within(epicFilters()).getByRole('combobox', { name: 'Status filter' }), 'closed')
       expect(within(epics).getByRole('button', { name: /Old search/ })).toBeInTheDocument()
     })
 
@@ -169,19 +169,29 @@ describe('the beadoo page', () => {
       window.history.replaceState(null, '', '/?db=.team&q=logo&type=bug&epic=e-1')
       render(<App />)
       expect(await screen.findByText('Cart total')).toBeInTheDocument()
-      expect(within(headerFilters()).getByRole('textbox', { name: 'Search' })).toBeDisabled()
+      expect(within(screen.getByRole('banner')).getByRole('textbox', { name: 'Search' })).toBeDisabled()
       expect(within(headerFilters()).getByRole('combobox', { name: 'Type filter' })).toBeDisabled()
-      expect(within(headerFilters()).getByRole('button', { name: 'All' })).toBeDisabled()
+      expect(within(headerFilters()).getByRole('button', { name: 'Ready' })).toBeDisabled()
+      expect(within(headerFilters()).getByRole('combobox', { name: 'Status filter' })).toBeDisabled()
       expect(within(screen.getByRole('navigation', { name: 'Epics' })).getByRole('button', { name: /Old search/ })).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Lanes' }))
-      expect(within(headerFilters()).getByRole('textbox', { name: 'Search' })).toBeEnabled()
+      expect(within(screen.getByRole('banner')).getByRole('textbox', { name: 'Search' })).toBeEnabled()
+    })
+
+    it('shows the header search on the first line, and the ready filter right before the status filter', async () => {
+      window.history.replaceState(null, '', '/?db=.team&view=lanes')
+      render(<App />)
+      await screen.findByText('Cart total')
+      expect(within(headerFilters()).queryByRole('textbox', { name: 'Search' })).not.toBeInTheDocument()
+      const controls = [...headerFilters().querySelectorAll('button, select')].map((control) => control.getAttribute('aria-label') ?? control.textContent)
+      expect(controls.slice(0, 3)).toEqual(['Ready', 'Blockers', 'Status filter'])
     })
 
     it('keeps the epic filters and the board filters apart, in the link and for the next visit', async () => {
       render(<App />)
       await screen.findByRole('navigation', { name: 'Epics' })
       await userEvent.type(within(epicFilters()).getByRole('textbox', { name: 'Search' }), 'check')
-      await userEvent.click(within(boardFilters()).getByRole('button', { name: 'All' }))
+      await userEvent.click(within(boardFilters()).getByRole('button', { name: 'Ready' }))
       await userEvent.type(within(boardFilters()).getByRole('textbox', { name: 'Search' }), 'pay')
       expect(within(epicFilters()).getByRole('textbox', { name: 'Search' })).toHaveValue('check')
       expect(screen.getByText('Pay button')).toBeInTheDocument()
@@ -194,15 +204,15 @@ describe('the beadoo page', () => {
       expect(JSON.parse(window.localStorage.getItem('beadoo:filters') ?? '{}')).toMatchObject({
         text: '',
         epics: { text: 'check' },
-        board: { text: 'pay', status: 'all' },
+        board: { text: 'pay', status: ['all'] },
       })
     })
   })
 
-  it('shows all the children of the epic when the user selects the all filter', async () => {
+  it('shows all the children of the epic when the user turns off the ready filter', async () => {
     render(<App />)
     await screen.findByText('Cart total')
-    await userEvent.click(within(boardFilters()).getByRole('button', { name: 'All' }))
+    await userEvent.click(within(boardFilters()).getByRole('button', { name: 'Ready' }))
     expect(within(column('Closed')).getByText('Receipt mail')).toBeInTheDocument()
     expect(window.location.search).toContain('board.status=all')
   })
@@ -279,7 +289,7 @@ describe('the beadoo page', () => {
   it('finds the beads whose title holds the text that the user types', async () => {
     render(<App />)
     await screen.findByText('Cart total')
-    await userEvent.click(within(boardFilters()).getByRole('button', { name: 'All' }))
+    await userEvent.click(within(boardFilters()).getByRole('button', { name: 'Ready' }))
     await userEvent.type(within(boardFilters()).getByRole('textbox', { name: 'Search' }), 'receipt')
     expect(screen.queryByText('Cart total')).not.toBeInTheDocument()
     expect(screen.getByText('Receipt mail')).toBeInTheDocument()
@@ -502,7 +512,8 @@ describe('the beadoo page', () => {
     window.history.replaceState(null, '', '/?view=lanes')
     render(<App />)
     await screen.findByText('Cart total')
-    await userEvent.click(screen.getByRole('button', { name: 'Closed' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Status filter' }), 'closed')
     expect(JSON.parse(window.localStorage.getItem('beadoo:filters') ?? '{}')).toMatchObject({ status: ['closed'] })
   })
 
@@ -514,18 +525,30 @@ describe('the beadoo page', () => {
     window.history.replaceState(null, '', '/?db=.team&view=lanes')
     render(<App />)
     await screen.findByText('Cart total')
-    await userEvent.click(screen.getByRole('button', { name: 'Open' }))
-    await userEvent.click(screen.getByRole('button', { name: 'In progress' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Status filter' }), 'open')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Status filter' }), 'in_progress')
     expect(screen.getByText('Pay button')).toBeInTheDocument()
     expect(screen.getByText('Ship it')).toBeInTheDocument()
     expect(screen.queryByText('Receipt mail')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'In progress' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'Ready' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Remove the status filter Open' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove the status filter In progress' })).toBeInTheDocument()
     expect(new URLSearchParams(window.location.search).getAll('status')).toEqual(['open', 'in_progress'])
+  })
+
+  it('keeps the selected statuses, and shows only their ready beads, when the user turns on the ready filter', async () => {
+    answers['/api/beads?db=.team'] = json({
+      beads: [...beads, { id: 't-5', title: 'Ship it', status: 'in_progress', parent: 'e-1' }],
+      readyIds: ['t-1', 't-4'],
+    })
+    window.history.replaceState(null, '', '/?db=.team&view=lanes&status=open&status=in_progress')
+    render(<App />)
+    expect(await screen.findByText('Ship it')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
-    expect(screen.getByRole('button', { name: 'Open' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Remove the status filter Open' })).toBeInTheDocument()
+    expect(screen.getByText('Cart total')).toBeInTheDocument()
     expect(screen.queryByText('Ship it')).not.toBeInTheDocument()
+    expect(new URLSearchParams(window.location.search).getAll('status')).toEqual(['ready', 'open', 'in_progress'])
   })
 
   it('shows in the lanes only the columns of the statuses that the user selected', async () => {
@@ -543,7 +566,7 @@ describe('the beadoo page', () => {
     render(<App />)
     expect(await screen.findByText('Receipt mail')).toBeInTheDocument()
     expect(screen.queryByText('Cart total')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Closed' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Remove the status filter Closed' })).toBeInTheDocument()
   })
 
   describe('the views of the beads', () => {
@@ -590,7 +613,7 @@ describe('the beadoo page', () => {
       window.history.replaceState(null, '', '/?view=lanes')
       render(<App />)
       await screen.findByText('Cart total')
-      await userEvent.click(screen.getByRole('button', { name: 'All' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
       await userEvent.type(screen.getByRole('textbox', { name: 'Search' }), 'r')
       const expected = ['t-1 Cart total', 't-3 Receipt mail']
       expect(await shownIn('Lanes')).toEqual(expected)

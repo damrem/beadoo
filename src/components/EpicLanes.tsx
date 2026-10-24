@@ -6,7 +6,7 @@ import { Emoji } from '@/components/Emoji'
 import { OpenEpicButton } from '@/components/EpicHeader'
 import { EpicProgress, EpicWarning } from '@/components/EpicProgress'
 import { statusEmoji } from '@/lib/emojis'
-import { columnsOf, columnStatusesOf, NO_EPIC, statusTitle } from '@/lib/filters'
+import { ANY_STATUS, columnsOf, columnStatusesOf, NO_EPIC, statusTitle } from '@/lib/filters'
 import type { Lane, StatusFilter } from '@/lib/filters'
 import { blockedFirst, statusTone, toneStyle } from '@/lib/tones'
 import type { Bead } from '../../shared/contract'
@@ -15,7 +15,7 @@ const COLUMN_REM = 14
 
 export function EpicLanes({
   lanes,
-  status = 'all',
+  status = ANY_STATUS,
   onOpen,
   cardActions,
   searchText,

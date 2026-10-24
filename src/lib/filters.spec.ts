@@ -1,10 +1,10 @@
-import { BOARD_COLUMNS, childrenOf, columnsOf, columnStatusesOf, countLabel, epicListOf, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, readViewState, statusesOf, statusTitle, statusTogglesOf, toggleStatus, typesOf, writeViewState } from './filters'
+import { ANY_STATUS, anyOf, BOARD_COLUMNS, childrenOf, columnsOf, columnStatusesOf, countLabel, epicListOf, epicsOf, filterBeads, groupByParent, labelsOf, lanesOf, NO_EPIC, orderedCounts, prioritiesOf, READY_ONLY, readViewState, statusesOf, statusOptionsOf, statusTitle, typesOf, writeViewState } from './filters'
 import type { Bead } from '../../shared/contract'
 import { withBlockers } from './blockers'
 import type { BeadFilter, StatusFilter } from './filters'
 
 const only = (change: Partial<BeadFilter>): BeadFilter => ({
-  status: 'all',
+  status: ANY_STATUS,
   text: '',
   labels: [],
   types: [],
@@ -26,19 +26,19 @@ const beads: Bead[] = [
 
 describe('the filters of the page', () => {
   it('shows the ready beads when the user chose no filter', () => {
-    expect(readViewState('', {}).status).toBe('ready')
+    expect(readViewState('', {}).status).toEqual(READY_ONLY)
   })
 
   it('keeps the last filter of the user when the page opens with no link', () => {
     expect(readViewState('', { status: 'closed', text: 'cart' })).toMatchObject({
-      status: ['closed'],
+      status: anyOf('closed'),
       text: 'cart',
     })
   })
 
   it('follows the filter of the link before the last filter of the user', () => {
     expect(readViewState('?status=all&q=pay', { status: 'closed', text: 'cart' })).toMatchObject({
-      status: 'all',
+      status: ANY_STATUS,
       text: 'pay',
     })
   })
@@ -56,7 +56,7 @@ describe('the filters of the page', () => {
     expect(readViewState('?view=lanes&db=.team&status=ready', lastVisit)).toMatchObject({
       mode: 'lanes',
       db: '.team',
-      status: 'ready',
+      status: READY_ONLY,
       text: '',
       labels: [],
       types: [],
@@ -69,7 +69,7 @@ describe('the filters of the page', () => {
     expect(readViewState('?db=.team', lastVisit)).toMatchObject({
       mode: 'table',
       db: '.team',
-      status: ['closed'],
+      status: anyOf('closed'),
       text: 'cart',
       labels: ['front'],
       types: ['bug'],
@@ -86,7 +86,7 @@ describe('the filters of the page', () => {
   })
 
   it('ignores a filter name that it does not know', () => {
-    expect(readViewState('?status=wrong', {}).status).toBe('ready')
+    expect(readViewState('?status=wrong', {}).status).toEqual(READY_ONLY)
   })
 
   it('puts the view, the database, the epic, the open bead and the filters in the link', () => {
@@ -95,21 +95,21 @@ describe('the filters of the page', () => {
       db: 'shop',
       epic: 'e-1',
       bead: 't-1',
-      status: ['open', 'in_progress'],
+      status: anyOf('open', 'in_progress'),
       text: 'cart',
       labels: ['front', 'urgent'],
       types: ['bug', 'feature'],
       priorities: [0, 3],
-      epicFilter: only({ status: ['open'], text: 'check', labels: ['back'] }),
-      boardFilter: only({ status: 'ready', types: ['task'], priorities: [1] }),
+      epicFilter: only({ status: anyOf('open'), text: 'check', labels: ['back'] }),
+      boardFilter: only({ status: READY_ONLY, types: ['task'], priorities: [1] }),
     }
     expect(readViewState(writeViewState(state), {})).toEqual(state)
   })
 
   it('lists the epics that are not closed, and shows the ready beads on the board, when the user chose no filter', () => {
     expect(readViewState('', {})).toMatchObject({
-      epicFilter: only({ status: ['open', 'in_progress', 'blocked', 'deferred'] }),
-      boardFilter: only({ status: 'ready' }),
+      epicFilter: only({ status: anyOf('open', 'in_progress', 'blocked', 'deferred') }),
+      boardFilter: only({ status: READY_ONLY }),
     })
   })
 
@@ -118,7 +118,7 @@ describe('the filters of the page', () => {
     expect(readViewState('', lastVisit)).toMatchObject({
       text: 'cart',
       epicFilter: { text: 'check' },
-      boardFilter: { status: ['closed'], labels: ['front'], text: '' },
+      boardFilter: { status: anyOf('closed'), labels: ['front'], text: '' },
     })
   })
 
@@ -126,7 +126,7 @@ describe('the filters of the page', () => {
     expect(readViewState('?epics.q=check&board.status=all&board.priority=2', {})).toMatchObject({
       text: '',
       epicFilter: { text: 'check' },
-      boardFilter: { status: 'all', priorities: [2] },
+      boardFilter: { status: ANY_STATUS, priorities: [2] },
     })
   })
 
@@ -161,48 +161,47 @@ describe('the filters of the page', () => {
   })
 
   it('shows only the beads with no blocker under the ready filter', () => {
-    expect(filterBeads(beads, ['t-1'], only({ status: 'ready' })).map((bead) => bead.id)).toEqual(['t-1'])
+    expect(filterBeads(beads, ['t-1'], only({ status: READY_ONLY })).map((bead) => bead.id)).toEqual(['t-1'])
   })
 
   it('shows the beads of one status', () => {
-    expect(filterBeads(beads, [], only({ status: ['in_progress'] })).map((bead) => bead.id)).toEqual(['t-2'])
+    expect(filterBeads(beads, [], only({ status: anyOf('in_progress') })).map((bead) => bead.id)).toEqual(['t-2'])
   })
 
   it('shows the open and the in progress beads together when the user selects both', () => {
-    expect(filterBeads(beads, [], only({ status: ['open', 'in_progress'] })).map((bead) => bead.id)).toEqual(['e-1', 't-1', 't-2', 't-4'])
+    expect(filterBeads(beads, [], only({ status: anyOf('open', 'in_progress') })).map((bead) => bead.id)).toEqual(['e-1', 't-1', 't-2', 't-4'])
   })
 
   it('opens an old link that holds one status', () => {
-    expect(readViewState('?status=open', {}).status).toEqual(['open'])
-    expect(readViewState('?status=all', {}).status).toBe('all')
+    expect(readViewState('?status=open', {}).status).toEqual(anyOf('open'))
+    expect(readViewState('?status=all', {}).status).toEqual(ANY_STATUS)
   })
 
   it('opens a link that holds more than one status, and puts the statuses in the link again', () => {
     const state = readViewState('?status=in_progress&status=blocked', {})
-    expect(state.status).toEqual(['in_progress', 'blocked'])
+    expect(state.status).toEqual(anyOf('in_progress', 'blocked'))
     expect(new URLSearchParams(writeViewState(state)).getAll('status')).toEqual(['in_progress', 'blocked'])
   })
 
   it('keeps the one status that the user stored before the page could select more than one', () => {
-    expect(readViewState('', { status: 'closed' }).status).toEqual(['closed'])
-    expect(readViewState('', { status: ['open', 'blocked'] }).status).toEqual(['open', 'blocked'])
+    expect(readViewState('', { status: 'closed' }).status).toEqual(anyOf('closed'))
+    expect(readViewState('', { status: ['open', 'blocked'] }).status).toEqual(anyOf('open', 'blocked'))
   })
 
-  it('adds a status to the selection, removes it on a second click, and shows all the beads when no status stays', () => {
-    expect(toggleStatus('ready', 'blocked')).toEqual(['blocked'])
-    expect(toggleStatus(['blocked'], 'in_progress')).toEqual(['in_progress', 'blocked'])
-    expect(toggleStatus(['in_progress', 'blocked'], 'blocked')).toEqual(['in_progress'])
-    expect(toggleStatus(['in_progress'], 'in_progress')).toBe('all')
+  it('shows only the ready beads of the selected statuses when the user selects the ready filter and a status', () => {
+    const status = { ...anyOf('in_progress'), ready: true }
+    expect(filterBeads(beads, ['t-1', 't-2'], only({ status })).map((bead) => bead.id)).toEqual(['t-2'])
   })
 
-  it('clears the selected statuses when the user selects the ready or the all filter', () => {
-    expect(toggleStatus(['open', 'closed'], 'ready')).toBe('ready')
-    expect(toggleStatus(['open', 'closed'], 'all')).toBe('all')
+  it('shows all the beads, and keeps this choice in the link, when the user selects no status and no toggle', () => {
+    const state = readViewState('?status=all', {})
+    expect(new URLSearchParams(writeViewState(state)).getAll('status')).toEqual(['all'])
+    expect(readViewState(writeViewState(state), {}).status).toEqual(ANY_STATUS)
   })
 
   it('offers the deferred status only when a loaded bead is deferred', () => {
-    expect(statusTogglesOf(beads)).toEqual(['open', 'in_progress', 'blocked', 'closed', 'blocker'])
-    expect(statusTogglesOf([...beads, { id: 't-9', title: 'Later', status: 'deferred' }])).toEqual(['open', 'in_progress', 'blocked', 'deferred', 'closed', 'blocker'])
+    expect(statusOptionsOf(beads)).toEqual(['open', 'in_progress', 'blocked', 'closed'])
+    expect(statusOptionsOf([...beads, { id: 't-9', title: 'Later', status: 'deferred' }])).toEqual(['open', 'in_progress', 'blocked', 'deferred', 'closed'])
   })
 
   describe('the blockers filter', () => {
@@ -214,34 +213,28 @@ describe('the filters of the page', () => {
     ] as Bead[])
 
     it('shows only the beads that hold back another bead', () => {
-      expect(filterBeads(chain, [], only({ status: ['blocker'] })).map((bead) => bead.id)).toEqual(['t-1', 't-2'])
+      expect(filterBeads(chain, [], only({ status: { ...ANY_STATUS, blocker: true } })).map((bead) => bead.id)).toEqual(['t-1', 't-2'])
     })
 
     it('shows only the blockers of the selected statuses when the user selects a status too', () => {
-      expect(filterBeads(chain, [], only({ status: ['blocked', 'blocker'] })).map((bead) => bead.id)).toEqual(['t-2'])
-      expect(filterBeads(chain, [], only({ status: ['closed', 'blocker'] }))).toEqual([])
+      expect(filterBeads(chain, [], only({ status: { ...anyOf('blocked'), blocker: true } })).map((bead) => bead.id)).toEqual(['t-2'])
+      expect(filterBeads(chain, [], only({ status: { ...anyOf('closed'), blocker: true } }))).toEqual([])
     })
 
-    it('adds the blockers filter after the statuses, and clears it with the ready filter', () => {
-      expect(toggleStatus('ready', 'blocker')).toEqual(['blocker'])
-      expect(toggleStatus(['blocker'], 'open')).toEqual(['open', 'blocker'])
-      expect(toggleStatus(['open', 'blocker'], 'ready')).toBe('ready')
-    })
-
-    it('always offers the blockers filter, also when no bead blocks another', () => {
-      expect(statusTogglesOf(beads)).toEqual(['open', 'in_progress', 'blocked', 'closed', 'blocker'])
+    it('shows the ready beads that hold back another bead when the user selects the ready and the blockers filters', () => {
+      expect(filterBeads(chain, ['t-1', 't-4'], only({ status: { ...READY_ONLY, blocker: true } })).map((bead) => bead.id)).toEqual(['t-1'])
     })
 
     it('opens a link that holds the blockers filter, and puts it in the link again', () => {
       const state = readViewState('?status=blocker&status=open', {})
-      expect(state.status).toEqual(['open', 'blocker'])
+      expect(state.status).toEqual({ ...anyOf('open'), blocker: true })
       expect(new URLSearchParams(writeViewState(state)).getAll('status')).toEqual(['open', 'blocker'])
-      expect(readViewState('', { status: ['blocker'] }).status).toEqual(['blocker'])
+      expect(readViewState('', { status: ['blocker'] }).status).toEqual({ ...ANY_STATUS, blocker: true })
     })
 
     it('shows only the columns that hold a blocker', () => {
-      const shown = filterBeads(chain, [], only({ status: ['blocker'] }))
-      expect(columnStatusesOf(shown, ['blocker'])).toEqual(['open', 'blocked'])
+      const shown = filterBeads(chain, [], only({ status: { ...ANY_STATUS, blocker: true } }))
+      expect(columnStatusesOf(shown, { ...ANY_STATUS, blocker: true })).toEqual(['open', 'blocked'])
     })
   })
 
@@ -252,7 +245,7 @@ describe('the filters of the page', () => {
       { id: 't-2', title: 'Pay button', status: 'open', parent: 'e-1', dependencies: [{ issue_id: 't-2', depends_on_id: 't-1', type: 'blocks' }] },
       { id: 't-3', title: 'Fix the logo', status: 'open', dependencies: [{ issue_id: 't-3', depends_on_id: 't-2', type: 'blocks' }] },
     ] as Bead[])
-    expect(epicsIn(list, 'all').map((epic) => [epic.id, epic.blockers])).toEqual([
+    expect(epicsIn(list, ANY_STATUS).map((epic) => [epic.id, epic.blockers])).toEqual([
       ['e-1', 2],
       [NO_EPIC, 0],
     ])
@@ -335,7 +328,7 @@ describe('the filters of the page', () => {
 
     it('shows only the beads that match the labels, the type, the priority, the status and the text together', () => {
       expect(ids({ labels: ['urgent'], types: ['bug'], priorities: [1], text: 'front' })).toEqual(['b-1'])
-      expect(ids({ labels: ['urgent'], types: ['bug'], priorities: [1], status: ['closed'] })).toEqual([])
+      expect(ids({ labels: ['urgent'], types: ['bug'], priorities: [1], status: anyOf('closed') })).toEqual([])
     })
 
     it('offers the labels, the types and the priorities that the loaded beads hold, each one time and in order', () => {
@@ -350,7 +343,7 @@ describe('the filters of the page', () => {
   })
 
   it('counts the children of each epic by status', () => {
-    expect(epicsIn(beads, 'ready')).toEqual([
+    expect(epicsIn(beads, READY_ONLY)).toEqual([
       { id: 'e-1', title: 'Checkout', status: 'open', counts: { open: 1, in_progress: 1, closed: 1 }, labels: [], blockers: 0 },
       { id: NO_EPIC, title: 'No epic', status: 'open', counts: { open: 1 }, labels: [], blockers: 0 },
     ])
@@ -363,13 +356,13 @@ describe('the filters of the page', () => {
       { id: 't-2', title: 'Pay button', status: 'closed', parent: 'e-1', labels: ['repo:shop', 'complexity:2'] },
       { id: 't-3', title: 'Fix the logo', status: 'open', labels: ['docs'] },
     ]
-    const [epic, noEpic] = epicsIn(tagged, 'all')
+    const [epic, noEpic] = epicsIn(tagged, ANY_STATUS)
     expect(epic.labels).toEqual(['repo:shop', 'front', 'handoff', 'complexity:2'])
     expect(noEpic.labels).toEqual([])
   })
 
   it('shows the closed epics only under the all and closed filters', () => {
-    expect(epicsIn(beads, 'all').map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
+    expect(epicsIn(beads, ANY_STATUS).map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
   })
 
   it('lists a parent that is not an epic, with its children, so that its children show on a board', () => {
@@ -378,7 +371,7 @@ describe('the filters of the page', () => {
       { id: 'c-1', title: 'Tidy the repo', status: 'closed', issue_type: 'chore' },
       { id: 'c-1.1', title: 'Remove the old script', status: 'closed', parent: 'c-1' },
     ]
-    expect(epicsIn(withChore, 'all').map((epic) => epic.id)).toContain('c-1')
+    expect(epicsIn(withChore, ANY_STATUS).map((epic) => epic.id)).toContain('c-1')
     expect(childrenIn(withChore, 'c-1').map((bead) => bead.id)).toEqual(['c-1.1'])
   })
 
@@ -393,7 +386,7 @@ describe('the filters of the page', () => {
 
   it('keeps a closed epic in the list while one of its children is still open', () => {
     const withOpenChild: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
-    expect(epicsIn(withOpenChild, 'ready').map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
+    expect(epicsIn(withOpenChild, READY_ONLY).map((epic) => epic.id)).toEqual(['e-2', 'e-1', NO_EPIC])
   })
 
   describe('the epic list of the epic view', () => {
@@ -412,14 +405,14 @@ describe('the filters of the page', () => {
     })
 
     it('applies the status filter to the epic, and not to the child that holds the search text', () => {
-      expect(listed(beads, { status: ['open'], text: 'receipt' })).toEqual(['e-1', NO_EPIC])
-      expect(listed(beads, { status: ['closed'], text: 'cart' })).toEqual([NO_EPIC])
+      expect(listed(beads, { status: anyOf('open'), text: 'receipt' })).toEqual(['e-1', NO_EPIC])
+      expect(listed(beads, { status: anyOf('closed'), text: 'cart' })).toEqual([NO_EPIC])
     })
 
     it('hides a closed epic under the open statuses, and keeps a closed epic while one of its children is still open', () => {
-      expect(listed(beads, { status: ['open'] })).toEqual(['e-1', NO_EPIC])
+      expect(listed(beads, { status: anyOf('open') })).toEqual(['e-1', NO_EPIC])
       const withOpenChild: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
-      expect(listed(withOpenChild, { status: ['open'] })).toEqual(['e-2', 'e-1', NO_EPIC])
+      expect(listed(withOpenChild, { status: anyOf('open') })).toEqual(['e-2', 'e-1', NO_EPIC])
     })
 
     it('puts all the children of each listed epic in its entry, whatever the board filters', () => {
@@ -450,22 +443,22 @@ describe('the filters of the page', () => {
   })
 
   it('shows only the open column under the ready filter, because a ready bead is always open', () => {
-    expect(columnStatusesOf([beads[2]], 'ready')).toEqual(['open'])
+    expect(columnStatusesOf([beads[2]], READY_ONLY)).toEqual(['open'])
   })
 
   it('shows all the status columns under the all filter', () => {
-    expect(columnStatusesOf([beads[2]], 'all')).toEqual(BOARD_COLUMNS)
+    expect(columnStatusesOf([beads[2]], ANY_STATUS)).toEqual(BOARD_COLUMNS)
   })
 
   it('shows only the columns of the statuses that the user selected, in the usual order', () => {
-    expect(columnStatusesOf([beads[3]], ['blocked', 'in_progress'])).toEqual(['in_progress', 'blocked'])
-    expect(columnStatusesOf([], ['deferred'])).toEqual(['deferred'])
+    expect(columnStatusesOf([beads[3]], anyOf('blocked', 'in_progress'))).toEqual(['in_progress', 'blocked'])
+    expect(columnStatusesOf([], anyOf('deferred'))).toEqual(['deferred'])
   })
 
   it('puts in each lane the beads of one epic that match the filter, and leaves out an epic with no match', () => {
     const list: Bead[] = [...beads, { id: 't-6', title: 'Search index', status: 'open', parent: 'e-2' }]
     const groups = groupByParent(list)
-    const lanes = lanesOf(epicsOf(list, groups, 'ready'), groups, ['t-1', 't-4'], only({ status: 'ready' }), list)
+    const lanes = lanesOf(epicsOf(list, groups, READY_ONLY), groups, ['t-1', 't-4'], only({ status: READY_ONLY }), list)
     expect(lanes.map((lane) => [lane.epic.id, lane.beads.map((bead) => bead.id)])).toEqual([
       ['e-1', ['t-1']],
       [NO_EPIC, ['t-4']],
@@ -479,7 +472,7 @@ describe('the filters of the page', () => {
       { id: 't-2', title: 'Urgent', status: 'open', parent: 'e-1', priority: 0 },
     ]
     const groups = groupByParent(list)
-    const [lane] = lanesOf(epicsOf(list, groups, 'all'), groups, [], only({}), list)
+    const [lane] = lanesOf(epicsOf(list, groups, ANY_STATUS), groups, [], only({}), list)
     expect(lane.beads.map((bead) => bead.id)).toEqual(['t-2', 't-1'])
   })
 
@@ -496,19 +489,19 @@ describe('the filters of the page', () => {
     }
 
     it('shows a lane for an empty epic, at the top level and inside another epic', () => {
-      expect(laneIds('ready')).toEqual(['e-1', 'e-1.1', 'e-2'])
+      expect(laneIds(READY_ONLY)).toEqual(['e-1', 'e-1.1', 'e-2'])
     })
 
     it('hides the lane of an empty epic that does not match the filter', () => {
-      expect(laneIds('ready', { text: 'search' })).toEqual(['e-2'])
-      expect(laneIds('ready', { labels: ['front'] })).toEqual(['e-2'])
-      expect(laneIds('ready', { types: ['task'] })).toEqual([])
+      expect(laneIds(READY_ONLY, { text: 'search' })).toEqual(['e-2'])
+      expect(laneIds(READY_ONLY, { labels: ['front'] })).toEqual(['e-2'])
+      expect(laneIds(READY_ONLY, { types: ['task'] })).toEqual([])
     })
 
     it('shows the lane of a closed empty epic only under the all and closed filters', () => {
-      expect(laneIds('ready')).not.toContain('e-3')
-      expect(laneIds('all')).toContain('e-3')
-      expect(laneIds(['closed'])).toEqual(['e-3'])
+      expect(laneIds(READY_ONLY)).not.toContain('e-3')
+      expect(laneIds(ANY_STATUS)).toContain('e-3')
+      expect(laneIds(anyOf('closed'))).toEqual(['e-3'])
     })
   })
 
