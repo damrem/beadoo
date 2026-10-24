@@ -120,6 +120,7 @@ beforeEach(async () => {
       ),
       distDir,
       origin: base,
+      publicOrigin: 'https://feat-x.beadoo.localhost',
       token,
     }),
   )
@@ -323,6 +324,26 @@ describe('the page server', () => {
       const port = new URL(base).port
       expect(await postAs('localhost', '/api/beads/s-1/claim?db=shop', `http://localhost:${port}`)).toBe(200)
       expect(writes).toEqual([['--actor', 'Ann', 'update', 's-1', '--claim', '--json']])
+    })
+
+    const postThrough = (host: string, path: string, origin: string) =>
+      new Promise<number>((resolve, reject) => {
+        request(`${base}${path}`, { method: 'POST', headers: { host, origin, 'x-beads-token': token } }, (response) => {
+          response.resume()
+          resolve(response.statusCode ?? 0)
+        })
+          .on('error', reject)
+          .end()
+      })
+
+    it('claims the bead from a page that the user opened on the portless URL of the worktree', async () => {
+      expect(await postThrough('feat-x.beadoo.localhost', '/api/beads/s-1/claim?db=shop', 'https://feat-x.beadoo.localhost')).toBe(200)
+      expect(writes).toEqual([['--actor', 'Ann', 'update', 's-1', '--claim', '--json']])
+    })
+
+    it('refuses a claim from the portless URL of another worktree, and writes nothing', async () => {
+      expect(await postThrough('feat-y.beadoo.localhost', '/api/beads/s-1/claim?db=shop', 'https://feat-y.beadoo.localhost')).toBe(403)
+      expect(writes).toEqual([])
     })
 
     it('refuses a claim whose origin is not the address of the request, and writes nothing', async () => {
