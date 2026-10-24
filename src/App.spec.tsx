@@ -613,7 +613,15 @@ describe('the beadoo page', () => {
 
       const select = (name: string) => screen.getByRole('combobox', { name })
 
-      it('shows the same beads in the lanes and the table when the user selects labels and a type', async () => {
+      it('shows an & badge between the selected labels, because a bead must have all of them', async () => {
+        window.history.replaceState(null, '', '/?db=.team&status=all&view=table&label=front&label=urgent&type=bug&type=task')
+        render(<App />)
+        await screen.findByRole('table', { name: 'Beads by epic' })
+        expect(within(screen.getByRole('group', { name: 'The label filter' })).getAllByText('&')).toHaveLength(1)
+        expect(within(screen.getByRole('group', { name: 'The type filter' })).queryByText('&')).toBeNull()
+      })
+
+      it('shows the same beads in the lanes and the table when the user selects labels and types', async () => {
         window.history.replaceState(null, '', '/?db=.team&status=all&view=lanes')
         render(<App />)
         await screen.findByText('Cart total')
@@ -626,6 +634,9 @@ describe('the beadoo page', () => {
         const bugs = ['t-3 Receipt mail', 't-4 Fix the logo']
         expect(await shownIn('Lanes')).toEqual(bugs)
         expect(await shownIn('Table')).toEqual(bugs)
+        await userEvent.selectOptions(select('Type filter'), 'task')
+        expect(await shownIn('Lanes')).toEqual(allLabels)
+        expect(await shownIn('Table')).toEqual(allLabels)
       })
 
       it('shows a bead again when the user removes a label filter that the bead does not hold', async () => {
@@ -646,9 +657,78 @@ describe('the beadoo page', () => {
           within(select(name))
             .getAllByRole('option')
             .map((option) => option.textContent)
-        expect(values('Label filter')).toEqual(['Add a label', 'front', 'urgent'])
-        expect(values('Type filter')).toEqual(['All types', 'bug', 'epic', 'task'])
-        expect(values('Priority filter')).toEqual(['All priorities', 'P1', 'P2'])
+        expect(values('Label filter')).toEqual(['label', 'front', 'urgent'])
+        expect(values('Type filter')).toEqual(['type', '🐛 bug', '🏔️ epic', '📝 task'])
+        expect(values('Priority filter')).toEqual(['priority', '🔴 P1', '🟠 P2'])
+      })
+
+      it('offers each attribute with two values or more in its own select, and shows the beads that hold one of its selected values', async () => {
+        answers['/api/beads?db=.team'] = json({
+          beads: [
+            { ...beads[1], labels: ['front', 'repo:shop'] },
+            { ...beads[2], labels: ['repo:mail', 'complexity:2'] },
+            { ...beads[3], labels: ['repo:shop', 'complexity:2'] },
+          ],
+          readyIds: [],
+        })
+        window.history.replaceState(null, '', '/?db=.team&status=all&view=table')
+        render(<App />)
+        const table = await screen.findByRole('table', { name: 'Beads by epic' })
+        const values = (name: string) =>
+          within(select(name))
+            .getAllByRole('option')
+            .map((option) => option.textContent)
+        expect(values('Label filter')).toEqual(['label', 'complexity: 2', 'front'])
+        expect(screen.queryByRole('combobox', { name: 'complexity filter' })).not.toBeInTheDocument()
+        expect(values('repo filter')).toEqual(['📦 repo', 'mail', 'shop'])
+        await userEvent.selectOptions(select('repo filter'), 'repo:shop')
+        expect(cardNames(table)).toEqual(['t-1 Cart total', 't-3 Receipt mail'])
+        expect(values('repo filter')).toEqual(['📦 repo', 'mail'])
+        await userEvent.selectOptions(select('repo filter'), 'repo:mail')
+        expect(cardNames(table)).toEqual(['t-1 Cart total', 't-2 Pay button', 't-3 Receipt mail'])
+        expect(new URLSearchParams(window.location.search).getAll('label')).toEqual(['repo:shop', 'repo:mail'])
+        const repos = screen.getByRole('group', { name: 'The repo filter' })
+        expect(repos).toContainElement(select('repo filter'))
+        expect(within(repos).getAllByRole('button', { name: /^Remove the label filter / }).map((button) => button.textContent)).toEqual(['mail', 'shop'])
+        await userEvent.click(within(repos).getByRole('button', { name: 'Remove the label filter repo:shop' }))
+        expect(cardNames(table)).toEqual(['t-2 Pay button'])
+        expect(new URLSearchParams(window.location.search).getAll('label')).toEqual(['repo:mail'])
+        expect(within(repos).getByRole('button', { name: 'Remove the label filter repo:mail' })).toHaveTextContent('mail')
+      })
+
+      it('shows the selected types and the selected priorities in the chip of their select, in the order of the select, with a first part that removes them all', async () => {
+        window.history.replaceState(null, '', '/?db=.team&status=all&view=table&type=task&type=bug&priority=2&priority=1')
+        render(<App />)
+        await screen.findByRole('table', { name: 'Beads by epic' })
+        const types = screen.getByRole('group', { name: 'The type filter' })
+        expect(within(types).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
+          'Remove the type filter',
+          'Remove the type filter bug',
+          'Remove the type filter task',
+        ])
+        expect(
+          within(screen.getByRole('group', { name: 'The priority filter' }))
+            .getAllByRole('button', { name: /^Remove the priority filter P/ })
+            .map((button) => button.getAttribute('aria-label')),
+        ).toEqual(['Remove the priority filter P1', 'Remove the priority filter P2'])
+        const follows = (first: Element, second: Element) =>
+          Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
+        expect(types).toContainElement(select('Type filter'))
+        expect(follows(types, select('Priority filter'))).toBe(true)
+        await userEvent.click(within(types).getByRole('button', { name: 'Remove the type filter bug' }))
+        expect(new URLSearchParams(window.location.search).getAll('type')).toEqual(['task'])
+        expect(within(types).getByRole('button', { name: 'Remove the type filter task' })).toHaveTextContent('task')
+      })
+
+      it('removes all the values of a grouped filter at once when the user removes its key', async () => {
+        window.history.replaceState(null, '', '/?db=.team&status=all&view=table&type=task&type=bug&priority=2&priority=1')
+        render(<App />)
+        await screen.findByRole('table', { name: 'Beads by epic' })
+        await userEvent.click(screen.getByRole('button', { name: 'Remove the type filter' }))
+        const params = new URLSearchParams(window.location.search)
+        expect(params.getAll('type')).toEqual([])
+        expect(params.getAll('priority')).toEqual(['2', '1'])
+        expect(select('Type filter')).toHaveDisplayValue('type')
       })
 
       it('keeps the label, type and priority filters in the link and for the next visit', async () => {
@@ -657,15 +737,16 @@ describe('the beadoo page', () => {
         await screen.findByText('Cart total')
         await userEvent.selectOptions(select('Label filter'), 'front')
         await userEvent.selectOptions(select('Type filter'), 'bug')
-        await userEvent.selectOptions(select('Priority filter'), 'P2')
+        await userEvent.selectOptions(select('Priority filter'), '2')
+        await userEvent.selectOptions(select('Priority filter'), '1')
         const params = new URLSearchParams(window.location.search)
         expect(params.getAll('label')).toEqual(['front'])
-        expect(params.get('type')).toBe('bug')
-        expect(params.get('priority')).toBe('2')
+        expect(params.getAll('type')).toEqual(['bug'])
+        expect(params.getAll('priority')).toEqual(['2', '1'])
         expect(JSON.parse(window.localStorage.getItem('beadoo:filters') ?? '{}')).toMatchObject({
           labels: ['front'],
-          type: 'bug',
-          priority: 2,
+          types: ['bug'],
+          priorities: [2, 1],
         })
       })
 
@@ -674,8 +755,8 @@ describe('the beadoo page', () => {
         render(<App />)
         const table = await screen.findByRole('table', { name: 'Beads by epic' })
         expect(cardNames(table)).toEqual(['t-4 Fix the logo'])
-        expect(select('Type filter')).toHaveValue('bug')
-        expect(select('Priority filter')).toHaveValue('2')
+        expect(screen.getByRole('button', { name: 'Remove the type filter bug' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Remove the priority filter P2' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Remove the label filter urgent' })).toBeInTheDocument()
       })
     })

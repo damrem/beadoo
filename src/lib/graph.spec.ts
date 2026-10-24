@@ -9,7 +9,7 @@ const blocks = (issue: string, target: string) =>
 
 const graphOf = (beads: Bead[]) => {
   const groups = groupByParent(beads)
-  const filter: BeadFilter = { status: 'all', text: '', labels: [], type: null, priority: null }
+  const filter: BeadFilter = { status: 'all', text: '', labels: [], types: [], priorities: [] }
   return layoutGraph(lanesOf(epicsOf(beads, groups, 'all'), groups, [], filter, beads), beads)
 }
 

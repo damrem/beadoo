@@ -7,8 +7,8 @@ const only = (change: Partial<BeadFilter>): BeadFilter => ({
   status: 'all',
   text: '',
   labels: [],
-  type: null,
-  priority: null,
+  types: [],
+  priorities: [],
   ...change,
 })
 
@@ -59,8 +59,8 @@ describe('the filters of the page', () => {
       status: 'ready',
       text: '',
       labels: [],
-      type: null,
-      priority: null,
+      types: [],
+      priorities: [],
     })
   })
 
@@ -72,8 +72,8 @@ describe('the filters of the page', () => {
       status: ['closed'],
       text: 'cart',
       labels: ['front'],
-      type: 'bug',
-      priority: 2,
+      types: ['bug'],
+      priorities: [2],
     })
   })
 
@@ -98,10 +98,10 @@ describe('the filters of the page', () => {
       status: ['open', 'in_progress'],
       text: 'cart',
       labels: ['front', 'urgent'],
-      type: 'bug',
-      priority: 0,
+      types: ['bug', 'feature'],
+      priorities: [0, 3],
       epicFilter: only({ status: ['open'], text: 'check', labels: ['back'] }),
-      boardFilter: only({ status: 'ready', type: 'task', priority: 1 }),
+      boardFilter: only({ status: 'ready', types: ['task'], priorities: [1] }),
     }
     expect(readViewState(writeViewState(state), {})).toEqual(state)
   })
@@ -126,30 +126,38 @@ describe('the filters of the page', () => {
     expect(readViewState('?epics.q=check&board.status=all&board.priority=2', {})).toMatchObject({
       text: '',
       epicFilter: { text: 'check' },
-      boardFilter: { status: 'all', priority: 2 },
+      boardFilter: { status: 'all', priorities: [2] },
     })
   })
 
   it('shows all the labels, all the types and all the priorities when the user chose none', () => {
-    expect(readViewState('', {})).toMatchObject({ labels: [], type: null, priority: null })
+    expect(readViewState('', {})).toMatchObject({ labels: [], types: [], priorities: [] })
   })
 
   it('keeps the last label, type and priority filters of the user when the page opens with no link', () => {
-    expect(readViewState('', { labels: ['front'], type: 'bug', priority: 2 })).toMatchObject({
+    expect(readViewState('', { labels: ['front'], types: ['bug', 'task'], priorities: [2, 3] })).toMatchObject({
       labels: ['front'],
-      type: 'bug',
-      priority: 2,
+      types: ['bug', 'task'],
+      priorities: [2, 3],
+    })
+  })
+
+  it('keeps the type and the priority that the user chose before the page offered more than one', () => {
+    expect(readViewState('', { type: 'bug', priority: 2, board: { type: 'task', priority: 0 } })).toMatchObject({
+      types: ['bug'],
+      priorities: [2],
+      boardFilter: { types: ['task'], priorities: [0] },
     })
   })
 
   it('follows the label, type and priority filters of the link before the last filters of the user', () => {
     expect(
-      readViewState('?label=back&type=feature&priority=1', { labels: ['front'], type: 'bug', priority: 2 }),
-    ).toMatchObject({ labels: ['back'], type: 'feature', priority: 1 })
+      readViewState('?label=back&type=feature&type=bug&priority=1', { labels: ['front'], types: ['task'], priorities: [2] }),
+    ).toMatchObject({ labels: ['back'], types: ['feature', 'bug'], priorities: [1] })
   })
 
   it('ignores a priority that is not a number', () => {
-    expect(readViewState('?priority=high', { priority: 'low' }).priority).toBeNull()
+    expect(readViewState('?priority=high', { priority: 'low' }).priorities).toEqual([])
   })
 
   it('shows only the beads with no blocker under the ready filter', () => {
@@ -269,18 +277,33 @@ describe('the filters of the page', () => {
       expect(ids({ labels: ['front', 'back'] })).toEqual([])
     })
 
-    it('shows only the beads of the selected type, and counts a bead with no type as a task', () => {
-      expect(ids({ type: 'bug' })).toEqual(['b-1', 'b-4'])
-      expect(ids({ type: 'task' })).toEqual(['b-2'])
+    it('shows the beads that hold one of the selected values of an attribute, and all the other selected labels', () => {
+      const attributed: Bead[] = [
+        { id: 'a-1', title: 'Small shop', status: 'open', labels: ['complexity:1', 'repo:shop', 'front'] },
+        { id: 'a-2', title: 'Medium shop', status: 'open', labels: ['complexity:2', 'repo:shop'] },
+        { id: 'a-3', title: 'Medium mail', status: 'open', labels: ['complexity:2', 'repo:mail', 'front'] },
+        { id: 'a-4', title: 'Large shop', status: 'open', labels: ['complexity:3', 'repo:shop', 'front'] },
+      ]
+      const shown = (labels: string[]) => filterBeads(attributed, [], only({ labels })).map((bead) => bead.id)
+      expect(shown(['complexity:1', 'complexity:2'])).toEqual(['a-1', 'a-2', 'a-3'])
+      expect(shown(['complexity:1', 'complexity:2', 'repo:shop'])).toEqual(['a-1', 'a-2'])
+      expect(shown(['complexity:2', 'complexity:3', 'front'])).toEqual(['a-3', 'a-4'])
     })
 
-    it('shows only the beads of the selected priority', () => {
-      expect(ids({ priority: 1 })).toEqual(['b-1', 'b-3'])
+    it('shows only the beads of one of the selected types, and counts a bead with no type as a task', () => {
+      expect(ids({ types: ['bug'] })).toEqual(['b-1', 'b-4'])
+      expect(ids({ types: ['task'] })).toEqual(['b-2'])
+      expect(ids({ types: ['task', 'feature'] })).toEqual(['b-2', 'b-3'])
+    })
+
+    it('shows only the beads of one of the selected priorities', () => {
+      expect(ids({ priorities: [1] })).toEqual(['b-1', 'b-3'])
+      expect(ids({ priorities: [1, 2] })).toEqual(['b-1', 'b-2', 'b-3'])
     })
 
     it('shows only the beads that match the labels, the type, the priority, the status and the text together', () => {
-      expect(ids({ labels: ['urgent'], type: 'bug', priority: 1, text: 'front' })).toEqual(['b-1'])
-      expect(ids({ labels: ['urgent'], type: 'bug', priority: 1, status: ['closed'] })).toEqual([])
+      expect(ids({ labels: ['urgent'], types: ['bug'], priorities: [1], text: 'front' })).toEqual(['b-1'])
+      expect(ids({ labels: ['urgent'], types: ['bug'], priorities: [1], status: ['closed'] })).toEqual([])
     })
 
     it('offers the labels, the types and the priorities that the loaded beads hold, each one time and in order', () => {
@@ -436,7 +459,7 @@ describe('the filters of the page', () => {
     it('hides the lane of an empty epic that does not match the filter', () => {
       expect(laneIds('ready', { text: 'search' })).toEqual(['e-2'])
       expect(laneIds('ready', { labels: ['front'] })).toEqual(['e-2'])
-      expect(laneIds('ready', { type: 'task' })).toEqual([])
+      expect(laneIds('ready', { types: ['task'] })).toEqual([])
     })
 
     it('shows the lane of a closed empty epic only under the all and closed filters', () => {

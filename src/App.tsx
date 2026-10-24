@@ -90,8 +90,8 @@ function Beads() {
       text: view.text,
       view: view.mode,
       labels: view.labels,
-      type: view.type,
-      priority: view.priority,
+      types: view.types,
+      priorities: view.priorities,
       epics: view.epicFilter,
       board: view.boardFilter,
     })
@@ -176,7 +176,7 @@ function Beads() {
 
   const filter = useMemo<BeadFilter>(
     () => headerFilterOf(view),
-    [view.status, view.text, view.labels, view.type, view.priority],
+    [view.status, view.text, view.labels, view.types, view.priorities],
   )
 
   const lanes = useMemo(
