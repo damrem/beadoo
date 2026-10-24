@@ -32,15 +32,15 @@ export function BeadFilters({
       />
       <AttributeFilters
         labels={filter.labels}
-        type={filter.type}
-        priority={filter.priority}
+        types={filter.types}
+        priorities={filter.priorities}
         labelOptions={labelsOf(beads)}
         typeOptions={typesOf(beads)}
         priorityOptions={prioritiesOf(beads)}
         disabled={disabled}
         onLabels={(labels) => onChange({ labels })}
-        onType={(type) => onChange({ type })}
-        onPriority={(priority) => onChange({ priority })}
+        onTypes={(types) => onChange({ types })}
+        onPriorities={(priorities) => onChange({ priorities })}
       />
     </div>
   )

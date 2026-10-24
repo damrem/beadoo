@@ -20,7 +20,7 @@ const beads = withBlockers([
 
 const groups = groupByParent(beads)
 
-const lanes = lanesOf(epicsOf(beads, groups, 'all'), groups, [], { status: 'all', text: '', labels: [], type: null, priority: null }, beads)
+const lanes = lanesOf(epicsOf(beads, groups, 'all'), groups, [], { status: 'all', text: '', labels: [], types: [], priorities: [] }, beads)
 
 const linkOf = (container: HTMLElement, from: string, to: string) =>
   container.querySelector(`path[data-from="${from}"][data-to="${to}"]`)

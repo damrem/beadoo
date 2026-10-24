@@ -1,7 +1,7 @@
 import type { Bead } from '../../shared/contract'
 import { boardStatusOf, isBlocker } from '@/lib/blockers'
 import type { BoardBead } from '@/lib/blockers'
-import { mergedLabels } from '@/lib/labels'
+import { labelGroups, mergedLabels } from '@/lib/labels'
 
 export const STATUS_CHOICES = ['ready', 'all'] as const
 
@@ -44,8 +44,8 @@ export type ViewState = {
   status: StatusFilter
   text: string
   labels: string[]
-  type: string | null
-  priority: number | null
+  types: string[]
+  priorities: number[]
   epicFilter: BeadFilter
   boardFilter: BeadFilter
 }
@@ -54,14 +54,16 @@ export type BeadFilter = {
   status: StatusFilter
   text: string
   labels: string[]
-  type: string | null
-  priority: number | null
+  types: string[]
+  priorities: number[]
 }
 
 export type StoredFilter = {
   status?: unknown
   text?: string
   labels?: unknown
+  types?: unknown
+  priorities?: unknown
   type?: unknown
   priority?: unknown
 }
@@ -123,7 +125,13 @@ const readPriority = (value: unknown): number | null => {
   return Number.isInteger(priority) && priority >= 0 ? priority : null
 }
 
-const readType = (value: unknown): string | null => (isLabel(value) ? value : null)
+const listOf = (value: unknown): unknown[] => (Array.isArray(value) ? value : value === undefined ? [] : [value])
+
+const readTypes = (value: unknown): string[] => [...new Set(listOf(value).filter(isLabel))]
+
+const readPriorities = (value: unknown): number[] => [
+  ...new Set(listOf(value).flatMap((item) => readPriority(item) ?? [])),
+]
 
 const isLabel = (value: unknown): value is string => typeof value === 'string' && value !== ''
 
@@ -135,8 +143,10 @@ function readFilter(params: URLSearchParams, prefix: string, stored: StoredFilte
     status: readStatus(params.getAll(key('status'))) ?? readStatus(stored.status) ?? status,
     text: params.get(key('q')) ?? stored.text ?? '',
     labels: params.has(key('label')) ? readLabels(params.getAll(key('label'))) : readLabels(stored.labels),
-    type: params.has(key('type')) ? readType(params.get(key('type'))) : readType(stored.type),
-    priority: params.has(key('priority')) ? readPriority(params.get(key('priority'))) : readPriority(stored.priority),
+    types: readTypes(params.has(key('type')) ? params.getAll(key('type')) : (stored.types ?? stored.type)),
+    priorities: readPriorities(
+      params.has(key('priority')) ? params.getAll(key('priority')) : (stored.priorities ?? stored.priority),
+    ),
   }
 }
 
@@ -145,16 +155,16 @@ function writeFilter(params: URLSearchParams, prefix: string, filter: BeadFilter
   for (const status of statusValues(filter.status)) params.append(key('status'), status)
   if (filter.text) params.set(key('q'), filter.text)
   for (const label of filter.labels) params.append(key('label'), label)
-  if (filter.type) params.set(key('type'), filter.type)
-  if (filter.priority !== null) params.set(key('priority'), String(filter.priority))
+  for (const type of filter.types) params.append(key('type'), type)
+  for (const priority of filter.priorities) params.append(key('priority'), String(priority))
 }
 
 export const headerFilterOf = (state: ViewState): BeadFilter => ({
   status: state.status,
   text: state.text,
   labels: state.labels,
-  type: state.type,
-  priority: state.priority,
+  types: state.types,
+  priorities: state.priorities,
 })
 
 export function readViewState(search: string, lastVisit: StoredFilters): ViewState {
@@ -187,15 +197,15 @@ export function writeViewState(state: ViewState): string {
 }
 
 export function filterBeads<T extends BoardBead>(beads: T[], readyIds: string[], filter: BeadFilter): T[] {
-  const { status, labels, type, priority } = filter
+  const { status, labels, types, priorities } = filter
   const ready = new Set(readyIds)
   const needle = filter.text.trim().toLowerCase()
   return beads.filter((bead) => {
     if (status === 'ready' && !ready.has(bead.id)) return false
     if (!isStatusChoice(status) && !matchesToggles(bead, status)) return false
-    if (type !== null && typeOf(bead) !== type) return false
-    if (priority !== null && bead.priority !== priority) return false
-    if (!labels.every((label) => bead.labels?.includes(label))) return false
+    if (types.length > 0 && !types.includes(typeOf(bead))) return false
+    if (priorities.length > 0 && (bead.priority === undefined || !priorities.includes(bead.priority))) return false
+    if (!labelGroups(labels).every((group) => group.some((label) => bead.labels?.includes(label)))) return false
     return needle === '' || bead.title.toLowerCase().includes(needle)
   })
 }
