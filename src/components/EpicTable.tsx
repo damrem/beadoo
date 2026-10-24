@@ -17,12 +17,14 @@ export function EpicTable({
   lanes,
   onOpen,
   cardActions,
+  searchText,
 }: {
   lanes: Lane[]
   onOpen: (id: string) => void
   cardActions?: (bead: Bead) => ReactNode
+  searchText?: string
 }) {
-  if (lanes.length === 0) return <NoMatch />
+  if (lanes.length === 0) return <NoMatch text={searchText} />
   const headings = cardActions ? [...HEADINGS, 'Actions'] : HEADINGS
   return (
     <div className="min-h-0 flex-1 overflow-auto rounded-xl border bg-card">

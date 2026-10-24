@@ -301,18 +301,18 @@ function Beads() {
                   {boardBeads.length > 0 ? (
                     <Board beads={boardBeads} status={view.boardFilter.status} onOpen={open} cardActions={cardActions} />
                   ) : (
-                    <NoMatch />
+                    <NoMatch text={view.boardFilter.text} />
                   )}
                 </main>
               </>
             ) : data ? (
               <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4">
                 {view.mode === 'lanes' ? (
-                  <EpicLanes lanes={lanes} status={view.status} onOpen={open} cardActions={cardActions} />
+                  <EpicLanes lanes={lanes} status={view.status} onOpen={open} cardActions={cardActions} searchText={view.text} />
                 ) : view.mode === 'graph' ? (
-                  <BeadGraph lanes={lanes} beads={beads} onOpen={open} />
+                  <BeadGraph lanes={lanes} beads={beads} onOpen={open} searchText={view.text} />
                 ) : (
-                  <EpicTable lanes={lanes} onOpen={open} cardActions={cardActions} />
+                  <EpicTable lanes={lanes} onOpen={open} cardActions={cardActions} searchText={view.text} />
                 )}
               </main>
             ) : (

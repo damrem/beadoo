@@ -161,7 +161,7 @@ describe('the beadoo page', () => {
     it('tells the user when no bead of the epic matches the board filters, and shows no empty column', async () => {
       window.history.replaceState(null, '', '/?db=.team&board.q=nothing-like-this')
       render(<App />)
-      expect(await screen.findByText('No bead matches the filters.')).toBeInTheDocument()
+      expect(await screen.findByText('No bead matches "nothing-like-this" and the filters.')).toBeInTheDocument()
       expect(screen.queryByRole('region')).not.toBeInTheDocument()
     })
 
@@ -804,12 +804,15 @@ describe('the beadoo page', () => {
       expect(screen.queryByRole('region', { name: 'Checkout' })).not.toBeInTheDocument()
     })
 
-    it('tells the user when no bead matches the filters', async () => {
+    it('tells the user which search text matches no bead, in each view', async () => {
       window.history.replaceState(null, '', '/?db=.team&view=lanes&q=nothing-like-this')
       render(<App />)
-      expect(await screen.findByText('No bead matches the filters.')).toBeInTheDocument()
+      const message = 'No bead matches "nothing-like-this" and the filters.'
+      expect(await screen.findByText(message)).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Table' }))
-      expect(screen.getByText('No bead matches the filters.')).toBeInTheDocument()
+      expect(screen.getByText(message)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Graph' }))
+      expect(screen.getByText(message)).toBeInTheDocument()
     })
 
     it('opens the detail of a bead from a lane card and from a table row', async () => {
