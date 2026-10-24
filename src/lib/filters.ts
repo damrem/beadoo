@@ -199,17 +199,24 @@ export function writeViewState(state: ViewState): string {
 const searchedText = (bead: Bead): string =>
   [bead.title, bead.id, bead.description, bead.notes].filter(Boolean).join('\n').toLowerCase()
 
+const searchWords = (text: string): string[] => text.toLowerCase().split(/\s+/).filter(Boolean)
+
+const holdsWords = (bead: Bead, words: string[]): boolean => {
+  const text = searchedText(bead)
+  return words.every((word) => text.includes(word))
+}
+
 export function filterBeads<T extends BoardBead>(beads: T[], readyIds: string[], filter: BeadFilter): T[] {
   const { status, labels, types, priorities } = filter
   const ready = new Set(readyIds)
-  const needle = filter.text.trim().toLowerCase()
+  const words = searchWords(filter.text)
   return beads.filter((bead) => {
     if (status === 'ready' && !ready.has(bead.id)) return false
     if (!isStatusChoice(status) && !matchesToggles(bead, status)) return false
     if (types.length > 0 && !types.includes(typeOf(bead))) return false
     if (priorities.length > 0 && (bead.priority === undefined || !priorities.includes(bead.priority))) return false
     if (!labelGroups(labels).every((group) => group.some((label) => bead.labels?.includes(label)))) return false
-    return needle === '' || searchedText(bead).includes(needle)
+    return holdsWords(bead, words)
   })
 }
 

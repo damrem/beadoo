@@ -281,6 +281,11 @@ describe('the filters of the page', () => {
     it('finds a bead from a word of its notes', () => {
       expect(found(written, 'orca')).toEqual(['beadoo-ma6'])
     })
+
+    it('finds a bead when each word occurs somewhere in it, in any order', () => {
+      expect(found(written, 'push ci')).toEqual(['beadoo-2sq.4'])
+      expect(found(written, 'push orca')).toEqual([])
+    })
   })
 
   describe('the label, type and priority filters', () => {
