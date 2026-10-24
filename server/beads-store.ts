@@ -20,6 +20,8 @@ const NOT_A_REPO = /not a git repository/
 
 const SERVER_DOWN = /dolt server unreachable[^\n]*/i
 
+const NO_DATABASE = /no beads database found/i
+
 const RECONCILE_LOSS = /auto-export: reconciled [1-9]\d* deleted[^\n]*/
 
 const CLAIM_ARGS: Record<ClaimAction, (id: string) => string[]> = {
@@ -55,6 +57,14 @@ const unreachable = (db: DatabaseEntry, error: unknown): StoreError | null => {
     ? new StoreError(UNREACHABLE, `The database "${db.name}" does not answer: ${down[0].trim()}. Start its tunnel or its Dolt server.`)
     : null
 }
+
+const missingDatabase = (db: DatabaseEntry, error: unknown): StoreError | null =>
+  error instanceof Error && NO_DATABASE.test(error.message)
+    ? new StoreError(
+        STORE_NOT_OPEN,
+        `The folder ${db.path} holds no beads database. When another machine pushed the beads to the Dolt remote, run bd bootstrap in ${db.path}. Else, run bd init there.`,
+      )
+    : null
 
 type Env = Record<string, string | undefined>
 
@@ -107,7 +117,7 @@ export function createStore(run: RunAsync, { env = process.env, now = () => new 
     const stdout = await runCheckedAsync(run, 'bd', ['-C', db.path, '--readonly', ...args, '--json'], {
       timeoutMs: BD_TIMEOUT_MS,
     }).catch((error: unknown) => {
-      throw unreachable(db, error) ?? error
+      throw unreachable(db, error) ?? missingDatabase(db, error) ?? error
     })
     return parseJson(stdout, `bd ${args[0]}`)
   }

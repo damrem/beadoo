@@ -179,7 +179,7 @@ describe('a session that the page starts on a bead', () => {
       expect.objectContaining({ message: expect.stringMatching(new RegExp(`already exists[\\s\\S]*open again\\. The worktree ${WORKTREE} stays`)) }),
     )
     expect(bead.status).toBe('open')
-    expect(bead.notes).toContain(`released 2026-10-16 09:05: no session started in ${WORKTREE}. Cause: git -C failed (exit 128): fatal: a branch named`)
+    expect(bead.notes).toContain(`released 2026-10-16 09:05: no session started in ${WORKTREE}. Cause: git branch failed (exit 128): fatal: a branch named`)
   })
 
   it('tells the user that the bead is open again, and keeps the released note, when the export fails after the release', async () => {
