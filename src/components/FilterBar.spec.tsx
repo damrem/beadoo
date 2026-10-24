@@ -41,3 +41,10 @@ describe('the status filter', () => {
     expect(onStatus).toHaveBeenCalledWith(['in_progress', 'blocker'])
   })
 })
+
+describe('the search field', () => {
+  it('names the fields that the search reads', () => {
+    renderBar()
+    expect(screen.getByRole('textbox', { name: 'Search' })).toHaveAttribute('placeholder', 'Title, id, description, notes…')
+  })
+})

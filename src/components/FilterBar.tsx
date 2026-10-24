@@ -62,9 +62,9 @@ export function FilterBar({
         )}
       </ToggleGroup>
       <Input
-        aria-label="Find in the titles"
-        placeholder="Find in the titles"
-        className="h-7 w-32"
+        aria-label="Search"
+        placeholder="Title, id, description, notes…"
+        className="h-7 w-56"
         value={text}
         disabled={disabled}
         onChange={(event) => onText(event.target.value)}
