@@ -229,13 +229,13 @@ function Beads() {
               <Logo />
               beadoo
             </h1>
-            <ViewSwitch mode={view.mode} onMode={(mode) => update({ mode })} />
             <DatabaseSelector
               databases={databases ?? []}
               value={view.db}
               onChange={(db) => update({ db, epic: null, bead: null })}
               onAdd={addDatabase}
             />
+            <ViewSwitch mode={view.mode} onMode={(mode) => update({ mode })} />
             <BeadFilters
               label="Filters"
               filter={filter}
