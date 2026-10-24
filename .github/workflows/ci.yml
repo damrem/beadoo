@@ -13,6 +13,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  BD_VERSION: 1.3.1
+  DOLT_VERSION: 2.5.1
+
 jobs:
   checks:
     name: ${{ matrix.check }}
@@ -30,8 +34,40 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - name: install bd ${{ env.BD_VERSION }} and dolt ${{ env.DOLT_VERSION }}
+        if: matrix.check == 'test'
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          bd_archive="beads_${BD_VERSION}_linux_amd64.tar.gz"
+          bd_url="https://github.com/steveyegge/beads/releases/download/v${BD_VERSION}"
+          curl -fsSLO "$bd_url/$bd_archive"
+          curl -fsSLO "$bd_url/checksums.txt"
+          sha256sum --check --ignore-missing --strict checksums.txt
+          tar -xzf "$bd_archive" -C "$HOME/.local/bin" bd
+          curl -fsSL "https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/dolt-linux-amd64.tar.gz" | tar -xz
+          install -m 0755 dolt-linux-amd64/bin/dolt "$HOME/.local/bin/dolt"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          git config --global user.name ci
+          git config --global user.email ci@localhost
+      - name: print the bd and dolt versions
+        if: matrix.check == 'test'
+        run: |
+          bd --version
+          dolt version
       - run: pnpm install --frozen-lockfile
       - run: pnpm run ${{ matrix.check }}
+      - name: require the real bd and dolt specs to run and pass
+        if: matrix.check == 'test'
+        run: |
+          report="$RUNNER_TEMP/real-tools.json"
+          pnpm exec vitest run --project server server/claims-bd.spec.ts server/edits-bd.spec.ts server/tunnel-dolt.spec.ts --reporter=verbose --reporter=json --outputFile.json="$report"
+          node -e '
+            const r = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))
+            console.log(`passed=${r.numPassedTests} skipped=${r.numPendingTests} todo=${r.numTodoTests} failed=${r.numFailedTests}`)
+            if (r.numPendingTests || r.numTodoTests || r.numFailedTests || !r.numPassedTests) process.exit(1)
+          ' "$report"
 
   plugin:
     name: plugin validate
