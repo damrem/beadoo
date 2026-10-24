@@ -262,6 +262,27 @@ describe('the filters of the page', () => {
     expect(filterBeads(beads, [], only({ text: 'PAY' })).map((bead) => bead.id)).toEqual(['t-2'])
   })
 
+  describe('the search beyond the titles', () => {
+    const found = (list: Bead[], text: string) => filterBeads(list, [], only({ text })).map((bead) => bead.id)
+    const written: Bead[] = [
+      { id: 'beadoo-2sq', title: 'Release', status: 'open' },
+      { id: 'beadoo-2sq.4', title: 'Add the CI', status: 'open', description: 'Run the tests on each push' },
+      { id: 'beadoo-ma6', title: 'Metadata', status: 'open', notes: 'The branch chip opens Orca' },
+    ]
+
+    it('finds a bead from a part of its id', () => {
+      expect(found(written, '2sq')).toEqual(['beadoo-2sq', 'beadoo-2sq.4'])
+    })
+
+    it('finds a bead from a word of its description', () => {
+      expect(found(written, 'push')).toEqual(['beadoo-2sq.4'])
+    })
+
+    it('finds a bead from a word of its notes', () => {
+      expect(found(written, 'orca')).toEqual(['beadoo-ma6'])
+    })
+  })
+
   describe('the label, type and priority filters', () => {
     const tagged: Bead[] = [
       { id: 'b-1', title: 'Front bug', status: 'open', issue_type: 'bug', priority: 1, labels: ['front', 'urgent'] },

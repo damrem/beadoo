@@ -196,6 +196,9 @@ export function writeViewState(state: ViewState): string {
   return `?${params.toString()}`
 }
 
+const searchedText = (bead: Bead): string =>
+  [bead.title, bead.id, bead.description, bead.notes].filter(Boolean).join('\n').toLowerCase()
+
 export function filterBeads<T extends BoardBead>(beads: T[], readyIds: string[], filter: BeadFilter): T[] {
   const { status, labels, types, priorities } = filter
   const ready = new Set(readyIds)
@@ -206,7 +209,7 @@ export function filterBeads<T extends BoardBead>(beads: T[], readyIds: string[],
     if (types.length > 0 && !types.includes(typeOf(bead))) return false
     if (priorities.length > 0 && (bead.priority === undefined || !priorities.includes(bead.priority))) return false
     if (!labelGroups(labels).every((group) => group.some((label) => bead.labels?.includes(label)))) return false
-    return needle === '' || bead.title.toLowerCase().includes(needle)
+    return needle === '' || searchedText(bead).includes(needle)
   })
 }
 
