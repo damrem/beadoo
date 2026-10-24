@@ -18,13 +18,15 @@ export function EpicLanes({
   status = 'all',
   onOpen,
   cardActions,
+  searchText,
 }: {
   lanes: Lane[]
   status?: StatusFilter
   onOpen: (id: string) => void
   cardActions?: (bead: Bead) => ReactNode
+  searchText?: string
 }) {
-  if (lanes.length === 0) return <NoMatch />
+  if (lanes.length === 0) return <NoMatch text={searchText} />
   const statuses = blockedFirst(columnStatusesOf(lanes.flatMap((lane) => lane.beads), status))
   const template = {
     gridTemplateColumns: `${COLUMN_REM}rem repeat(${statuses.length}, minmax(${COLUMN_REM}rem, 1fr))`,

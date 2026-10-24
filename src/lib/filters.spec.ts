@@ -262,6 +262,38 @@ describe('the filters of the page', () => {
     expect(filterBeads(beads, [], only({ text: 'PAY' })).map((bead) => bead.id)).toEqual(['t-2'])
   })
 
+  describe('the search beyond the titles', () => {
+    const found = (list: Bead[], text: string) => filterBeads(list, [], only({ text })).map((bead) => bead.id)
+    const written: Bead[] = [
+      { id: 'beadoo-2sq', title: 'Release', status: 'open' },
+      { id: 'beadoo-2sq.4', title: 'Add the CI', status: 'open', description: 'Run the tests on each push' },
+      { id: 'beadoo-ma6', title: 'Metadata', status: 'open', notes: 'The branch chip opens Orca' },
+    ]
+
+    it('finds a bead from a part of its id', () => {
+      expect(found(written, '2sq')).toEqual(['beadoo-2sq', 'beadoo-2sq.4'])
+    })
+
+    it('finds a bead from a word of its description', () => {
+      expect(found(written, 'push')).toEqual(['beadoo-2sq.4'])
+    })
+
+    it('finds a bead from a word of its notes', () => {
+      expect(found(written, 'orca')).toEqual(['beadoo-ma6'])
+    })
+
+    it('finds a bead when each word occurs somewhere in it, in any order', () => {
+      expect(found(written, 'push ci')).toEqual(['beadoo-2sq.4'])
+      expect(found(written, 'push orca')).toEqual([])
+    })
+
+    it('finds a bead whatever the accents that the user types or omits', () => {
+      const french: Bead[] = [{ id: 'f-1', title: "Afficher l'état du déploiement", status: 'open' }]
+      expect(found(french, 'etat deploiement')).toEqual(['f-1'])
+      expect(found(french, 'ÉTAT')).toEqual(['f-1'])
+    })
+  })
+
   describe('the label, type and priority filters', () => {
     const tagged: Bead[] = [
       { id: 'b-1', title: 'Front bug', status: 'open', issue_type: 'bug', priority: 1, labels: ['front', 'urgent'] },
@@ -368,9 +400,20 @@ describe('the filters of the page', () => {
     const listed = (list: Bead[], filter: Partial<BeadFilter>, readyIds: string[] = []) =>
       epicListOf(list, groupByParent(list), readyIds, only(filter)).map((lane) => lane.epic.id)
 
-    it('filters the epics on their own title, and not on the titles of their children', () => {
+    it('lists an epic when the epic or one of its children holds the search text', () => {
       expect(listed(beads, { text: 'check' })).toEqual(['e-1', NO_EPIC])
-      expect(listed(beads, { text: 'cart' })).toEqual([NO_EPIC])
+      expect(listed(beads, { text: 'cart' })).toEqual(['e-1', NO_EPIC])
+      expect(listed(beads, { text: 'logo' })).toEqual([NO_EPIC])
+    })
+
+    it('lists an epic only when one bead of the epic holds all the words', () => {
+      expect(listed(beads, { text: 'cart total' })).toEqual(['e-1', NO_EPIC])
+      expect(listed(beads, { text: 'cart button' })).toEqual([NO_EPIC])
+    })
+
+    it('applies the status filter to the epic, and not to the child that holds the search text', () => {
+      expect(listed(beads, { status: ['open'], text: 'receipt' })).toEqual(['e-1', NO_EPIC])
+      expect(listed(beads, { status: ['closed'], text: 'cart' })).toEqual([NO_EPIC])
     })
 
     it('hides a closed epic under the open statuses, and keeps a closed epic while one of its children is still open', () => {

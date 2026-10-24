@@ -176,9 +176,19 @@ function GraphFrame({
   )
 }
 
-export function BeadGraph({ lanes, beads, onOpen }: { lanes: Lane[]; beads: BoardBead[]; onOpen: (id: string) => void }) {
+export function BeadGraph({
+  lanes,
+  beads,
+  onOpen,
+  searchText,
+}: {
+  lanes: Lane[]
+  beads: BoardBead[]
+  onOpen: (id: string) => void
+  searchText?: string
+}) {
   const graph = useMemo(() => layoutGraph(lanes, beads), [lanes, beads])
-  if (lanes.length === 0) return <NoMatch />
+  if (lanes.length === 0) return <NoMatch text={searchText} />
   const byId = new Map(beads.map((bead) => [bead.id, bead]))
   const isOpen: IsOpen = (edge) => edge.kind === 'blocks' && (byId.get(edge.to)?.blockers ?? []).includes(edge.from)
   const placed = new Map(graph.frames.map((frame) => [frame.id, frame]))

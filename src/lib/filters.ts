@@ -196,17 +196,29 @@ export function writeViewState(state: ViewState): string {
   return `?${params.toString()}`
 }
 
+const folded = (text: string): string => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+
+const searchedText = (bead: Bead): string =>
+  folded([bead.title, bead.id, bead.description, bead.notes].filter(Boolean).join('\n'))
+
+const searchWords = (text: string): string[] => folded(text).split(/\s+/).filter(Boolean)
+
+const holdsWords = (bead: Bead, words: string[]): boolean => {
+  const text = searchedText(bead)
+  return words.every((word) => text.includes(word))
+}
+
 export function filterBeads<T extends BoardBead>(beads: T[], readyIds: string[], filter: BeadFilter): T[] {
   const { status, labels, types, priorities } = filter
   const ready = new Set(readyIds)
-  const needle = filter.text.trim().toLowerCase()
+  const words = searchWords(filter.text)
   return beads.filter((bead) => {
     if (status === 'ready' && !ready.has(bead.id)) return false
     if (!isStatusChoice(status) && !matchesToggles(bead, status)) return false
     if (types.length > 0 && !types.includes(typeOf(bead))) return false
     if (priorities.length > 0 && (bead.priority === undefined || !priorities.includes(bead.priority))) return false
     if (!labelGroups(labels).every((group) => group.some((label) => bead.labels?.includes(label)))) return false
-    return needle === '' || bead.title.toLowerCase().includes(needle)
+    return holdsWords(bead, words)
   })
 }
 
@@ -328,8 +340,12 @@ const asParent = (bead: Bead, children: Bead[]): Bead =>
 
 export function epicListOf(beads: Bead[], groups: Groups, readyIds: string[], filter: BeadFilter): Lane[] {
   const parents = beads.filter((bead) => isEpic(bead) || groups.has(bead.id))
+  const words = searchWords(filter.text)
+  const holdsText = (epic: Bead) => [epic, ...childrenOf(groups, epic.id)].some((bead) => holdsWords(bead, words))
   const matching = new Set(
-    filterBeads(parents.map((bead) => asParent(bead, childrenOf(groups, bead.id))), readyIds, filter).map((bead) => bead.id),
+    filterBeads(parents.map((bead) => asParent(bead, childrenOf(groups, bead.id))), readyIds, { ...filter, text: '' })
+      .filter(holdsText)
+      .map((bead) => bead.id),
   )
   return epicsOf(beads, groups, 'all')
     .filter((epic) => (epic.id === NO_EPIC ? groups.has(NO_EPIC) : matching.has(epic.id)))
