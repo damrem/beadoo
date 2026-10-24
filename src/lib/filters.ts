@@ -196,10 +196,12 @@ export function writeViewState(state: ViewState): string {
   return `?${params.toString()}`
 }
 
-const searchedText = (bead: Bead): string =>
-  [bead.title, bead.id, bead.description, bead.notes].filter(Boolean).join('\n').toLowerCase()
+const folded = (text: string): string => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 
-const searchWords = (text: string): string[] => text.toLowerCase().split(/\s+/).filter(Boolean)
+const searchedText = (bead: Bead): string =>
+  folded([bead.title, bead.id, bead.description, bead.notes].filter(Boolean).join('\n'))
+
+const searchWords = (text: string): string[] => folded(text).split(/\s+/).filter(Boolean)
 
 const holdsWords = (bead: Bead, words: string[]): boolean => {
   const text = searchedText(bead)

@@ -286,6 +286,12 @@ describe('the filters of the page', () => {
       expect(found(written, 'push ci')).toEqual(['beadoo-2sq.4'])
       expect(found(written, 'push orca')).toEqual([])
     })
+
+    it('finds a bead whatever the accents that the user types or omits', () => {
+      const french: Bead[] = [{ id: 'f-1', title: "Afficher l'état du déploiement", status: 'open' }]
+      expect(found(french, 'etat deploiement')).toEqual(['f-1'])
+      expect(found(french, 'ÉTAT')).toEqual(['f-1'])
+    })
   })
 
   describe('the label, type and priority filters', () => {
