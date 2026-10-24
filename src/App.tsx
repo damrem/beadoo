@@ -223,28 +223,30 @@ function Beads() {
   return (
     <SpawnAllowed.Provider value={spawn}>
       <div className="flex h-dvh flex-col">
-        <header className="flex flex-wrap items-center gap-1.5 border-b px-4 py-2">
-          <h1 className="flex items-center gap-1.5 font-heading text-base font-semibold">
-            <Logo />
-            beadoo
-          </h1>
-          <ViewSwitch mode={view.mode} onMode={(mode) => update({ mode })} />
-          <DatabaseSelector
-            databases={databases ?? []}
-            value={view.db}
-            onChange={(db) => update({ db, epic: null, bead: null })}
-            onAdd={addDatabase}
-          />
-          <BeadFilters
-            label="Filters"
-            filter={filter}
-            beads={beads}
-            disabled={view.mode === 'epic'}
-            onChange={update}
-          />
-          <div className="ml-auto flex items-center gap-2">
-            <ThemeSwitch />
+        <header className="flex items-start gap-1.5 border-b px-4 py-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <h1 className="flex items-center gap-1.5 font-heading text-base font-semibold">
+              <Logo />
+              beadoo
+            </h1>
+            <DatabaseSelector
+              databases={databases ?? []}
+              value={view.db}
+              onChange={(db) => update({ db, epic: null, bead: null })}
+              onAdd={addDatabase}
+            />
+            <ViewSwitch mode={view.mode} onMode={(mode) => update({ mode })} />
+            <BeadFilters
+              label="Filters"
+              filter={filter}
+              beads={beads}
+              disabled={view.mode === 'epic'}
+              onChange={update}
+            />
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             <RefreshButton lastRead={lastRead} loading={loading} onRefresh={refresh} />
+            <ThemeSwitch />
           </div>
         </header>
 
