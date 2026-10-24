@@ -400,9 +400,20 @@ describe('the filters of the page', () => {
     const listed = (list: Bead[], filter: Partial<BeadFilter>, readyIds: string[] = []) =>
       epicListOf(list, groupByParent(list), readyIds, only(filter)).map((lane) => lane.epic.id)
 
-    it('filters the epics on their own title, and not on the titles of their children', () => {
+    it('lists an epic when the epic or one of its children holds the search text', () => {
       expect(listed(beads, { text: 'check' })).toEqual(['e-1', NO_EPIC])
-      expect(listed(beads, { text: 'cart' })).toEqual([NO_EPIC])
+      expect(listed(beads, { text: 'cart' })).toEqual(['e-1', NO_EPIC])
+      expect(listed(beads, { text: 'logo' })).toEqual([NO_EPIC])
+    })
+
+    it('lists an epic only when one bead of the epic holds all the words', () => {
+      expect(listed(beads, { text: 'cart total' })).toEqual(['e-1', NO_EPIC])
+      expect(listed(beads, { text: 'cart button' })).toEqual([NO_EPIC])
+    })
+
+    it('applies the status filter to the epic, and not to the child that holds the search text', () => {
+      expect(listed(beads, { status: ['open'], text: 'receipt' })).toEqual(['e-1', NO_EPIC])
+      expect(listed(beads, { status: ['closed'], text: 'cart' })).toEqual([NO_EPIC])
     })
 
     it('hides a closed epic under the open statuses, and keeps a closed epic while one of its children is still open', () => {

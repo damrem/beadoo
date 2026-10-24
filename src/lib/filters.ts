@@ -340,8 +340,12 @@ const asParent = (bead: Bead, children: Bead[]): Bead =>
 
 export function epicListOf(beads: Bead[], groups: Groups, readyIds: string[], filter: BeadFilter): Lane[] {
   const parents = beads.filter((bead) => isEpic(bead) || groups.has(bead.id))
+  const words = searchWords(filter.text)
+  const holdsText = (epic: Bead) => [epic, ...childrenOf(groups, epic.id)].some((bead) => holdsWords(bead, words))
   const matching = new Set(
-    filterBeads(parents.map((bead) => asParent(bead, childrenOf(groups, bead.id))), readyIds, filter).map((bead) => bead.id),
+    filterBeads(parents.map((bead) => asParent(bead, childrenOf(groups, bead.id))), readyIds, { ...filter, text: '' })
+      .filter(holdsText)
+      .map((bead) => bead.id),
   )
   return epicsOf(beads, groups, 'all')
     .filter((epic) => (epic.id === NO_EPIC ? groups.has(NO_EPIC) : matching.has(epic.id)))
