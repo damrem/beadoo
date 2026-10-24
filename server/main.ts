@@ -4,6 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { realRun, realRunAsync } from './process.ts'
 import { bdVersionProblem } from './bd-version.ts'
+import { HOST, serverAddress } from './address.ts'
 import { createStore } from './beads-store.ts'
 import { addDatabase, configPath, loadConfig, loadDatabases } from './config.ts'
 import type { ConfigPlace } from './config.ts'
@@ -21,10 +22,15 @@ if (bdProblem) {
   process.exit(1)
 }
 
-const HOST = '127.0.0.1'
-const PORT = 4747
+const address = serverAddress(process.env)
+if (typeof address === 'string') {
+  console.error(address)
+  process.exit(1)
+}
+
+const PORT = address.port
 const place: ConfigPlace = { home: homedir(), cwd: process.cwd(), log: (line) => console.log(line) }
-const origin = `http://${HOST}:${PORT}`
+const { origin, publicOrigin } = address
 const tunnels = createTunnels()
 const store = createStore(realRunAsync)
 
@@ -40,6 +46,7 @@ const handler = createHandler({
   canSpawn: onPath('orca', process.env.PATH, existsSync),
   distDir: join(import.meta.dirname, '..', 'dist'),
   origin,
+  publicOrigin,
   token: newToken(),
 })
 
@@ -51,15 +58,15 @@ const server = createServer((req, res) => {
 })
 
 server.on('error', (error: NodeJS.ErrnoException) => {
-  if (error.code === 'EADDRINUSE') console.error(`Port ${PORT} is busy: another process listens on ${HOST}:${PORT}.`)
+  if (error.code === 'EADDRINUSE') console.error(`Port ${PORT} is busy: another process listens on ${HOST}:${PORT}. Give another port, for example PORT=${PORT + 1} pnpm start.`)
   else console.error(error.message)
   process.exit(1)
 })
 
 server.listen(PORT, HOST, () => {
   try {
-    console.log(startMessage(origin, loadDatabases(place), configPath(place)))
+    console.log(startMessage(publicOrigin ?? origin, loadDatabases(place), configPath(place)))
   } catch (error) {
-    console.log(`beadoo: ${origin}\n${(error as Error).message}`)
+    console.log(`beadoo: ${publicOrigin ?? origin}\n${(error as Error).message}`)
   }
 })

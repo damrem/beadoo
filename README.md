@@ -18,6 +18,30 @@ pnpm start
 
 The server listens on `http://127.0.0.1:4747`. The start line gives the link to the first database.
 
+## Run several instances
+
+To test the features of two worktrees side by side, give each server its own port with `PORT`:
+
+```bash
+PORT=4748 pnpm start
+```
+
+To get a named URL for each worktree, start beadoo through [portless](https://github.com/vercel-labs/portless):
+
+```bash
+portless run pnpm start
+```
+
+portless gives a free port in `PORT` and the public URL in `PORTLESS_URL`, for example `https://my-branch.beadoo.localhost`. beadoo accepts the page and its writes on that URL, and the start line gives it.
+
+By default, portless serves HTTPS on port 443, and its first start asks for `sudo`. To use plain HTTP on a port that needs no `sudo`, start it with these settings:
+
+```bash
+PORTLESS_PORT=1355 PORTLESS_HTTPS=0 portless run pnpm start
+```
+
+The URL is then `http://my-branch.beadoo.localhost:1355`.
+
 ## Configuration
 
 beadoo reads `$XDG_CONFIG_HOME/beadoo/config.json`. When `XDG_CONFIG_HOME` is not set, it reads `~/.config/beadoo/config.json`.

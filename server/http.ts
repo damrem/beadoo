@@ -25,6 +25,7 @@ export type AppDeps = {
   canSpawn: boolean
   distDir: string
   origin: string
+  publicOrigin?: string
   token: string
 }
 
@@ -125,16 +126,17 @@ async function serveFile(res: ServerResponse, deps: AppDeps, pathname: string) {
 
 export function createHandler(deps: AppDeps) {
   const page = new URL(deps.origin)
-  const hosts = new Set([page.host, `localhost:${page.port}`])
+  const pages = [page, new URL(`${page.protocol}//localhost:${page.port}`), ...(deps.publicOrigin ? [new URL(deps.publicOrigin)] : [])]
+  const origins = new Map(pages.map((url) => [url.host, url.origin]))
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-    const host = req.headers.host ?? ''
-    if (!hosts.has(host)) {
+    const pageOrigin = origins.get(req.headers.host ?? '')
+    if (!pageOrigin) {
       sendJson(res, 403, { error: 'Forbidden: the request needs the page host' })
       return
     }
     const url = new URL(req.url ?? '/', deps.origin)
     const write = req.method !== 'GET' && req.method !== 'HEAD'
-    if (write && !allowsWrite(req.headers, `${page.protocol}//${host}`, deps.token)) {
+    if (write && !allowsWrite(req.headers, pageOrigin, deps.token)) {
       sendJson(res, 403, { error: 'Forbidden: the request needs the page origin and the page token' })
       return
     }
