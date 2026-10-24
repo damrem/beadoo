@@ -1,74 +1,65 @@
-import { Emoji } from '@/components/Emoji'
 import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { statusEmoji } from '@/lib/emojis'
-import { FILTER_TOGGLES, STATUS_CHOICES, statusTitle, statusValues, toggleStatus } from '@/lib/filters'
+import { BLOCKER, READY } from '@/lib/filters'
 import type { StatusFilter } from '@/lib/filters'
+import { cn } from '@/lib/utils'
 
-const CHOICE_TITLES: Record<string, string> = {
-  ready: 'Ready',
-  all: 'All',
+const TOGGLE_TITLES: Record<string, string> = {
+  [READY]: 'Ready',
+  [BLOCKER]: 'Blockers',
+}
+
+export function TitleSearch({
+  text,
+  onText,
+  disabled = false,
+  className,
+}: {
+  text: string
+  onText: (text: string) => void
+  disabled?: boolean
+  className?: string
+}) {
+  return (
+    <Input
+      aria-label="Search"
+      placeholder="Title, id, description, notes…"
+      className={cn('h-7 w-32', className)}
+      value={text}
+      disabled={disabled}
+      onChange={(event) => onText(event.target.value)}
+    />
+  )
 }
 
 export function FilterBar({
   status,
-  statuses,
-  text,
   onStatus,
-  onText,
   disabled = false,
 }: {
   status: StatusFilter
-  statuses: string[]
-  text: string
   onStatus: (status: StatusFilter) => void
-  onText: (text: string) => void
   disabled?: boolean
 }) {
-  const pressed = statusValues(status)
-  const toggles = FILTER_TOGGLES.filter((value) => statuses.includes(value) || pressed.includes(value))
+  const pressed = [...(status.ready ? [READY] : []), ...(status.blocker ? [BLOCKER] : [])]
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <ToggleGroup
-        aria-label="Status filter"
-        variant="outline"
-        size="sm"
-        spacing={0}
-        multiple
-        disabled={disabled}
-        value={pressed}
-        onValueChange={(values: unknown[]) => {
-          const clicked =
-            values.find((value) => !pressed.includes(value as string)) ??
-            pressed.find((value) => !values.includes(value))
-          if (typeof clicked === 'string') onStatus(toggleStatus(status, clicked))
-        }}
-      >
-        {STATUS_CHOICES.map((value) => (
-          <ToggleGroupItem key={value} value={value}>
-            {CHOICE_TITLES[value]}
-          </ToggleGroupItem>
-        ))}
-        {toggles.map((value) =>
-          statusEmoji(value) ? (
-            <ToggleGroupItem key={value} value={value} aria-label={statusTitle(value)} title={statusTitle(value)}>
-              <Emoji emoji={statusEmoji(value)} />
-            </ToggleGroupItem>
-          ) : (
-            <ToggleGroupItem key={value} value={value}>
-              {statusTitle(value)}
-            </ToggleGroupItem>
-          ),
-        )}
-      </ToggleGroup>
-      <Input
-        aria-label="Search"
-        placeholder="Title, id, description, notes…"
-        className="h-7 w-56"
-        value={text}
-        disabled={disabled}
-        onChange={(event) => onText(event.target.value)}
-      />
-    </div>
+    <ToggleGroup
+      aria-label="Ready and blockers filter"
+      variant="outline"
+      size="sm"
+      spacing={0}
+      multiple
+      disabled={disabled}
+      value={pressed}
+      onValueChange={(values: unknown[]) =>
+        onStatus({ ...status, ready: values.includes(READY), blocker: values.includes(BLOCKER) })
+      }
+    >
+      {[READY, BLOCKER].map((value) => (
+        <ToggleGroupItem key={value} value={value}>
+          {TOGGLE_TITLES[value]}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   )
 }

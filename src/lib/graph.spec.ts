@@ -1,5 +1,5 @@
 import type { Bead } from '../../shared/contract'
-import { epicsOf, groupByParent, lanesOf } from '@/lib/filters'
+import { ANY_STATUS, epicsOf, groupByParent, lanesOf } from '@/lib/filters'
 import type { BeadFilter } from '@/lib/filters'
 import { edgesOf, layoutGraph, NODE_HEIGHT } from '@/lib/graph'
 import type { Box } from '@/lib/graph'
@@ -9,8 +9,8 @@ const blocks = (issue: string, target: string) =>
 
 const graphOf = (beads: Bead[]) => {
   const groups = groupByParent(beads)
-  const filter: BeadFilter = { status: 'all', text: '', labels: [], types: [], priorities: [] }
-  return layoutGraph(lanesOf(epicsOf(beads, groups, 'all'), groups, [], filter, beads), beads)
+  const filter: BeadFilter = { status: ANY_STATUS, text: '', labels: [], types: [], priorities: [] }
+  return layoutGraph(lanesOf(epicsOf(beads, groups, ANY_STATUS), groups, [], filter, beads), beads)
 }
 
 const framesOf = (beads: Bead[]) => {

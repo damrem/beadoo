@@ -1,12 +1,13 @@
 import { ChevronDownIcon, XIcon } from 'lucide-react'
 import { NativeSelect } from '@/components/ui/native-select'
-import { priorityEmoji, propertyEmoji, typeEmoji } from '@/lib/emojis'
+import { priorityEmoji, propertyEmoji, statusEmoji, typeEmoji } from '@/lib/emojis'
+import { statusTitle } from '@/lib/filters'
 import { labelParts, labelText } from '@/lib/labels'
 import { cn } from '@/lib/utils'
 
 type Choice = { value: string; text: string }
 
-type Chip = { key: string; text: string; name: string; onRemove: () => void }
+type Chip = { key: string; text: string; name: string; title?: string; onRemove: () => void }
 
 const inOrderOf =
   <T,>(options: T[]) =>
@@ -21,8 +22,12 @@ const typeText = (type: string): string => withEmoji(typeEmoji(type), type)
 
 const priorityText = (priority: number): string => withEmoji(priorityEmoji(priority), `P${priority}`)
 
+const statusText = (status: string): string => withEmoji(statusEmoji(status), statusTitle(status))
+
+const statusChipText = (status: string): string => statusEmoji(status) ?? statusTitle(status)
+
 const PART =
-  'inline-flex h-full items-center border-l border-input bg-secondary px-2 text-xs outline-none hover:bg-secondary/80 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset disabled:opacity-50'
+  'inline-flex h-7 items-center border-l border-input bg-secondary px-2 text-xs outline-none hover:bg-secondary/80 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset disabled:opacity-50'
 
 function FilterChip({
   name,
@@ -50,7 +55,7 @@ function FilterChip({
     <div
       role="group"
       aria-label={`The ${noun} filter`}
-      className="inline-flex h-7 items-center overflow-hidden rounded-md border border-input text-sm dark:bg-input/30"
+      className="inline-flex max-w-full flex-wrap items-center overflow-hidden rounded-md border border-input text-sm dark:bg-input/30"
     >
       {chips.length > 0 && (
         <button
@@ -63,7 +68,7 @@ function FilterChip({
           <XIcon className="size-3.5 shrink-0" />
         </button>
       )}
-      <span className="relative inline-flex h-full items-center gap-1.5 pr-2 pl-2.5 has-[select:disabled]:opacity-50 has-[select:focus-visible]:ring-2 has-[select:focus-visible]:ring-ring/50 has-[select:focus-visible]:ring-inset">
+      <span className="relative inline-flex h-7 items-center gap-1.5 pr-2 pl-2.5 has-[select:disabled]:opacity-50 has-[select:focus-visible]:ring-2 has-[select:focus-visible]:ring-ring/50 has-[select:focus-visible]:ring-inset">
         <span aria-hidden>{withEmoji(propertyEmoji(noun), noun)}</span>
         <ChevronDownIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
         <NativeSelect
@@ -87,7 +92,8 @@ function FilterChip({
           type="button"
           disabled={disabled}
           aria-label={chip.name}
-          className={cn(PART, 'relative gap-1 font-medium text-secondary-foreground', all && index > 0 && 'pl-3')}
+          title={chip.title}
+          className={cn(PART, 'relative gap-1 font-medium whitespace-nowrap text-secondary-foreground', all && index > 0 && 'pl-3')}
           onClick={chip.onRemove}
         >
           {all && index > 0 && (
@@ -107,23 +113,29 @@ function FilterChip({
 }
 
 export function AttributeFilters({
+  statuses,
   labels,
   types,
   priorities,
+  statusOptions,
   labelOptions,
   typeOptions,
   priorityOptions,
+  onStatuses,
   onLabels,
   onTypes,
   onPriorities,
   disabled = false,
 }: {
+  statuses: string[]
   labels: string[]
   types: string[]
   priorities: number[]
+  statusOptions: string[]
   labelOptions: string[]
   typeOptions: string[]
   priorityOptions: number[]
+  onStatuses: (statuses: string[]) => void
   onLabels: (labels: string[]) => void
   onTypes: (types: string[]) => void
   onPriorities: (priorities: number[]) => void
@@ -162,7 +174,23 @@ export function AttributeFilters({
     />
   )
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="contents">
+      <FilterChip
+        name="Status filter"
+        noun="status"
+        choices={statusOptions.map((status) => ({ value: status, text: statusText(status) }))}
+        selected={statuses}
+        chips={inOrderOf(statusOptions)(statuses).map((status) => ({
+          key: status,
+          text: statusChipText(status),
+          name: `Remove the status filter ${statusTitle(status)}`,
+          title: statusTitle(status),
+          onRemove: () => onStatuses(statuses.filter((other) => other !== status)),
+        }))}
+        disabled={disabled}
+        onAdd={(status) => onStatuses([...statuses, status])}
+        onClear={() => onStatuses([])}
+      />
       <FilterChip
         name="Type filter"
         noun="type"

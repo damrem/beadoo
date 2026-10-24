@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { withBlockers } from '@/lib/blockers'
-import { epicsOf, groupByParent, lanesOf } from '@/lib/filters'
+import { ANY_STATUS, epicsOf, groupByParent, lanesOf } from '@/lib/filters'
 import type { Bead } from '../../shared/contract'
 import { BeadGraph } from './BeadGraph'
 
@@ -20,7 +20,7 @@ const beads = withBlockers([
 
 const groups = groupByParent(beads)
 
-const lanes = lanesOf(epicsOf(beads, groups, 'all'), groups, [], { status: 'all', text: '', labels: [], types: [], priorities: [] }, beads)
+const lanes = lanesOf(epicsOf(beads, groups, ANY_STATUS), groups, [], { status: ANY_STATUS, text: '', labels: [], types: [], priorities: [] }, beads)
 
 const linkOf = (container: HTMLElement, from: string, to: string) =>
   container.querySelector(`path[data-from="${from}"][data-to="${to}"]`)

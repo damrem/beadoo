@@ -1,50 +1,45 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FilterBar } from './FilterBar'
+import { ANY_STATUS, anyOf, READY_ONLY } from '@/lib/filters'
+import type { StatusFilter } from '@/lib/filters'
+import { FilterBar, TitleSearch } from './FilterBar'
 
-const renderBar = () =>
-  render(
-    <FilterBar
-      status={['in_progress', 'blocked']}
-      statuses={['open', 'in_progress', 'blocked', 'deferred', 'closed', 'blocker']}
-      text=""
-      onStatus={() => {}}
-      onText={() => {}}
-    />,
-  )
+const renderBar = (status: StatusFilter, onStatus: (status: StatusFilter) => void = () => {}) =>
+  render(<FilterBar status={status} onStatus={onStatus} />)
 
-describe('the status filter', () => {
-  it('shows each status as its emoji, with the status name as the tooltip', () => {
-    renderBar()
-    expect(screen.getByRole('button', { name: 'In progress' })).toHaveTextContent('🚧')
-    expect(screen.getByRole('button', { name: 'In progress' })).toHaveAttribute('title', 'In progress')
-    expect(screen.getByRole('button', { name: 'Deferred' })).toHaveTextContent('💤')
-    expect(screen.getByRole('button', { name: 'Closed' })).toHaveTextContent('✅')
-  })
-
-  it('shows the ready and the all choices as words', () => {
-    renderBar()
+describe('the ready and blockers filter', () => {
+  it('shows the ready and the blockers filters as words, and no all filter', () => {
+    renderBar(ANY_STATUS)
     expect(screen.getByRole('button', { name: 'Ready' })).toHaveTextContent('Ready')
-    expect(screen.getByRole('button', { name: 'All' })).toHaveTextContent('All')
+    expect(screen.getByRole('button', { name: 'Blockers' })).toHaveTextContent('Blockers')
+    expect(screen.queryByRole('button', { name: 'All' })).not.toBeInTheDocument()
   })
 
-  it('shows the blockers filter as a word after the statuses', () => {
-    renderBar()
-    const buttons = screen.getAllByRole('button').map((button) => button.getAttribute('aria-label') ?? button.textContent)
-    expect(buttons.at(-1)).toBe('Blockers')
-  })
-
-  it('adds the blockers filter to the selected statuses when the user clicks it', async () => {
+  it('adds the blockers filter to the ready filter when the user clicks it', async () => {
     const onStatus = vi.fn()
-    render(<FilterBar status={['in_progress']} statuses={['open', 'in_progress', 'blocked', 'closed', 'blocker']} text="" onStatus={onStatus} onText={() => {}} />)
+    renderBar(READY_ONLY, onStatus)
     await userEvent.click(screen.getByRole('button', { name: 'Blockers' }))
-    expect(onStatus).toHaveBeenCalledWith(['in_progress', 'blocker'])
+    expect(onStatus).toHaveBeenCalledWith({ ...READY_ONLY, blocker: true })
+  })
+
+  it('keeps the selected statuses when the user clicks the ready filter', async () => {
+    const onStatus = vi.fn()
+    renderBar(anyOf('in_progress'), onStatus)
+    await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+    expect(onStatus).toHaveBeenCalledWith({ ...anyOf('in_progress'), ready: true })
+  })
+
+  it('removes the ready filter when the user clicks it a second time', async () => {
+    const onStatus = vi.fn()
+    renderBar(READY_ONLY, onStatus)
+    await userEvent.click(screen.getByRole('button', { name: 'Ready' }))
+    expect(onStatus).toHaveBeenCalledWith(ANY_STATUS)
   })
 })
 
 describe('the search field', () => {
   it('names the fields that the search reads', () => {
-    renderBar()
+    render(<TitleSearch text="" onText={() => {}} />)
     expect(screen.getByRole('textbox', { name: 'Search' })).toHaveAttribute('placeholder', 'Title, id, description, notes…')
   })
 })

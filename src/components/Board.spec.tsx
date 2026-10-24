@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Board } from './Board'
+import { anyOf, READY_ONLY } from '@/lib/filters'
 
 const beads = [
   { id: 'b-1', title: 'Cart total', status: 'open' },
@@ -20,12 +21,12 @@ describe('the board of an epic', () => {
   })
 
   it('shows only the open column when the user shows the ready beads', () => {
-    render(<Board beads={beads.slice(0, 1)} status="ready" onOpen={() => {}} />)
+    render(<Board beads={beads.slice(0, 1)} status={READY_ONLY} onOpen={() => {}} />)
     expect(screen.getAllByRole('region').map((column) => column.getAttribute('aria-label'))).toEqual(['Open'])
   })
 
   it('shows only the columns of the statuses that the user selected', () => {
-    render(<Board beads={beads.slice(1)} status={['in_progress', 'blocked']} onOpen={() => {}} />)
+    render(<Board beads={beads.slice(1)} status={anyOf('in_progress', 'blocked')} onOpen={() => {}} />)
     expect(screen.getAllByRole('region').map((column) => column.getAttribute('aria-label'))).toEqual(['Blocked', 'In progress'])
   })
 
