@@ -30,6 +30,12 @@ describe('the error that the page shows when bd fails', () => {
     expect(error).toThrow('bd heartbeat failed (exit 1): Error: database is locked')
   })
 
+  it('names the bd command that failed, and not the folder option before it', () => {
+    const result = { status: 1, stdout: '', stderr: 'Error: database is locked\n' }
+    const args = ['-C', '/repo', '--actor', 'Ann', '--readonly', 'list', '--all', '--json']
+    expect(() => checked(result, 'bd', args)).toThrow('bd list failed (exit 1): Error: database is locked')
+  })
+
   it('keeps the indented lines of an error that is not a warning', () => {
     expect(failure('Error: database is locked\n  Retry in 5 s\n')).toThrow(
       'bd heartbeat failed (exit 1): Error: database is locked\n  Retry in 5 s',

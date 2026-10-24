@@ -107,6 +107,21 @@ describe('the beads that the page reads', () => {
     )
   })
 
+  it('tells the user to bootstrap the database when the folder holds the beads settings but no database', async () => {
+    const missing = {
+      status: 1,
+      stdout: '',
+      stderr: "Error: no beads database found\nHint: run 'bd where' to inspect the resolved workspace, or 'bd init' to create a new database\n      or set BEADS_DIR to point to your .beads directory",
+    }
+    const { run } = fakeBd({ list: missing, ready: missing })
+    await expect(createStore(run).listBeads(db)).rejects.toThrow(
+      expect.objectContaining({
+        code: STORE_NOT_OPEN,
+        message: 'The folder /home/me/shop holds no beads database. When another machine pushed the beads to the Dolt remote, run bd bootstrap in /home/me/shop. Else, run bd init there.',
+      }),
+    )
+  })
+
   it('reports the error that bd prints when the database path is wrong', async () => {
     const { run } = fakeBd({ list: { status: 1, stdout: '', stderr: 'Error: cannot use -C directory' } })
     await expect(createStore(run).listBeads(db)).rejects.toThrow('cannot use -C directory')

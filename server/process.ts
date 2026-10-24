@@ -52,10 +52,21 @@ export function withoutWarnings(stderr: string): string {
     .join('\n')
 }
 
+const OPTIONS_WITH_VALUE = new Set(['-C', '--actor'])
+
+const subcommandOf = (args: readonly string[]): string => {
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index] ?? ''
+    if (OPTIONS_WITH_VALUE.has(arg)) index++
+    else if (!arg.startsWith('-')) return arg
+  }
+  return ''
+}
+
 export function checked(result: RunResult, command: string, args: readonly string[]): string {
   if (result.status === 0) return result.stdout
   const detail = (withoutWarnings(result.stderr) || result.stdout).trim()
-  throw new Error(`${command} ${args[0] ?? ''} failed (exit ${result.status ?? 'none'}): ${detail}`)
+  throw new Error(`${command} ${subcommandOf(args)} failed (exit ${result.status ?? 'none'}): ${detail}`)
 }
 
 export function runChecked(run: Run, command: string, args: readonly string[], options?: RunOptions): string {
