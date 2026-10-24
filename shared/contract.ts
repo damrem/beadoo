@@ -30,6 +30,10 @@ export type BeadList = { beads: Bead[]; readyIds: string[] }
 
 export type DatabaseEntry = { name: string; path: string; refused?: string; hasTunnel?: boolean }
 
+export type FolderEntry = { name: string; path: string; hasBeads: boolean }
+
+export type FolderList = { path: string; parent: string | null; hasBeads: boolean; folders: FolderEntry[] }
+
 export const STORE_NOT_OPEN = 'STORE_NOT_OPEN'
 
 export const REFUSED = 'REFUSED'
@@ -70,6 +74,8 @@ export type StoreErrorCode =
 export const TUNNEL_ROUTE = '/api/tunnel/start'
 
 export const DATABASES_ROUTE = '/api/databases'
+
+export const FOLDERS_ROUTE = '/api/folders'
 
 export const CLAIM_ACTIONS = ['claim', 'unclaim', 'renew'] as const
 

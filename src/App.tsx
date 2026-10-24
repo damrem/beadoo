@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AddDatabase } from '@/components/AddDatabase'
 import { BeadDetail } from '@/components/BeadDetail'
 import { BeadFilters } from '@/components/BeadFilters'
 import { BeadGraph } from '@/components/BeadGraph'
@@ -234,8 +233,8 @@ function Beads() {
             databases={databases ?? []}
             value={view.db}
             onChange={(db) => update({ db, epic: null, bead: null })}
+            onAdd={addDatabase}
           />
-          <AddDatabase onAdd={addDatabase} />
           <BeadFilters
             label="Filters"
             filter={filter}

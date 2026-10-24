@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { extname, join, normalize, sep } from 'node:path'
-import { CLAIM_ACTIONS, CONFLICT, DATABASES_ROUTE, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED, STALE, STORE_NOT_OPEN, TUNNEL_ROUTE, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
-import type { ClaimAction } from '../shared/contract.ts'
+import { CLAIM_ACTIONS, CONFLICT, DATABASES_ROUTE, FOLDERS_ROUTE, INVALID, NOT_FOUND, REFUSED, SPAWN_FAILED, STALE, STORE_NOT_OPEN, TUNNEL_ROUTE, UNKNOWN_ERROR, UNREACHABLE } from '../shared/contract.ts'
+import type { ClaimAction, FolderList } from '../shared/contract.ts'
 import { isEditRequest } from '../shared/edit.ts'
 import { readSpawnRequest } from '../shared/spawn.ts'
 import { StoreError } from './beads-store.ts'
@@ -18,6 +18,7 @@ import { allowsWrite } from './guard.ts'
 export type AppDeps = {
   databases: () => ConfiguredDatabase[]
   addDatabase: (entry: NewDatabase) => ConfiguredDatabase[] | string
+  listFolders: (path: string | null) => FolderList | string
   store: Store
   tunnels: Tunnels
   spawner: Spawner
@@ -163,6 +164,12 @@ export function createHandler(deps: AppDeps) {
           return
         }
         sendJson(res, 200, { databases: added.map(publicEntry), spawn: deps.canSpawn })
+        return
+      }
+      if (url.pathname === FOLDERS_ROUTE) {
+        const folders = deps.listFolders(url.searchParams.get('path'))
+        if (typeof folders === 'string') sendJson(res, 400, { error: folders, code: INVALID })
+        else sendJson(res, 200, folders)
         return
       }
       const databases = deps.databases()

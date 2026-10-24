@@ -95,6 +95,10 @@ beforeEach(async () => {
         { name: 'win', path: '/mnt/c/x', refused: 'Use a WSL path' },
         { name: 'remote', path: '/home/me/remote', tunnel: { start: ['ssh', '-fN', 'db-host'], stop: ['pkill', 'ssh'] } },
       ],
+      listFolders: (path) =>
+        path === '/home/me/gone'
+          ? 'The folder /home/me/gone does not exist'
+          : { path: path ?? '/home/me', parent: '/home', hasBeads: false, folders: [{ name: 'shop', path: '/home/me/shop', hasBeads: true }] },
       addDatabase: (entry) => {
         if (entry.path === '/home/me/empty') return 'The folder /home/me/empty holds no .beads folder'
         added.push(entry)
@@ -142,6 +146,25 @@ describe('the page server', () => {
     expect((await (await fetch(`${base}/api/databases`)).json()).spawn).toBe(true)
     orcaOnPath = false
     expect((await (await fetch(`${base}/api/databases`)).json()).spawn).toBe(false)
+  })
+
+  describe('the folders that the user browses to add a repo', () => {
+    it('lists the folders of the home folder when the page gives no path', async () => {
+      const response = await fetch(`${base}/api/folders`)
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({
+        path: '/home/me',
+        parent: '/home',
+        hasBeads: false,
+        folders: [{ name: 'shop', path: '/home/me/shop', hasBeads: true }],
+      })
+    })
+
+    it('tells the user why beadoo cannot list the folder', async () => {
+      const response = await fetch(`${base}/api/folders?path=${encodeURIComponent('/home/me/gone')}`)
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ error: 'The folder /home/me/gone does not exist', code: 'INVALID' })
+    })
   })
 
   describe('a repo that the user adds from the page', () => {
