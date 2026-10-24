@@ -1,5 +1,5 @@
-import { DATABASES_ROUTE, TUNNEL_ROUTE, UNKNOWN_ERROR } from '../../shared/contract'
-import type { Bead, BeadList, ClaimAction, Commit, DatabaseEntry } from '../../shared/contract'
+import { DATABASES_ROUTE, FOLDERS_ROUTE, TUNNEL_ROUTE, UNKNOWN_ERROR } from '../../shared/contract'
+import type { Bead, BeadList, ClaimAction, Commit, DatabaseEntry, FolderList } from '../../shared/contract'
 import type { EditRequest } from '../../shared/edit'
 import type { SpawnChoices, SpawnedSession, SpawnRequest } from '../../shared/spawn'
 
@@ -33,6 +33,7 @@ export const api = {
       headers: { 'x-beads-token': pageToken(), 'content-type': 'application/json' },
       body: JSON.stringify({ path, ...(name.trim() ? { name } : {}) }),
     }),
+  folders: (path: string | null) => request<FolderList>(path ? `${FOLDERS_ROUTE}?path=${encodeURIComponent(path)}` : FOLDERS_ROUTE),
   beads: (db: string) => request<BeadList>(`/api/beads?${query(db)}`),
   bead: (db: string, id: string) => request<Bead>(`/api/beads/${encodeURIComponent(id)}?${query(db)}`),
   actor: (db: string) => request<{ actor: string }>(`/api/actor?${query(db)}`).then((body) => body.actor),

@@ -38,7 +38,7 @@ export function loadConfig(place: ConfigPlace, path = configPath(place)): Beadoo
 
 export const loadDatabases = (place: ConfigPlace, path = configPath(place)): ConfiguredDatabase[] => loadConfig(place, path).databases
 
-const expandHome = (path: string, home: string): string => (path === '~' || path.startsWith('~/') ? join(home, path.slice(1)) : path)
+export const expandHome = (path: string, home: string): string => (path === '~' || path.startsWith('~/') ? join(home, path.slice(1)) : path)
 
 export function addDatabase(place: ConfigPlace, request: NewDatabase, path = configPath(place)): ConfiguredDatabase[] | string {
   const entry = { name: request.name, path: expandHome(request.path, place.home) }

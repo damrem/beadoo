@@ -1342,9 +1342,60 @@ describe('the beadoo page', () => {
     withPageToken()
 
     const openForm = async () => {
-      await userEvent.click(screen.getByRole('button', { name: 'Add a repo' }))
+      await userEvent.click(screen.getByRole('combobox', { name: 'Database' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'Add a repo…' }))
       return screen.findByRole('dialog')
     }
+
+    it('offers to add a repo in its own group at the end of the database list, and keeps the selected database', async () => {
+      render(<App />)
+      await screen.findByText('Cart total')
+      await userEvent.click(screen.getByRole('combobox', { name: 'Database' }))
+      const groups = within(await screen.findByRole('listbox')).getAllByRole('group')
+      expect(within(groups[0]!).getAllByRole('option').map((option) => option.textContent)).toEqual(['.team', 'win (refused)'])
+      expect(within(groups[1]!).getAllByRole('option').map((option) => option.textContent)).toEqual(['Add a repo…'])
+      await userEvent.click(within(groups[1]!).getByRole('option'))
+      expect(await screen.findByRole('dialog', { name: 'Add a repo' })).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Database', hidden: true })).toHaveTextContent('.team')
+    })
+
+    it('fills the folder that the user chooses in the folder browser', async () => {
+      answers['/api/folders'] = json({
+        path: '/home/me',
+        parent: '/home',
+        hasBeads: false,
+        folders: [
+          { name: 'Notes', path: '/home/me/Notes', hasBeads: false },
+          { name: 'shop', path: '/home/me/shop', hasBeads: true },
+        ],
+      })
+      answers['/api/folders?path=%2Fhome%2Fme%2Fshop'] = json({ path: '/home/me/shop', parent: '/home/me', hasBeads: true, folders: [] })
+      render(<App />)
+      await screen.findByText('Cart total')
+      const dialog = await openForm()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Browse' }))
+      const browser = within(dialog).getByRole('region', { name: 'Folder browser' })
+      const shop = await within(browser).findByRole('button', { name: /shop/ })
+      expect(shop).toHaveTextContent('beads')
+      await userEvent.click(shop)
+      expect(await within(browser).findByText('/home/me/shop')).toBeInTheDocument()
+      await userEvent.click(within(browser).getByRole('button', { name: 'Choose this folder' }))
+      expect(within(dialog).getByLabelText('Folder')).toHaveValue('/home/me/shop')
+      expect(within(dialog).queryByRole('region', { name: 'Folder browser' })).not.toBeInTheDocument()
+    })
+
+    it('tells the user why the folder browser cannot open a folder', async () => {
+      answers['/api/folders'] = json({ path: '/home/me', parent: '/home', hasBeads: false, folders: [{ name: 'locked', path: '/home/me/locked', hasBeads: false }] })
+      answers['/api/folders?path=%2Fhome%2Fme%2Flocked'] = json({ error: 'beadoo cannot read the folder /home/me/locked', code: 'INVALID' }, 400)
+      render(<App />)
+      await screen.findByText('Cart total')
+      const dialog = await openForm()
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Browse' }))
+      const browser = within(dialog).getByRole('region', { name: 'Folder browser' })
+      await userEvent.click(await within(browser).findByRole('button', { name: /locked/ }))
+      expect(await within(browser).findByRole('alert')).toHaveTextContent('cannot read the folder /home/me/locked')
+      expect(within(browser).getByText('/home/me')).toBeInTheDocument()
+    })
 
     it('shows the beads of the new repo after the user adds it', async () => {
       render(<App />)

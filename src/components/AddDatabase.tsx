@@ -1,24 +1,34 @@
-import { PlusIcon } from 'lucide-react'
+import { FolderOpenIcon } from 'lucide-react'
 import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
+import { FolderBrowser } from '@/components/FolderBrowser'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import type { DatabaseEntry } from '../../shared/contract'
 
-export function AddDatabase({ onAdd }: { onAdd: (path: string, name: string) => Promise<DatabaseEntry[]> }) {
+export function AddDatabase({
+  open,
+  onOpenChange,
+  onAdd,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onAdd: (path: string, name: string) => Promise<DatabaseEntry[]>
+}) {
   const id = useId()
-  const [open, setOpen] = useState(false)
   const [path, setPath] = useState('')
   const [name, setName] = useState('')
+  const [browsing, setBrowsing] = useState(false)
   const [adding, setAdding] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
 
   const change = (next: boolean) => {
-    setOpen(next)
+    onOpenChange(next)
     if (next) return
     setPath('')
     setName('')
+    setBrowsing(false)
     setFailure(null)
   }
 
@@ -34,9 +44,6 @@ export function AddDatabase({ onAdd }: { onAdd: (path: string, name: string) => 
 
   return (
     <Dialog open={open} onOpenChange={change}>
-      <Button variant="ghost" size="icon-sm" aria-label="Add a repo" title="Add a repo" onClick={() => change(true)}>
-        <PlusIcon />
-      </Button>
       <DialogContent>
         <DialogTitle>Add a repo</DialogTitle>
         <DialogDescription>beadoo keeps the repo in its config, so the repo stays in the list at the next start.</DialogDescription>
@@ -45,14 +52,29 @@ export function AddDatabase({ onAdd }: { onAdd: (path: string, name: string) => 
             <label htmlFor={`${id}-path`} className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Folder
             </label>
-            <Input
-              id={`${id}-path`}
-              value={path}
-              placeholder="~/Projects/shop"
-              required
-              onChange={(event) => setPath(event.target.value)}
-            />
+            <div className="flex gap-1.5">
+              <Input
+                id={`${id}-path`}
+                value={path}
+                placeholder="~/Projects/shop"
+                required
+                onChange={(event) => setPath(event.target.value)}
+              />
+              <Button type="button" variant="outline" aria-expanded={browsing} onClick={() => setBrowsing((current) => !current)}>
+                <FolderOpenIcon />
+                Browse
+              </Button>
+            </div>
           </div>
+          {browsing && (
+            <FolderBrowser
+              start={path}
+              onChoose={(chosen) => {
+                setPath(chosen)
+                setBrowsing(false)
+              }}
+            />
+          )}
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${id}-name`} className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Name

@@ -12,6 +12,7 @@ import { startMessage } from './config-rules.ts'
 import { newToken } from './guard.ts'
 import { onPath } from './orca-rules.ts'
 import { createCommits } from './commits.ts'
+import { listFolders } from './folders.ts'
 import { createHandler } from './http.ts'
 import { createSpawner, realSpawnIo } from './spawner.ts'
 import { createTunnels, stopTunnelsOnExit } from './tunnels.ts'
@@ -39,6 +40,7 @@ stopTunnelsOnExit(tunnels, process, (line) => console.error(line))
 const handler = createHandler({
   databases: () => loadDatabases(place),
   addDatabase: (entry) => addDatabase(place, entry),
+  listFolders: (path) => listFolders(path, place.home),
   store,
   tunnels,
   spawner: createSpawner(store, realSpawnIo(), { sessionCommand: () => loadConfig(place).sessionCommand }),
